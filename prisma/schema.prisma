@@ -1,0 +1,149 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                String       @id
+  name              String
+  username          String       @unique
+  avatar            String
+  bio               String       @db.Text
+  university        String?
+  location          String
+  globalRank        Int
+  totalPoints       Int
+  joinedDate        String
+  
+  // Relations
+  achievements      Achievement[]
+  sportRanks        SportRank[]
+  matchHistory      Match[]
+  tournaments       Tournament[] @relation("OrganizedTournaments")
+  participants      Participant[]
+  saves             SavedTournament[]
+  conversations     ConversationParticipant[]
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  icon        String
+  date        String
+  rarity      String   // common, rare, epic, legendary
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SportRank {
+  id      String @id @default(cuid())
+  sport   String
+  rank    Int
+  points  Int
+  tier    String // bronze, silver, gold, platinum, diamond, champion
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Match {
+  id             String @id @default(cuid())
+  tournamentId   String
+  tournamentName String
+  sport          String
+  opponent       String
+  result         String // win, loss, draw
+  score          String
+  date           String
+  userId         String
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Tournament {
+  id               String       @id @default(cuid())
+  title            String
+  sport            String
+  category         String       // sports, esports, academic
+  location         String
+  date             String
+  endDate          String?
+  time             String
+  maxParticipants  Int
+  posterUrl        String
+  organizerId      String
+  organizer        User         @relation("OrganizedTournaments", fields: [organizerId], references: [id], onDelete: Cascade)
+  description      String       @db.Text
+  rulesJson        String       @db.Text // JSON list
+  requirementsJson String       @db.Text // JSON list
+  prizePool        String?
+  entryFee         String?
+  status           String       // upcoming, ongoing, completed, registration_open
+  featured         Boolean      @default(false)
+  
+  // Relations
+  participants     Participant[]
+  saves            SavedTournament[]
+}
+
+model Participant {
+  id            String      @id @default(cuid())
+  name          String
+  email         String
+  avatar        String
+  registeredAt  String
+  status        String      // pending, approved, rejected
+  teamName      String?
+  paymentStatus String      // paid, pending, waived
+  tournamentId  String
+  tournament    Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model SavedTournament {
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, tournamentId])
+}
+
+model Conversation {
+  id                   String                   @id
+  lastMessage          String
+  lastMessageTime      String
+  unreadCount          Int                      @default(0)
+  tournamentContextId  String?
+  tournamentContextName String?
+  
+  // Relations
+  messages             Message[]
+  participants         ConversationParticipant[]
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  senderName     String
+  senderAvatar   String
+  content        String       @db.Text
+  timestamp      String
+  read           Boolean      @default(false)
+}
