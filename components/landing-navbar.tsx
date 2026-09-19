@@ -29,7 +29,7 @@ export function LandingNavbar({ currentUser }: LandingNavbarProps) {
   const { resolvedTheme, setTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const tournamentHref = currentUser ? '/feed' : '/login?next=/feed'
-  const resolvedNavLinks = resolvedNavLinks.map((link) => link.href === '/feed' ? { ...link, href: tournamentHref } : link)
+  const resolvedNavLinks = navLinks.map((link) => link.href === '/feed' ? { ...link, href: tournamentHref } : link)
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
   const toggleTheme = () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
 
