@@ -22,6 +22,7 @@ export default async function LandingPage() {
   const cookieStore = await cookies()
   const userId = cookieStore.get('userId')?.value
   const user = userId ? await db.user.findUnique({ where: { id: userId } }) : null
+  const exploreHref = user ? '/feed' : '/login?next=/feed'
 
   return (
     <div className="min-h-screen bg-background">
@@ -40,7 +41,7 @@ export default async function LandingPage() {
               </p>
               <div className="mt-9 flex flex-wrap items-center gap-3">
                 <Button asChild className="h-12 rounded-full px-6 text-sm font-semibold">
-                  <Link href="/feed">Explore events <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                  <Link href={exploreHref}>Explore events <ArrowRight className="ml-2 h-4 w-4" /></Link>
                 </Button>
                 <Button asChild variant="ghost" className="h-12 rounded-full px-5 text-sm font-semibold">
                   <Link href="/create">Create a tourney</Link>
@@ -51,19 +52,23 @@ export default async function LandingPage() {
             <div className="border border-border p-6 md:p-8">
               <div className="flex items-center justify-between border-b border-border pb-5">
                 <div className="flex items-center gap-3 font-mono text-xs font-bold uppercase tracking-wider">
-                  <span className="h-2.5 w-2.5 bg-primary" /> Spring showdown
+                  <span className="h-2.5 w-2.5 bg-primary" /> One place to run it all
                 </div>
-                <span className="font-mono text-xs text-muted-foreground">BRACKET / 04</span>
+                <span className="font-mono text-xs text-muted-foreground">TOURNEY UP</span>
               </div>
-              <div className="grid grid-cols-3 gap-3 pt-7 text-xs">
-                <BracketColumn title="Round one" teams={['Night Owls', 'Pixel Pirates', 'Volt Racers', 'Golden Foxes']} />
-                <BracketColumn title="Semifinal" teams={['Night Owls', 'Golden Foxes']} />
-                <BracketColumn title="Final" teams={['Jun 12']} final />
+              <div className="divide-y divide-border">
+                {[
+                  ['01', 'Create in minutes', 'Set the game, schedule, capacity and rules.'],
+                  ['02', 'Keep players moving', 'Share registrations and updates without the mess.'],
+                  ['03', 'Follow every round', 'Make the bracket clear for every player and fan.'],
+                ].map(([number, title, detail]) => <div key={number} className="flex gap-5 py-6">
+                  <span className="font-mono text-xs text-primary">{number}</span>
+                  <div><h2 className="font-bold tracking-[-0.04em]">{title}</h2><p className="mt-1 text-sm leading-relaxed text-muted-foreground">{detail}</p></div>
+                </div>)}
               </div>
-              <div className="mt-8 flex items-center justify-between border-t border-border pt-5 font-mono text-xs">
-                <span className="text-muted-foreground">LIVE NOW</span>
-                <span className="font-bold text-primary">2,481 WATCHING</span>
-              </div>
+              <Link href={exploreHref} className="mt-2 flex items-center justify-between border-t border-border pt-5 text-sm font-bold">
+                Explore tournaments <ArrowRight className="h-4 w-4 text-primary" />
+              </Link>
             </div>
           </div>
         </section>
@@ -108,16 +113,4 @@ export default async function LandingPage() {
       <Footer />
     </div>
   )
-}
-
-function BracketColumn({ title, teams, final = false }: { title: string; teams: string[]; final?: boolean }) {
-  return <div>
-    <p className="mb-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{title}</p>
-    <div className="space-y-3">
-      {teams.map((team, index) => <div key={team} className={"border p-3 font-medium " + (final ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}>
-        <span className="block truncate">{team}</span>
-        {!final && <span className="mt-2 block font-mono text-[10px] text-muted-foreground">{index % 2 === 0 ? '2' : '1'}</span>}
-      </div>)}
-    </div>
-  </div>
 }
