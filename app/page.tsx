@@ -21,7 +21,17 @@ function PixelMark() {
 export default async function LandingPage() {
   const cookieStore = await cookies()
   const userId = cookieStore.get('userId')?.value
-  const user = userId ? await db.user.findUnique({ where: { id: userId } }) : null
+  let user = null
+
+  if (userId) {
+    try {
+      user = await db.user.findUnique({ where: { id: userId } })
+    } catch {
+      // A stale session or unavailable database must not prevent the public homepage from loading.
+      user = null
+    }
+  }
+
   const exploreHref = user ? '/feed' : '/login?next=/feed'
 
   return (
