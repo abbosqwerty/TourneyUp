@@ -28,9 +28,12 @@ import {
   Bookmark,
   LogOut,
   Settings,
-  Plus
+  Plus,
+  Moon,
+  Sun
 } from 'lucide-react'
 import { useState } from 'react'
+import { useTheme } from 'next-themes'
 import { logoutUser } from '@/lib/actions'
 
 const navLinks = [
@@ -52,6 +55,8 @@ interface NavbarProps {
 export function Navbar({ currentUser, isOrganizer = false }: NavbarProps) {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { resolvedTheme, setTheme } = useTheme()
+  const toggleTheme = () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
@@ -95,6 +100,9 @@ export function Navbar({ currentUser, isOrganizer = false }: NavbarProps) {
 
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle color theme">
+            {resolvedTheme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
           <Button variant="ghost" size="icon" className="relative" asChild>
             <Link href="/feed">
               <Search className="h-5 w-5" />
@@ -218,6 +226,9 @@ export function Navbar({ currentUser, isOrganizer = false }: NavbarProps) {
               </Link>
             ))}
             <div className="pt-2 border-t border-border">
+              <Button variant="outline" size="sm" className="mb-2" onClick={toggleTheme}>
+                {resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}
+              </Button>
               <Link
                 href="/profile"
                 onClick={() => setMobileMenuOpen(false)}
