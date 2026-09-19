@@ -28,6 +28,8 @@ export function LandingNavbar({ currentUser }: LandingNavbarProps) {
   const pathname = usePathname()
   const { resolvedTheme, setTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const tournamentHref = currentUser ? '/feed' : '/login?next=/feed'
+  const resolvedNavLinks = resolvedNavLinks.map((link) => link.href === '/feed' ? { ...link, href: tournamentHref } : link)
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
   const toggleTheme = () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
 
@@ -39,7 +41,7 @@ export function LandingNavbar({ currentUser }: LandingNavbarProps) {
           <span>tourney up</span>
         </Link>
         <nav className="hidden items-center gap-7 md:flex">
-          {navLinks.map((link) => <Link key={link.href} href={link.href} className={cn('text-sm font-medium transition-colors hover:text-primary', isActive(link.href) ? 'text-primary' : 'text-muted-foreground')}>{link.label}</Link>)}
+          {resolvedNavLinks.map((link) => <Link key={link.href} href={link.href} className={cn('text-sm font-medium transition-colors hover:text-primary', isActive(link.href) ? 'text-primary' : 'text-muted-foreground')}>{link.label}</Link>)}
         </nav>
         <div className="hidden items-center gap-2 md:flex">
           <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle color theme">
@@ -53,7 +55,7 @@ export function LandingNavbar({ currentUser }: LandingNavbarProps) {
         </Button>
       </div>
       {mobileMenuOpen && <nav className="border-t border-border px-5 py-4 md:hidden">
-        {navLinks.map((link) => <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)} className="block py-3 text-sm font-medium text-muted-foreground">{link.label}</Link>)}
+        {resolvedNavLinks.map((link) => <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)} className="block py-3 text-sm font-medium text-muted-foreground">{link.label}</Link>)}
         <div className="flex gap-2 pt-3">
           <Button variant="outline" size="sm" onClick={toggleTheme}>Theme</Button>
           <Button asChild size="sm"><Link href="/create">Create</Link></Button>
