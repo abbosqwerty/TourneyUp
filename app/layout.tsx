@@ -4,72 +4,26 @@ import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 
-const inter = Inter({ 
-  subsets: ['latin'],
-  variable: '--font-inter'
-})
-
-const geistMono = Geist_Mono({ 
-  subsets: ['latin'],
-  variable: '--font-geist-mono'
-})
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
 
 export const metadata: Metadata = {
-  title: {
-    default: 'TourneyUp - Discover & Compete in Tournaments',
-    template: '%s | TourneyUp'
-  },
-  description: 'Find, join, and track tournaments. Compete in sports, esports, and academic competitions.',
-  keywords: ['tournaments', 'esports', 'sports', 'competition', 'gaming', 'rankings'],
-  authors: [{ name: 'TourneyUp' }],
-  generator: 'v0.app',
-  icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
-  },
+  title: { default: 'Tourney Up — Find your next bracket', template: '%s | Tourney Up' },
+  description: 'A simple place to discover, organize, and follow tournaments.',
+  keywords: ['tournaments', 'esports', 'sports', 'competition', 'rankings'],
+  authors: [{ name: 'Tourney Up' }],
 }
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f8fafc' },
-    { media: '(prefers-color-scheme: dark)', color: '#1a1a2e' },
+    { media: '(prefers-color-scheme: light)', color: '#FFFFE3' },
+    { media: '(prefers-color-scheme: dark)', color: '#384959' },
   ],
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased min-h-screen bg-background`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
-        <Analytics />
-      </body>
-    </html>
-  )
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <html lang="en" suppressHydrationWarning><body className={inter.variable + ' ' + geistMono.variable + ' font-sans antialiased'}><ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>{children}</ThemeProvider><Analytics /></body></html>
 }
