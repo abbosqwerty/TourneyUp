@@ -1,35 +1,89 @@
-# v0-tourney-up-frontend-build
+# TourneyUp
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+TourneyUp is a modern tournament discovery, organization, and ranking platform designed for sports, esports, and academic competitions. It allows participants to find and register for tournaments, while organizers can create events, manage brackets, track participants, and publish results.
 
-## Built with v0
+---
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+## Features
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_8EJTHikE0Iuqgo4uo4FHpCSgEg1T)
+- **Tournament Discovery**: Search and filter tournaments by category (Sports, Esports, Academic), location, date, and status.
+- **Organizer Dashboard**: Centralized dashboard to monitor active tournaments, participant counts, approve/reject registrations, and review metrics.
+- **Participant Tracking**: Manage player slots, team rosters, and real-time registration status.
+- **Tournament Details**: Rich tournament overview including rules, schedule, prizes, brackets, and direct communication.
+- **Live Rankings & Leaderboards**: Track competitive rankings, player statistics, and podium standings.
+- **Interactive Messaging**: Dedicated messaging module for players and organizers to stay connected.
+- **Theme Support**: Customizable color systems with dedicated dark and light modes.
+
+---
+
+## Tech Stack
+
+- **Framework**: Next.js (App Router, Server Components & Server Actions)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS & Lucide Icons
+- **Database & ORM**: Prisma ORM with relational database support
+- **UI Components**: Radix UI primitives with custom accessible component architecture
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+- Node.js (v18.17 or higher recommended)
+- npm, yarn, or pnpm
+
+### Installation
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Set up environment variables:
+   Create a `.env` file in the root directory and configure your database connection:
+   ```env
+   DATABASE_URL="your_database_connection_string"
+   ```
+
+3. Generate the Prisma client:
+   ```bash
+   npx prisma generate
+   ```
+
+4. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+5. Open your browser and navigate to:
+   ```text
+   http://localhost:3000
+   ```
+
+---
+
+## Project Structure
+
+```text
+TourneyUp/
+├── app/                  # Next.js App Router pages and route handlers
+│   ├── (main)/           # Main application views (dashboard, feed, rankings, results)
+│   ├── login/            # Authentication & demo mode entry point
+│   ├── globals.css       # Design tokens, color palette, and global styles
+│   └── layout.tsx        # Root layout, fonts, and theme providers
+├── components/           # Reusable UI components and widgets
+│   └── ui/               # Core atomic design system components (buttons, cards, dialogs)
+├── lib/                  # Database client, utilities, and helper functions
+├── prisma/               # Database schema definitions and migrations
+└── public/               # Static assets, icons, and illustrations
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Available Scripts
 
-## Learn More
-
-To learn more, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
-
-<a href="https://v0.app/chat/api/kiro/clone/qwerty21who/v0-tourney-up-frontend-build" alt="Open in Kiro"><img src="https://pdgvvgmkdvyeydso.public.blob.vercel-storage.com/open%20in%20kiro.svg?sanitize=true" /></a>
+- `npm run dev` - Starts the local development server with hot-reloading.
+- `npm run build` - Compiles and optimizes the project for production.
+- `npm run start` - Launches the compiled production server.
+- `npm run lint` - Runs static code analysis with ESLint.
