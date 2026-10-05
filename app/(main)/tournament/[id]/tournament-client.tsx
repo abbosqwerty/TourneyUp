@@ -25,7 +25,10 @@ import {
   Dribbble,
   GraduationCap
 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 import { registerParticipant, toggleSaveTournament } from '@/lib/actions'
+import { useAuthModal } from '@/components/auth-modal'
+import { ParticipantSlots } from '@/components/participant-slots'
 
 const categoryIcons = {
   sports: Dribbble,
@@ -53,7 +56,9 @@ export default function TournamentClient({
   isUserRegistered,
   relatedTournaments,
   participantsCount,
-  isOrganizer = false
+  isOrganizer = false,
+  currentUser,
+  currentUserId,
 }: {
   tournament: any
   isSaved: boolean
@@ -61,28 +66,52 @@ export default function TournamentClient({
   relatedTournaments: any[]
   participantsCount: number
   isOrganizer?: boolean
+  currentUser?: any
+  currentUserId?: string
 }) {
+  const { openLoginModal } = useAuthModal()
   const [saved, setSaved] = useState(isSaved)
   const [registered, setRegistered] = useState(isUserRegistered)
   const [registering, setRegistering] = useState(false)
+  const [teamName, setTeamName] = useState('')
   const [currentParticipants, setCurrentParticipants] = useState(participantsCount)
+  const [followOrganizer, setFollowOrganizer] = useState(true)
+  const [joinTournamentChannel, setJoinTournamentChannel] = useState(true)
 
   const CategoryIcon = categoryIcons[tournament.category as keyof typeof categoryIcons] || Trophy
   const participantPercentage = (currentParticipants / tournament.maxParticipants) * 100
   const spotsLeft = tournament.maxParticipants - currentParticipants
 
   const handleSave = async () => {
+    if (!currentUserId) {
+      openLoginModal({
+        title: 'Sign in to Save',
+        description: `Sign in to bookmark "${tournament.title}".`
+      })
+      return
+    }
     setSaved(!saved)
-    await toggleSaveTournament(tournament.id, 'user1')
+    await toggleSaveTournament(tournament.id, currentUserId)
   }
 
   const handleRegister = async () => {
+    if (!currentUserId) {
+      openLoginModal({
+        title: 'Sign in to Join',
+        description: `Sign in to register for "${tournament.title}".`,
+        callback: () => {
+          window.location.reload()
+        }
+      })
+      return
+    }
+
     setRegistering(true)
     try {
-      await registerParticipant(tournament.id, 'user1', {
-        name: 'Alex Thompson',
-        email: 'alex.t@stanford.edu',
-        teamName: 'Stanford Strikers'
+      await registerParticipant(tournament.id, currentUserId, {
+        name: currentUser?.name || 'Registered Player',
+        email: currentUser?.username ? `${currentUser.username}@tourneyup.uz` : 'player@tourneyup.uz',
+        teamName: teamName.trim() || undefined
       })
       setRegistered(true)
       setCurrentParticipants(prev => prev + 1)
@@ -260,10 +289,10 @@ export default function TournamentClient({
           )}
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
+        {/* Sidebar — sticky as a whole unit */}
+        <div className="space-y-6 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1">
           {/* Registration Card */}
-          <Card className="sticky top-24" id="register">
+          <Card id="register">
             <CardContent className="p-6">
               {/* Prize & Entry */}
               <div className="flex justify-between items-center mb-6">
@@ -279,21 +308,12 @@ export default function TournamentClient({
 
               <Separator className="my-4" />
 
-              {/* Spots Progress */}
+              {/* Spots — Organized Circles */}
               <div className="mb-6">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">Available spots</span>
-                  <span className="font-medium">{spotsLeft} left</span>
-                </div>
-                <div className="h-3 rounded-full bg-secondary overflow-hidden">
-                  <div 
-                    className="h-full rounded-full bg-primary transition-all"
-                    style={{ width: `${participantPercentage}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {currentParticipants} of {tournament.maxParticipants} spots filled
-                </p>
+                <ParticipantSlots
+                  current={currentParticipants}
+                  max={tournament.maxParticipants}
+                />
               </div>
 
               {/* Registration CTA */}
@@ -329,6 +349,44 @@ export default function TournamentClient({
                 </div>
               ) : tournament.status === 'registration_open' ? (
                 <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Team Name (optional)
+                    </label>
+                    <Input
+                      placeholder="e.g., TUIT Wolves or Squad Alpha"
+                      value={teamName}
+                      onChange={(e) => setTeamName(e.target.value)}
+                      disabled={registering}
+                      className="text-sm"
+                    />
+                  </div>
+
+                  {/* Auto-Subscribe Options */}
+                  <div className="p-2.5 rounded-lg bg-secondary/40 border border-border/50 space-y-2 text-xs">
+                    <div className="text-[11px] font-semibold text-foreground">
+                      Auto-subscribe to tournament updates:
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-muted-foreground hover:text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={followOrganizer}
+                        onChange={(e) => setFollowOrganizer(e.target.checked)}
+                        className="rounded border-input text-primary focus:ring-primary h-3.5 w-3.5"
+                      />
+                      <span>Follow {tournament.organizer?.name || 'Organizer'}</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-muted-foreground hover:text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={joinTournamentChannel}
+                        onChange={(e) => setJoinTournamentChannel(e.target.checked)}
+                        className="rounded border-input text-primary focus:ring-primary h-3.5 w-3.5"
+                      />
+                      <span>Join Tournament Channel</span>
+                    </label>
+                  </div>
+
                   <Button 
                     className="w-full gap-2" 
                     size="lg" 
@@ -336,7 +394,7 @@ export default function TournamentClient({
                     disabled={registering}
                   >
                     <Trophy className="h-5 w-5" />
-                    {registering ? 'Registering...' : 'Register Now'}
+                    {registering ? 'Registering...' : currentUser?.name ? `Register as ${currentUser.name}` : 'Register Now'}
                   </Button>
                   <p className="text-xs text-center text-muted-foreground">
                     Registration closes on {new Date(tournament.date).toLocaleDateString()}

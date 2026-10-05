@@ -15,7 +15,8 @@ import {
   Settings,
   ExternalLink,
   Clock,
-  CheckCircle
+  CheckCircle,
+  MessageSquare
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -83,13 +84,11 @@ export default async function DashboardPage() {
       title: 'Total Tournaments', 
       value: totalTournaments,
       icon: Trophy,
-      variant: 'primary' as const
     },
     { 
       title: 'Active Tournaments', 
       value: activeTournaments,
       icon: Calendar,
-      variant: 'accent' as const
     },
     { 
       title: 'Total Participants', 
@@ -259,8 +258,8 @@ export default async function DashboardPage() {
               </Button>
               <Button variant="outline" className="w-full justify-start gap-2" asChild>
                 <Link href="/messages">
-                  <ExternalLink className="h-4 w-4" />
-                  View Messages
+                  <MessageSquare className="h-4 w-4" />
+                  Messages
                 </Link>
               </Button>
             </CardContent>

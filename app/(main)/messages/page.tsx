@@ -1,66 +1,43 @@
 import { db } from '@/lib/db'
 import MessagesClient from './messages-client'
 import { cookies } from 'next/headers'
+import { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  title: 'Channels & Support | TourneyUp',
+  description: 'Organizer channels, tournament chronicles, and support desk',
+}
 
 export default async function MessagesPage() {
   const cookieStore = await cookies()
   const userId = cookieStore.get('userId')?.value || 'user1'
 
-  // Load all conversations user is part of
-  const convParticipants = await db.conversationParticipant.findMany({
-    where: { userId: userId },
-    include: {
-      conversation: {
-        include: {
-          messages: { orderBy: { timestamp: 'asc' } },
-          participants: {
-            include: { user: true }
-          }
-        }
-      }
-    },
-    orderBy: { conversation: { lastMessageTime: 'desc' } }
-  })
+  let currentUserName = 'Abbos Qurbonov'
+  let currentUserAvatar = '/avatars/alex.jpg'
+  let isOrganizer = false
 
-  // Build typed conversations list
-  const conversations = convParticipants.map(cp => {
-    const conv = cp.conversation
-    // Other participants
-    const others = conv.participants
-      .filter(p => p.userId !== userId)
-      .map(p => ({
-        id: p.user.id,
-        name: p.user.name,
-        avatar: p.user.avatar,
-      }))
-
-    return {
-      id: conv.id,
-      participants: others,
-      lastMessage: conv.lastMessage,
-      lastMessageTime: conv.lastMessageTime,
-      unreadCount: conv.unreadCount,
-      tournamentContext: conv.tournamentContextId
-        ? { id: conv.tournamentContextId, name: conv.tournamentContextName ?? '' }
-        : undefined,
-      messages: conv.messages.map(m => ({
-        id: m.id,
-        senderId: m.senderId,
-        senderName: m.senderName,
-        senderAvatar: m.senderAvatar,
-        content: m.content,
-        timestamp: m.timestamp,
-        read: m.read,
-      }))
+  try {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, avatar: true, globalRank: true },
+    })
+    if (user) {
+      currentUserName = user.name
+      currentUserAvatar = user.avatar
+      isOrganizer = user.id.startsWith('org') || user.globalRank === 0
     }
-  })
+  } catch {
+    // Fallback if DB unavailable
+  }
 
   return (
     <MessagesClient
-      initialConversations={conversations}
       currentUserId={userId}
+      currentUserName={currentUserName}
+      currentUserAvatar={currentUserAvatar}
+      isOrganizer={isOrganizer}
     />
   )
 }

@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { Navbar } from '@/components/navbar'
 import { MobileNav } from '@/components/mobile-nav'
+import { AuthModalProvider } from '@/components/auth-modal'
 
 export default async function MainLayout({
   children,
@@ -12,27 +12,24 @@ export default async function MainLayout({
   const cookieStore = await cookies()
   const userId = cookieStore.get('userId')?.value
 
-  if (!userId) {
-    redirect('/login')
+  let user = null
+  if (userId) {
+    user = await db.user.findUnique({
+      where: { id: userId }
+    })
   }
 
-  const user = await db.user.findUnique({
-    where: { id: userId }
-  })
-
-  if (!user) {
-    redirect('/login')
-  }
-
-  const isOrgUser = user.id.startsWith('org') || user.globalRank === 0
+  const isOrgUser = user ? (user.id.startsWith('org') || user.globalRank === 0) : false
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar currentUser={user} isOrganizer={isOrgUser} />
-      <main className="pb-20 md:pb-0">
-        {children}
-      </main>
-      <MobileNav isOrganizer={isOrgUser} />
-    </div>
+    <AuthModalProvider initialUser={user}>
+      <div className="min-h-screen bg-background">
+        <Navbar currentUser={user} isOrganizer={isOrgUser} />
+        <main className="pb-20 md:pb-0">
+          {children}
+        </main>
+        <MobileNav currentUser={user} isOrganizer={isOrgUser} />
+      </div>
+    </AuthModalProvider>
   )
 }

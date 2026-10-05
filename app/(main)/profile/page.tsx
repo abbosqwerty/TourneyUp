@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TournamentCard } from '@/components/tournament-card'
 import { NoUpcomingMatches } from '@/components/empty-state'
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { 
   Trophy, 
   Swords, 
@@ -24,7 +25,11 @@ const resultColors: Record<string, string> = {
 
 export default async function ProfilePage() {
   const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value || 'user1'
+  const userId = cookieStore.get('userId')?.value
+
+  if (!userId) {
+    redirect('/login')
+  }
 
   const user = await db.user.findUnique({
     where: { id: userId },
@@ -36,11 +41,7 @@ export default async function ProfilePage() {
   })
 
   if (!user) {
-    return (
-      <div className="container mx-auto px-4 py-12 text-center text-muted-foreground">
-        User profile not found in database.
-      </div>
-    )
+    redirect('/login')
   }
 
   // Fetch tournaments user has joined (based on Participant registrations)

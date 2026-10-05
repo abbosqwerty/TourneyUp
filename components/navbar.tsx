@@ -30,7 +30,8 @@ import {
   Settings,
   Plus,
   Moon,
-  Sun
+  Sun,
+  Activity,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useTheme } from 'next-themes'
@@ -39,6 +40,8 @@ import { logoutUser } from '@/lib/actions'
 const navLinks = [
   { href: '/feed', label: 'Tournaments', icon: Home },
   { href: '/rankings', label: 'Rankings', icon: BarChart3 },
+  { href: '/results', label: 'Results', icon: Activity, isLive: true },
+  { href: '/messages', label: 'Messages', icon: MessageSquare, badge: 3 },
   { href: '/dashboard', label: 'Organize', icon: LayoutDashboard },
 ]
 
@@ -48,7 +51,7 @@ interface NavbarProps {
     name: string
     username: string
     avatar: string
-  }
+  } | null
   isOrganizer?: boolean
 }
 
@@ -86,14 +89,25 @@ export function Navbar({ currentUser, isOrganizer = false }: NavbarProps) {
               key={link.href}
               href={link.href}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                 isActive(link.href)
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary"
               )}
             >
               <link.icon className="h-4 w-4" />
-              {link.label}
+              <span>{link.label}</span>
+              {'isLive' in link && link.isLive ? (
+                <span className="h-4 px-1.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-500 text-[10px] font-extrabold flex items-center gap-1 animate-pulse">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                  LIVE
+                </span>
+              ) : null}
+              {'badge' in link && link.badge ? (
+                <span className="h-5 min-w-[20px] px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center">
+                  {link.badge}
+                </span>
+              ) : null}
             </Link>
           ))}
         </nav>
@@ -112,17 +126,7 @@ export function Navbar({ currentUser, isOrganizer = false }: NavbarProps) {
 
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center">
-              3
-            </Badge>
             <span className="sr-only">Notifications</span>
-          </Button>
-
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/messages">
-              <MessageSquare className="h-5 w-5" />
-              <span className="sr-only">Messages</span>
-            </Link>
           </Button>
 
           {isOrganizer && (
@@ -134,63 +138,69 @@ export function Navbar({ currentUser, isOrganizer = false }: NavbarProps) {
             </Link>
           )}
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full">
-                <Avatar className="h-9 w-9 ring-2 ring-border">
-                  <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-                  <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{currentUser.name}</p>
-                  <p className="text-xs text-muted-foreground">@{currentUser.username}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/profile" className="cursor-pointer">
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/saved" className="cursor-pointer">
-                  <Bookmark className="mr-2 h-4 w-4" />
-                  Saved Tournaments
-                </Link>
-              </DropdownMenuItem>
-              {isOrganizer && (
+          {currentUser ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full">
+                  <Avatar className="h-9 w-9 ring-2 ring-border">
+                    <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                    <AvatarFallback>{currentUser.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium">{currentUser.name}</p>
+                    <p className="text-xs text-muted-foreground">@{currentUser.username}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard" className="cursor-pointer">
-                    <LayoutDashboard className="mr-2 h-4 w-4" />
-                    Organizer Dashboard
+                  <Link href="/profile" className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
                   </Link>
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/settings" className="cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={async () => {
-                  await logoutUser()
-                  window.location.href = '/login'
-                }}
-                className="text-destructive focus:text-destructive cursor-pointer"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuItem asChild>
+                  <Link href="/saved" className="cursor-pointer">
+                    <Bookmark className="mr-2 h-4 w-4" />
+                    Saved Tournaments
+                  </Link>
+                </DropdownMenuItem>
+                {isOrganizer && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard" className="cursor-pointer">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      Organizer Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={async () => {
+                    await logoutUser()
+                    window.location.href = '/login'
+                  }}
+                  className="text-destructive focus:text-destructive cursor-pointer"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button size="sm" asChild>
+              <Link href="/login">Sign In</Link>
+            </Button>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
@@ -215,18 +225,32 @@ export function Navbar({ currentUser, isOrganizer = false }: NavbarProps) {
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors",
                   isActive(link.href)
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                 )}
               >
-                <link.icon className="h-5 w-5" />
-                {link.label}
+                <div className="flex items-center gap-3">
+                  <link.icon className="h-5 w-5" />
+                  <span>{link.label}</span>
+                </div>
+                {'isLive' in link && link.isLive ? (
+                  <span className="h-4 px-1.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-500 text-[10px] font-extrabold flex items-center gap-1 animate-pulse">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                    LIVE
+                  </span>
+                ) : null}
+                {'badge' in link && link.badge ? (
+                  <span className="h-5 min-w-[20px] px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                    {link.badge}
+                  </span>
+                ) : null}
               </Link>
             ))}
             <div className="pt-2 border-t border-border">
-              <Button variant="outline" size="sm" className="mb-2" onClick={toggleTheme}>
+              <Button variant="outline" size="sm" className="mb-2 w-full justify-start gap-2" onClick={toggleTheme}>
+                {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 {resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}
               </Button>
               <Link
@@ -236,14 +260,6 @@ export function Navbar({ currentUser, isOrganizer = false }: NavbarProps) {
               >
                 <User className="h-5 w-5" />
                 Profile
-              </Link>
-              <Link
-                href="/messages"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary"
-              >
-                <MessageSquare className="h-5 w-5" />
-                Messages
               </Link>
               <Link
                 href="/saved"

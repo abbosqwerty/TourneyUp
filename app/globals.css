@@ -3,32 +3,48 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================
+   LIGHT MODE COLORS  (when theme is light / default)
+   ============================================================ */
 :root {
-  --background: #ffffe3;
-  --foreground: #4a4a4a;
-  --card: #ffffe3;
-  --card-foreground: #4a4a4a;
-  --popover: #ffffe3;
-  --popover-foreground: #4a4a4a;
-  --primary: #6d8196;
-  --primary-foreground: #ffffe3;
-  --secondary: #cbcbcb;
-  --secondary-foreground: #4a4a4a;
-  --muted: #f2f0d9;
-  --muted-foreground: #6d8196;
-  --accent: #bdddfc;
-  --accent-foreground: #384959;
-  --destructive: #b44a4a;
-  --destructive-foreground: #ffffe3;
-  --border: #cbcbcb;
-  --input: #cbcbcb;
-  --ring: #88bdf2;
+  --background: #ffffe3;        /* 🖼️  Page background — the main canvas color */
+  --foreground: #4a4a4a;        /* ✍️  Main text color — all body text */
+
+  --card: #ffffe3;              /* 📦  Cards & boxes background */
+  --card-foreground: #4a4a4a;  /* ✍️  Text inside cards */
+
+  --popover: #ffffe3;           /* 💬  Dropdowns & popups background */
+  --popover-foreground: #4a4a4a; /* ✍️  Text inside dropdowns */
+
+  --primary: #6d8196;           /* 🎨  Buttons, active links, highlights */
+  --primary-foreground: #ffffe3; /* ✍️  Text ON primary buttons */
+
+  --secondary: #cbcbcb;         /* 🎨  Secondary buttons & badges */
+  --secondary-foreground: #4a4a4a; /* ✍️  Text on secondary buttons */
+
+  --muted: #f2f0d9;             /* 🔇  Subtle backgrounds (disabled areas, tags) */
+  --muted-foreground: #6d8196; /* ✍️  Subtle / dimmed text (captions, placeholders) */
+
+  --accent: #bdddfc;            /* ✨  Hover highlights & accent backgrounds */
+  --accent-foreground: #384959; /* ✍️  Text on accent backgrounds */
+
+  --destructive: #b44a4a;       /* 🔴  Delete buttons & error states */
+  --destructive-foreground: #ffffe3; /* ✍️  Text on destructive buttons */
+
+  --border: #cbcbcb;            /* 📐  Border lines around cards, inputs (set transparent to remove) */
+  --input: #cbcbcb;             /* 📝  Input field border color */
+  --ring: #88bdf2;              /* 🔵  Focus ring glow when clicking inputs */
+
+  /* 📊 Chart / Graph colors */
   --chart-1: #6d8196;
   --chart-2: #88bdf2;
   --chart-3: #6a89a7;
   --chart-4: #4a4a4a;
   --chart-5: #bdddfc;
-  --radius: 0.875rem;
+
+  --radius: 0.875rem;           /* 🔲  Corner roundness of all boxes */
+
+  /* 🗂️  Sidebar (left navigation panel) */
   --sidebar: #ffffe3;
   --sidebar-foreground: #4a4a4a;
   --sidebar-primary: #6d8196;
@@ -39,31 +55,46 @@
   --sidebar-ring: #88bdf2;
 }
 
+/* ============================================================
+   DARK MODE COLORS  (when theme is set to dark)
+   ============================================================ */
 .dark {
-  --background: #384959;
-  --foreground: #ffffe3;
-  --card: #384959;
-  --card-foreground: #ffffe3;
-  --popover: #384959;
-  --popover-foreground: #ffffe3;
-  --primary: #88bdf2;
-  --primary-foreground: #384959;
-  --secondary: #4d6274;
-  --secondary-foreground: #ffffe3;
-  --muted: #455969;
-  --muted-foreground: #bdddfc;
-  --accent: #6a89a7;
-  --accent-foreground: #ffffe3;
-  --destructive: #ef8383;
-  --destructive-foreground: #384959;
-  --border: #6a89a7;
-  --input: #4d6274;
-  --ring: #bdddfc;
+  --background: #384959;        /* 🖼️  Page background */
+  --foreground: #ffffe3;        /* ✍️  Main text color */
+
+  --card: #384959;              /* 📦  Cards & boxes background (make darker e.g. #273441) */
+  --card-foreground: #ffffe3;  /* ✍️  Text inside cards */
+
+  --popover: #384959;           /* 💬  Dropdowns & popups background */
+  --popover-foreground: #ffffe3; /* ✍️  Text inside dropdowns */
+
+  --primary: #88bdf2;           /* 🎨  Buttons, active links, highlights */
+  --primary-foreground: #384959; /* ✍️  Text ON primary buttons */
+
+  --secondary: #4d6274;         /* 🎨  Secondary buttons & badges */
+  --secondary-foreground: #ffffe3; /* ✍️  Text on secondary buttons */
+
+  --muted: #384959;             /* 🔇  Subtle backgrounds */
+  --muted-foreground: #bdddfc; /* ✍️  Dimmed text (captions, placeholders) */
+
+  --accent: #6a89a7;            /* ✨  Hover highlights */
+  --accent-foreground: #ffffe3; /* ✍️  Text on accent backgrounds */
+
+  --destructive: #ef8383;       /* 🔴  Delete buttons & error states */
+  --destructive-foreground: #384959; /* ✍️  Text on destructive buttons */
+
+  --border: #6a89a7;            /* 📐  Border lines (set transparent to remove) */
+  --input: #4d6274;             /* 📝  Input field border color */
+  --ring: #bdddfc;              /* 🔵  Focus ring glow */
+
+  /* 📊 Chart / Graph colors */
   --chart-1: #88bdf2;
   --chart-2: #bdddfc;
   --chart-3: #6a89a7;
   --chart-4: #ffffe3;
   --chart-5: #6d8196;
+
+  /* 🗂️  Sidebar (left navigation panel) */
   --sidebar: #384959;
   --sidebar-foreground: #ffffe3;
   --sidebar-primary: #88bdf2;
@@ -74,6 +105,9 @@
   --sidebar-ring: #bdddfc;
 }
 
+/* ============================================================
+   DO NOT EDIT BELOW — Tailwind internal mappings
+   ============================================================ */
 @theme inline {
   --font-sans: var(--font-inter), Arial, sans-serif;
   --font-mono: var(--font-geist-mono), monospace;

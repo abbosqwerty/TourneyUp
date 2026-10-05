@@ -1,12 +1,17 @@
 import { db } from '@/lib/db'
 import SavedClient from './saved-client'
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
 export default async function SavedPage() {
   const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value || 'user1'
+  const userId = cookieStore.get('userId')?.value
+
+  if (!userId) {
+    redirect('/login')
+  }
 
   const saved = await db.savedTournament.findMany({
     where: { userId: userId },

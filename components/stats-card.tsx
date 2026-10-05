@@ -44,8 +44,8 @@ export function StatsCard({
   }
 
   return (
-    <Card className={cn(variants[variant], className)}>
-      <CardContent className="p-5">
+    <Card className={cn(variants[variant], "h-full", className)}>
+      <CardContent className="p-5 h-full flex flex-col justify-between">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>

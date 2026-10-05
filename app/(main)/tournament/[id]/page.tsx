@@ -13,7 +13,7 @@ export default async function TournamentDetailsPage({
 }) {
   const { id } = await params
   const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value || 'user1'
+  const userId = cookieStore.get('userId')?.value || null
   
   const tournamentRaw = await db.tournament.findUnique({
     where: { id },
@@ -53,12 +53,12 @@ export default async function TournamentDetailsPage({
   }
 
   // Check registration
-  const userRegistration = await db.participant.findFirst({
+  const userRegistration = userId ? await db.participant.findFirst({
     where: {
       tournamentId: id,
       userId: userId
     }
-  })
+  }) : null
 
   // Get current participant count
   const participantsCount = await db.participant.count({
@@ -66,14 +66,14 @@ export default async function TournamentDetailsPage({
   })
 
   // Check saved status
-  const saved = await db.savedTournament.findUnique({
+  const saved = userId ? await db.savedTournament.findUnique({
     where: {
       userId_tournamentId: {
         userId: userId,
         tournamentId: id
       }
     }
-  })
+  }) : null
 
   // Find related tournaments (same category, excluding current)
   const relatedRaw = await db.tournament.findMany({
@@ -113,7 +113,12 @@ export default async function TournamentDetailsPage({
     })
   )
 
-  const isOrgUser = await isOrganizer(userId)
+  const isOrgUser = userId ? await isOrganizer(userId) : false
+
+  const currentUser = userId ? await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, username: true, avatar: true }
+  }) : null
 
   return (
     <TournamentClient
@@ -123,6 +128,8 @@ export default async function TournamentDetailsPage({
       relatedTournaments={related}
       participantsCount={participantsCount}
       isOrganizer={isOrgUser}
+      currentUser={currentUser}
+      currentUserId={userId || undefined}
     />
   )
 }

@@ -3,11 +3,13 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Home, Trophy, BarChart3, User, Plus } from 'lucide-react'
+import { Home, Trophy, BarChart3, User, Plus, MessageSquare, Activity } from 'lucide-react'
 
 const navItems = [
   { href: '/feed', label: 'Home', icon: Home },
+  { href: '/results', label: 'Results', icon: Activity },
   { href: '/rankings', label: 'Rankings', icon: BarChart3 },
+  { href: '/messages', label: 'Messages', icon: MessageSquare },
   { href: '/create', label: 'Create', icon: Plus, isAction: true },
   { href: '/dashboard', label: 'Organize', icon: Trophy },
   { href: '/profile', label: 'Profile', icon: User },
@@ -15,6 +17,14 @@ const navItems = [
 
 interface MobileNavProps {
   isOrganizer?: boolean
+  currentUser?: {
+    id: string
+    name: string
+    username: string
+    avatar: string
+    globalRank: number
+    totalPoints: number
+  } | null
 }
 
 export function MobileNav({ isOrganizer = false }: MobileNavProps) {
@@ -53,13 +63,23 @@ export function MobileNav({ isOrganizer = false }: MobileNavProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors",
+                "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors relative",
                 active
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon className={cn("h-5 w-5", active && "text-primary")} />
+              <div className="relative">
+                <Icon className={cn("h-5 w-5", active && "text-primary")} />
+                {item.href === '/results' && (
+                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                )}
+                {item.href === '/messages' && (
+                  <span className="absolute -top-1.5 -right-2.5 h-4 min-w-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                    3
+                  </span>
+                )}
+              </div>
               <span className={cn("text-xs font-medium", active && "text-primary")}>
                 {item.label}
               </span>

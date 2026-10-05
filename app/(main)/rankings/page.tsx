@@ -1,9 +1,13 @@
 import { db } from '@/lib/db'
 import RankingsClient from './rankings-client'
+import { cookies } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
 
 export default async function RankingsPage() {
+  const cookieStore = await cookies()
+  const activeUserId = cookieStore.get('userId')?.value || ''
+
   // Fetch all ranked users (non-organizers, globalRank > 0) sorted by rank
   const users = await db.user.findMany({
     where: { globalRank: { gt: 0 } },
@@ -38,15 +42,15 @@ export default async function RankingsPage() {
     }
   })
 
-  // Current user stats (user1)
-  const currentUser = users.find(u => u.id === 'user1')
+  // Current active user stats
+  const currentUser = users.find(u => u.id === activeUserId)
 
   return (
     <RankingsClient
       initialRankings={rankings}
       currentUserRank={currentUser?.globalRank ?? 0}
       currentUserPoints={currentUser?.totalPoints ?? 0}
-      currentUserId="user1"
+      currentUserId={activeUserId}
     />
   )
 }

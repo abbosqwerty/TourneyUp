@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { LogoIcon } from '@/components/logo-icon'
 import { Trophy } from 'lucide-react'
 
 const footerLinks = {
@@ -35,9 +36,7 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-                <Trophy className="h-5 w-5 text-primary-foreground" />
-              </div>
+              <LogoIcon className="h-10 w-10 text-foreground" />
               <span className="text-xl font-bold tracking-tight">
                 Tourney<span className="text-primary">Up</span>
               </span>
@@ -146,3 +145,6 @@ export function Footer() {
     </footer>
   )
 }
+
+
+

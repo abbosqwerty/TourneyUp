@@ -1,12 +1,23 @@
 import { db } from '@/lib/db'
 import ParticipantsClient from './participants-client'
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { isOrganizer } from '@/lib/actions'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ParticipantsPage() {
   const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value || 'org1'
+  const userId = cookieStore.get('userId')?.value
+
+  if (!userId) {
+    redirect('/login')
+  }
+
+  const isOrg = await isOrganizer(userId)
+  if (!isOrg) {
+    redirect('/feed')
+  }
 
   // Fetch all tournaments organized by active user
   const tournaments = await db.tournament.findMany({

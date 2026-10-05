@@ -434,14 +434,14 @@ export const featuredStories = [
 // Sample user profile
 export const currentUser: User = {
   id: 'user1',
-  name: 'Alex Thompson',
-  username: 'alexthompson',
+  name: 'Abbos Qurbonov',
+  username: 'abbosq',
   avatar: '/avatars/alex.jpg',
-  bio: 'Competitive gamer and basketball enthusiast. Always looking for the next challenge.',
-  university: 'Stanford University',
-  location: 'San Francisco, CA',
-  globalRank: 127,
-  totalPoints: 4850,
+  bio: 'Competitive gamer and table tennis champion. TUIT computer science student pursuing passion for sports and esports.',
+  university: 'Tashkent University of Information Technologies',
+  location: 'Tashkent, Uzbekistan',
+  globalRank: 42,
+  totalPoints: 8750,
   achievements: [
     {
       id: 'ach1',
@@ -817,28 +817,28 @@ export const sportCategories = [
 // Locations
 export const locations = [
   'All Locations',
-  'San Francisco, CA',
-  'Los Angeles, CA',
-  'New York, NY',
-  'Chicago, IL',
+  'Tashkent',
+  'Samarkand',
+  'Fergana',
+  'Bukhara',
   'Online'
 ]
 
 // Sample organizer data
 export const organizerProfile = {
   id: 'org1',
-  name: 'Stanford Athletics',
+  name: 'Tashkent Sports Association',
   avatar: '/avatars/stanford.jpg',
   verified: true,
-  description: 'Official athletics department of Stanford University. Organizing competitive sports events since 1891.',
-  totalTournaments: 45,
-  activeTournaments: 3,
-  totalParticipants: 2840,
+  description: 'Official Tashkent Intramural Athletics Association. Hosting competitive sports events since 2018.',
+  totalTournaments: 8,
+  activeTournaments: 4,
+  totalParticipants: 320,
   rating: 4.9,
   teamMembers: [
-    { id: 'tm1', name: 'John Smith', role: 'Director', avatar: '/avatars/john.jpg' },
-    { id: 'tm2', name: 'Lisa Chen', role: 'Event Manager', avatar: '/avatars/lisa.jpg' },
-    { id: 'tm3', name: 'Mike Johnson', role: 'Coordinator', avatar: '/avatars/mike.jpg' }
+    { id: 'tm1', name: 'Jasur Aliyev', role: 'Head of Competitions', avatar: '/avatars/david.jpg' },
+    { id: 'tm2', name: 'Nigora Rustamova', role: 'Event Manager', avatar: '/avatars/sarah.jpg' },
+    { id: 'tm3', name: 'Dilshod Karimov', role: 'Tournament Referee', avatar: '/avatars/james.jpg' }
   ]
 }
 

@@ -67,19 +67,31 @@ export default function RankingsClient({
         </div>
 
         {/* Your Rank Card */}
-        <Card className="bg-gradient-to-br from-primary/20 to-accent/20 border-primary/30">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-lg font-bold text-primary-foreground">
-                #{currentUserRank}
-              </span>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Your Global Rank</p>
-              <p className="font-bold">{currentUserPoints.toLocaleString()} points</p>
-            </div>
-          </CardContent>
-        </Card>
+        {currentUserRank > 0 ? (
+          <Card className="bg-gradient-to-br from-primary/20 to-accent/20 border-primary/30">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
+                <span className="text-lg font-bold text-primary-foreground">
+                  #{currentUserRank}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Your Global Rank</p>
+                <p className="font-bold">{currentUserPoints.toLocaleString()} points</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-border/50 bg-secondary/30">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Trophy className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm font-semibold">Join the Leaderboard</p>
+                <p className="text-xs text-muted-foreground">Compete in tournaments to earn points and rank up</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Filters */}

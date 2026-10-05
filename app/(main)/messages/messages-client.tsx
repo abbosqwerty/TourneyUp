@@ -1,281 +1,1036 @@
 'use client'
 
-import { useState } from 'react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
+import {
+  Channel,
+  ChannelPost,
+  SupportTicket,
+  initialChannels,
+  initialPosts,
+  initialSupportTickets,
+} from '@/lib/channels-data'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Search,
+  CheckCircle2,
+  Plus,
+  Check,
+  BarChart3,
+  LifeBuoy,
+  ChevronLeft,
+  Pin,
+  Eye,
+  Send,
+  Building2,
+  Trophy,
+  Ticket,
+  Clock,
+  TrendingUp,
+  Users,
+  Calendar,
+  AlertCircle,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Search, Send, MoreVertical, Phone, Video, Trophy, ChevronLeft } from 'lucide-react'
-import { NoMessages } from '@/components/empty-state'
-import { sendMessage } from '@/lib/actions'
-import { useRouter } from 'next/navigation'
-
-type MessageType = {
-  id: string
-  senderId: string
-  senderName: string
-  senderAvatar: string
-  content: string
-  timestamp: string
-  read: boolean
-}
-
-type ConversationType = {
-  id: string
-  participants: { id: string; name: string; avatar: string }[]
-  lastMessage: string
-  lastMessageTime: string
-  unreadCount: number
-  tournamentContext?: { id: string; name: string }
-  messages: MessageType[]
-}
 
 interface MessagesClientProps {
-  initialConversations: ConversationType[]
   currentUserId: string
+  currentUserName: string
+  currentUserAvatar: string
+  isOrganizer?: boolean
 }
 
-export default function MessagesClient({ initialConversations, currentUserId }: MessagesClientProps) {
-  const [conversations, setConversations] = useState(initialConversations)
-  const [selectedConvId, setSelectedConvId] = useState<string | null>(initialConversations[0]?.id ?? null)
-  const [messageInput, setMessageInput] = useState('')
+export default function MessagesClient({
+  currentUserId,
+  currentUserName,
+  currentUserAvatar,
+  isOrganizer = false,
+}: MessagesClientProps) {
+  const [channels, setChannels] = useState<Channel[]>(initialChannels)
+  const [posts, setPosts] = useState<ChannelPost[]>(initialPosts)
+  const [tickets, setTickets] = useState<SupportTicket[]>(initialSupportTickets)
+
+  // Navigation State
+  const [activeTab, setActiveTab] = useState<'organizers' | 'tournaments' | 'support'>('organizers')
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(initialChannels[0].id)
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [isSending, setIsSending] = useState(false)
-  const router = useRouter()
 
-  const selectedConversation = conversations.find(c => c.id === selectedConvId) ?? null
+  // Modals
+  const [statsModalOpen, setStatsModalOpen] = useState(false)
+  const [contactModalOpen, setContactModalOpen] = useState(false)
+  const [ticketReplyInput, setTicketReplyInput] = useState('')
+  const [channelMessageInput, setChannelMessageInput] = useState('')
 
-  const filteredConversations = conversations.filter(conv => {
-    if (!searchQuery) return true
-    const query = searchQuery.toLowerCase()
-    return conv.participants.some(p => p.name.toLowerCase().includes(query)) ||
-           conv.tournamentContext?.name.toLowerCase().includes(query)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const ticketEndRef = useRef<HTMLDivElement>(null)
+
+  // Contact Organizer Form State
+  const [contactForm, setContactForm] = useState({
+    subject: '',
+    category: 'payment' as SupportTicket['category'],
+    message: '',
   })
 
-  const handleSendMessage = async () => {
-    if (!messageInput.trim() || !selectedConvId || isSending) return
-    const content = messageInput.trim()
-    setMessageInput('')
-    setIsSending(true)
+  // Selected Channel & Posts
+  const selectedChannel = useMemo(
+    () => channels.find((c) => c.id === selectedChannelId) ?? null,
+    [channels, selectedChannelId]
+  )
 
-    // Optimistic update
-    const tempMsg: MessageType = {
-      id: `tmp-${Date.now()}`,
-      senderId: currentUserId,
-      senderName: 'Alex Thompson',
-      senderAvatar: '/avatars/alex.jpg',
-      content,
-      timestamp: new Date().toISOString(),
-      read: true,
+  const channelPosts = useMemo(() => {
+    if (!selectedChannelId) return []
+    return posts
+      .filter((p) => p.channelId === selectedChannelId)
+      .sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1
+        if (!a.pinned && b.pinned) return 1
+        return 0
+      })
+  }, [posts, selectedChannelId])
+
+  // Selected Support Ticket
+  const selectedTicket = useMemo(
+    () => tickets.find((t) => t.id === selectedTicketId) ?? null,
+    [tickets, selectedTicketId]
+  )
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [channelPosts.length, selectedChannelId])
+
+  useEffect(() => {
+    ticketEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [selectedTicket?.messages.length, selectedTicketId])
+
+  // Filtered Channels for Sidebar
+  const filteredChannels = useMemo(() => {
+    let list = channels
+    if (activeTab === 'organizers') {
+      list = list.filter((c) => c.type === 'organizer')
+    } else if (activeTab === 'tournaments') {
+      list = list.filter((c) => c.type === 'tournament')
     }
-    setConversations(prev =>
-      prev.map(c =>
-        c.id === selectedConvId
-          ? { ...c, messages: [...c.messages, tempMsg], lastMessage: content }
-          : c
-      )
+
+    if (!searchQuery.trim()) return list
+    const q = searchQuery.toLowerCase()
+    return list.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q) ||
+        c.lastPostSnippet.toLowerCase().includes(q)
     )
+  }, [channels, activeTab, searchQuery])
 
-    try {
-      await sendMessage(selectedConvId, content, currentUserId)
-      router.refresh()
-    } finally {
-      setIsSending(false)
-    }
+  // Filtered Tickets
+  const filteredTickets = useMemo(() => {
+    if (!searchQuery.trim()) return tickets
+    const q = searchQuery.toLowerCase()
+    return tickets.filter(
+      (t) =>
+        t.subject.toLowerCase().includes(q) ||
+        t.organizerName.toLowerCase().includes(q) ||
+        t.ticketNumber.toLowerCase().includes(q)
+    )
+  }, [tickets, searchQuery])
+
+  // Toggle Follow Channel
+  const handleToggleFollow = (channelId: string) => {
+    setChannels((prev) =>
+      prev.map((ch) => {
+        if (ch.id !== channelId) return ch
+        const nextFollowed = !ch.isFollowed
+        return {
+          ...ch,
+          isFollowed: nextFollowed,
+          subscribers: nextFollowed ? ch.subscribers + 1 : Math.max(0, ch.subscribers - 1),
+          stats: ch.stats
+            ? {
+                ...ch.stats,
+                followers: nextFollowed ? ch.stats.followers + 1 : ch.stats.followers - 1,
+              }
+            : undefined,
+        }
+      })
+    )
   }
 
+  // Handle Create Support Ticket
+  const handleCreateTicketSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!contactForm.subject.trim() || !contactForm.message.trim()) return
+
+    const orgId = selectedChannel?.type === 'organizer' ? selectedChannel.id : 'org-sports'
+    const orgName = selectedChannel?.name || 'Tournament Organizing Committee'
+
+    const newTicket: SupportTicket = {
+      id: `ticket-${Date.now()}`,
+      ticketNumber: `TICK-${Math.floor(1000 + Math.random() * 9000)}`,
+      organizerId: orgId,
+      organizerName: orgName,
+      tournamentTitle: selectedChannel?.type === 'tournament' ? selectedChannel.name : undefined,
+      category: contactForm.category,
+      priority: 'high',
+      status: 'open',
+      subject: contactForm.subject.trim(),
+      description: contactForm.message.trim(),
+      createdAt: 'Just now',
+      updatedAt: 'Just now',
+      messages: [
+        {
+          id: `tm-${Date.now()}`,
+          senderId: currentUserId,
+          senderName: currentUserName,
+          senderAvatar: currentUserAvatar,
+          senderRole: 'player',
+          content: contactForm.message.trim(),
+          timestamp: 'Just now',
+        },
+      ],
+    }
+
+    setTickets((prev) => [newTicket, ...prev])
+    setSelectedTicketId(newTicket.id)
+    setActiveTab('support')
+    setContactModalOpen(false)
+    setContactForm({ subject: '', category: 'payment', message: '' })
+  }
+
+  // Handle Send Reply in Ticket
+  const handleSendTicketReply = () => {
+    if (!ticketReplyInput.trim() || !selectedTicketId) return
+
+    const replyMsg = {
+      id: `tm-${Date.now()}`,
+      senderId: currentUserId,
+      senderName: currentUserName,
+      senderAvatar: currentUserAvatar,
+      senderRole: 'player' as const,
+      content: ticketReplyInput.trim(),
+      timestamp: 'Just now',
+    }
+
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === selectedTicketId
+          ? {
+              ...t,
+              updatedAt: 'Just now',
+              messages: [...t.messages, replyMsg],
+            }
+          : t
+      )
+    )
+    setTicketReplyInput('')
+
+    setTimeout(() => {
+      ticketEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 50)
+
+    // Simulated official response
+    setTimeout(() => {
+      setTickets((prev) =>
+        prev.map((t) => {
+          if (t.id === selectedTicketId) {
+            const staffReply = {
+              id: `tm-reply-${Date.now()}`,
+              senderId: 'staff-desk',
+              senderName: `${t.organizerName} Support Desk`,
+              senderAvatar: '/avatars/stanford.jpg',
+              senderRole: 'official' as const,
+              content: `Thank you for your update. Referee and operations staff have logged this and are reviewing now.`,
+              timestamp: 'Just now',
+            }
+            return {
+              ...t,
+              status: 'in_review' as const,
+              messages: [...t.messages, staffReply],
+              updatedAt: 'Just now',
+            }
+          }
+          return t
+        })
+      )
+      setTimeout(() => {
+        ticketEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 50)
+    }, 1800)
+  }
+
+  // Handle Send Channel Message
+  const handleSendChannelMessage = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!channelMessageInput.trim() || !selectedChannel) return
+
+    const userMessageContent = channelMessageInput.trim()
+    const newPost: ChannelPost = {
+      id: `post-user-${Date.now()}`,
+      channelId: selectedChannel.id,
+      title: 'Community Message',
+      content: userMessageContent,
+      type: 'announcement',
+      timestamp: 'Just now',
+      views: 1,
+      authorName: currentUserName,
+      authorRole: 'Player / Participant',
+      authorAvatar: currentUserAvatar,
+    }
+
+    setPosts((prev) => [...prev, newPost])
+    setChannelMessageInput('')
+
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 50)
+
+    // Simulated desk acknowledgment
+    setTimeout(() => {
+      const isTournament = selectedChannel.type === 'tournament'
+      const deskName = isTournament ? `${selectedChannel.name} Desk` : `${selectedChannel.name} Operations`
+      const autoReply: ChannelPost = {
+        id: `post-reply-${Date.now()}`,
+        channelId: selectedChannel.id,
+        title: isTournament ? 'Tournament Desk Acknowledgment' : 'Organizer Bulletin Desk',
+        content: `Hi @${currentUserName}, your message has been received by the desk! For official private arbitration or urgent issues, you can also use "Contact Organizer".`,
+        type: 'announcement',
+        badge: 'Desk Arbiter',
+        timestamp: 'Just now',
+        views: 2,
+        authorName: deskName,
+        authorRole: 'Official Staff',
+        authorAvatar: selectedChannel.avatar,
+      }
+      setPosts((prev) => [...prev, autoReply])
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 50)
+    }, 1200)
+  }
+
+  const handleSelectChannel = (channelId: string) => {
+    setSelectedChannelId(channelId)
+    setSelectedTicketId(null)
+    setChannels((prev) =>
+      prev.map((ch) => (ch.id === channelId ? { ...ch, unreadCount: 0 } : ch))
+    )
+  }
+
+  const openTicketsCount = tickets.filter((t) => t.status !== 'resolved').length
+
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="h-[calc(100vh-12rem)] md:h-[calc(100vh-10rem)] flex rounded-lg border border-border overflow-hidden bg-card">
-        {/* Sidebar */}
-        <div className={cn(
-          "w-full md:w-80 border-r border-border flex flex-col",
-          selectedConvId && "hidden md:flex"
-        )}>
-          {/* Search */}
-          <div className="p-4 border-b border-border">
+    <div className="w-full h-[calc(100dvh-4rem-4rem)] md:h-[calc(100dvh-4rem)] flex overflow-hidden bg-background">
+      {/* ── Left Sidebar (Telegram Style Channels & Support) ─── */}
+      <aside
+        className={cn(
+          'w-full md:w-[340px] lg:w-[380px] xl:w-[400px] border-r border-border/70 flex flex-col bg-card/95 flex-shrink-0 h-full overflow-hidden',
+          (selectedChannelId || selectedTicketId) ? 'hidden md:flex' : 'flex'
+        )}
+      >
+        {/* Top Search */}
+          <div className="p-3 border-b border-border/60">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search messages..."
-                className="pl-10"
+                placeholder="Search channels & bulletins..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 text-sm bg-secondary/50 border-transparent focus-visible:bg-background focus-visible:border-border rounded-lg placeholder:text-muted-foreground"
               />
             </div>
           </div>
 
-          {/* Conversations List */}
-          <ScrollArea className="flex-1">
-            {filteredConversations.length === 0 ? (
-              <div className="p-4">
-                <NoMessages />
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {filteredConversations.map((conversation) => {
-                  const other = conversation.participants[0]
-                  return (
-                    <button
-                      key={conversation.id}
-                      onClick={() => setSelectedConvId(conversation.id)}
-                      className={cn(
-                        "w-full p-4 text-left hover:bg-secondary/50 transition-colors",
-                        selectedConvId === conversation.id && "bg-secondary"
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Avatar className="h-10 w-10 flex-shrink-0">
-                          <AvatarImage src={other?.avatar} />
-                          <AvatarFallback>{other?.name?.slice(0, 2)}</AvatarFallback>
-                        </Avatar>
+          {/* Telegram-style Folder Tabs */}
+          <div className="flex items-center px-2 py-1.5 border-b border-border/50 bg-secondary/20 text-xs font-medium gap-1">
+            <button
+              onClick={() => {
+                setActiveTab('organizers')
+                setSelectedTicketId(null)
+                if (!selectedChannelId) setSelectedChannelId(channels.find((c) => c.type === 'organizer')?.id || null)
+              }}
+              className={cn(
+                'flex-1 py-1.5 px-2 rounded-md flex items-center justify-center gap-1.5 transition-all text-xs font-semibold',
+                activeTab === 'organizers'
+                  ? 'bg-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Building2 className="h-3.5 w-3.5 text-primary" />
+              <span>Organizers</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab('tournaments')
+                setSelectedTicketId(null)
+                if (!selectedChannelId) setSelectedChannelId(channels.find((c) => c.type === 'tournament')?.id || null)
+              }}
+              className={cn(
+                'flex-1 py-1.5 px-2 rounded-md flex items-center justify-center gap-1.5 transition-all text-xs font-semibold',
+                activeTab === 'tournaments'
+                  ? 'bg-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Trophy className="h-3.5 w-3.5 text-amber-500" />
+              <span>Tournaments</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab('support')
+                setSelectedChannelId(null)
+                if (!selectedTicketId && tickets.length > 0) setSelectedTicketId(tickets[0].id)
+              }}
+              className={cn(
+                'flex-1 py-1.5 px-2 rounded-md flex items-center justify-center gap-1.5 transition-all text-xs font-semibold',
+                activeTab === 'support'
+                  ? 'bg-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Ticket className="h-3.5 w-3.5 text-emerald-500" />
+              <span>Support</span>
+              {openTicketsCount > 0 && (
+                <span className="h-4 min-w-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                  {openTicketsCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* List of Channels or Support Tickets */}
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            {activeTab !== 'support' ? (
+              // ── CHANNELS LIST ──
+              <div className="divide-y divide-border/30">
+                {filteredChannels.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    No channels found
+                  </div>
+                ) : (
+                  filteredChannels.map((channel) => {
+                    const isSelected = selectedChannelId === channel.id
+                    return (
+                      <button
+                        key={channel.id}
+                        onClick={() => handleSelectChannel(channel.id)}
+                        className={cn(
+                          'w-full px-3.5 py-3 text-left transition-colors flex items-center gap-3',
+                          isSelected
+                            ? 'bg-primary/15 hover:bg-primary/20'
+                            : 'hover:bg-secondary/60'
+                        )}
+                      >
+                        <div className="relative flex-shrink-0">
+                          <Avatar className="h-12 w-12 rounded-full border border-border/50">
+                            <AvatarImage src={channel.avatar} alt={channel.name} />
+                            <AvatarFallback className="font-semibold text-sm bg-primary/20 text-primary">
+                              {channel.name.slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          {channel.isFollowed && (
+                            <span
+                              title="Followed Channel"
+                              className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-primary text-primary-foreground ring-2 ring-card flex items-center justify-center text-[9px]"
+                            >
+                              ✓
+                            </span>
+                          )}
+                        </div>
+
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-medium truncate">{other?.name}</p>
-                            <span className="text-xs text-muted-foreground flex-shrink-0">
-                              {new Date(conversation.lastMessageTime).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric'
-                              })}
+                          <div className="flex items-baseline justify-between gap-1.5 mb-0.5">
+                            <div className="flex items-center gap-1 truncate">
+                              <p className="font-semibold text-sm text-foreground truncate">
+                                {channel.name}
+                              </p>
+                              {channel.verified && (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                              )}
+                            </div>
+                            <span className="text-[11px] text-muted-foreground flex-shrink-0">
+                              {channel.lastPostTime}
                             </span>
                           </div>
-                          {conversation.tournamentContext && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 mt-1">
-                              <Trophy className="h-2.5 w-2.5 mr-1" />
-                              {conversation.tournamentContext.name}
+
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs text-muted-foreground truncate">
+                              {channel.lastPostSnippet}
+                            </p>
+                            {channel.unreadCount > 0 && (
+                              <span className="h-5 min-w-[20px] px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center flex-shrink-0">
+                                {channel.unreadCount}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            ) : (
+              // ── SUPPORT TICKETS LIST ──
+              <div className="divide-y divide-border/30">
+                <div className="p-3 bg-secondary/30 flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Private Dispute & Arbitration Desk
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setContactModalOpen(true)}
+                    className="h-7 text-xs font-semibold gap-1 text-primary border-primary/30"
+                  >
+                    <Plus className="h-3 w-3" />
+                    New Ticket
+                  </Button>
+                </div>
+
+                {filteredTickets.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    No open tickets
+                  </div>
+                ) : (
+                  filteredTickets.map((ticket) => {
+                    const isSelected = selectedTicketId === ticket.id
+                    return (
+                      <button
+                        key={ticket.id}
+                        onClick={() => setSelectedTicketId(ticket.id)}
+                        className={cn(
+                          'w-full px-3.5 py-3 text-left transition-colors flex items-start gap-3',
+                          isSelected
+                            ? 'bg-primary/15 hover:bg-primary/20'
+                            : 'hover:bg-secondary/60'
+                        )}
+                      >
+                        <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 mt-0.5 flex-shrink-0">
+                          <LifeBuoy className="h-5 w-5" />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline justify-between gap-1.5 mb-1">
+                            <span className="font-mono text-[10px] text-muted-foreground">
+                              {ticket.ticketNumber}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                'text-[10px] px-1.5 py-0 capitalize',
+                                ticket.status === 'open' && 'border-amber-500/40 text-amber-500 bg-amber-500/5',
+                                ticket.status === 'in_review' && 'border-blue-500/40 text-blue-500 bg-blue-500/5',
+                                ticket.status === 'resolved' && 'border-emerald-500/40 text-emerald-500 bg-emerald-500/5'
+                              )}
+                            >
+                              {ticket.status.replace('_', ' ')}
                             </Badge>
-                          )}
-                          <p className="text-sm text-muted-foreground truncate mt-1">
-                            {conversation.lastMessage}
+                          </div>
+
+                          <p className="font-semibold text-sm text-foreground truncate mb-0.5">
+                            {ticket.subject}
+                          </p>
+
+                          <p className="text-xs text-muted-foreground truncate">
+                            {ticket.organizerName} • {ticket.updatedAt}
                           </p>
                         </div>
-                        {conversation.unreadCount > 0 && (
-                          <Badge className="h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center flex-shrink-0">
-                            {conversation.unreadCount}
-                          </Badge>
-                        )}
-                      </div>
-                    </button>
-                  )
-                })}
+                      </button>
+                    )
+                  })
+                )}
               </div>
             )}
-          </ScrollArea>
-        </div>
+          </div>
+        </aside>
 
-        {/* Chat Area */}
-        {selectedConversation ? (
-          <div className={cn(
-            "flex-1 flex flex-col",
-            !selectedConvId && "hidden md:flex"
-          )}>
-            {/* Chat Header */}
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="md:hidden"
-                  onClick={() => setSelectedConvId(null)}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Back
-                </Button>
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={selectedConversation.participants[0]?.avatar} />
-                  <AvatarFallback>
-                    {selectedConversation.participants[0]?.name?.slice(0, 2)}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium">{selectedConversation.participants[0]?.name}</p>
-                  {selectedConversation.tournamentContext && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Trophy className="h-3 w-3" />
-                      {selectedConversation.tournamentContext.name}
+        {/* ── Right Panel (Channel Feed or Support Ticket) ─────── */}
+        <main
+          className={cn(
+            'flex-1 min-w-0 flex flex-col h-full bg-background/50 relative overflow-hidden',
+            !(selectedChannelId || selectedTicketId) ? 'hidden md:flex' : 'flex'
+          )}
+        >
+          {activeTab !== 'support' && selectedChannel ? (
+            // ── VIEW A: TELEGRAM BROADCAST CHANNEL STREAM ──
+            <>
+              {/* Minimal Channel Header */}
+              <div className="h-16 px-4 border-b border-border/70 flex items-center justify-between bg-card/85 backdrop-blur-sm">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="md:hidden h-8 w-8 -ml-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => setSelectedChannelId(null)}
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+
+                  <Avatar className="h-10 w-10 rounded-full border border-border/50 flex-shrink-0">
+                    <AvatarImage src={selectedChannel.avatar} alt={selectedChannel.name} />
+                    <AvatarFallback className="font-semibold text-xs bg-primary/20 text-primary">
+                      {selectedChannel.name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <h2 className="font-bold text-sm md:text-base text-foreground truncate">
+                        {selectedChannel.name}
+                      </h2>
+                      {selectedChannel.verified && (
+                        <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {selectedChannel.subscribers.toLocaleString()} subscribers
+                      {selectedChannel.sport ? ` • ${selectedChannel.sport} Tournament Timeline` : ' • Official Federation Feed'}
                     </p>
+                  </div>
+                </div>
+
+                {/* Header Actions: Follow, Stats, Contact Organizer */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Follow Button */}
+                  <Button
+                    size="sm"
+                    variant={selectedChannel.isFollowed ? 'secondary' : 'default'}
+                    onClick={() => handleToggleFollow(selectedChannel.id)}
+                    className={cn(
+                      'h-8 px-3 text-xs font-semibold gap-1 rounded-lg transition-all shadow-xs',
+                      selectedChannel.isFollowed ? 'bg-secondary text-foreground' : 'bg-primary text-primary-foreground'
+                    )}
+                  >
+                    {selectedChannel.isFollowed ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-primary" />
+                        <span>Following</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Follow</span>
+                      </>
+                    )}
+                  </Button>
+
+                  {/* Channel Statistics Button */}
+                  {selectedChannel.stats && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setStatsModalOpen(true)}
+                      className="h-8 px-2.5 text-xs font-medium gap-1.5 border-border hover:bg-secondary"
+                      title="View Channel Performance"
+                    >
+                      <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="hidden sm:inline">Stats</span>
+                    </Button>
                   )}
+
+                  {/* Contact Organizer Button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setContactModalOpen(true)}
+                    className="h-8 px-2.5 text-xs font-semibold gap-1.5 border-amber-500/30 text-amber-500 hover:bg-amber-500/10"
+                    title="Open a support ticket"
+                  >
+                    <LifeBuoy className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Contact Organizer</span>
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon">
-                  <Phone className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon">
-                  <Video className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
 
-            {/* Messages */}
-            <ScrollArea className="flex-1 p-4">
-              <div className="space-y-4">
-                {selectedConversation.messages.map((message) => {
-                  const isOwn = message.senderId === currentUserId
-                  return (
-                    <div
-                      key={message.id}
-                      className={cn("flex gap-3", isOwn && "flex-row-reverse")}
+              {/* Telegram-style Timeline Post Stream */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 overscroll-contain">
+                <div className="max-w-3xl mx-auto space-y-4">
+                  {/* Subtle Timeline Date Separator */}
+                  <div className="flex justify-center my-1">
+                    <span className="px-3.5 py-1 rounded-full bg-secondary/80 text-muted-foreground text-xs font-medium shadow-xs backdrop-blur-sm">
+                      Official Tournament Chronicle • March 2026
+                    </span>
+                  </div>
+
+                  {channelPosts.map((post) => (
+                    <article
+                      key={post.id}
+                      className="rounded-xl border border-border/70 bg-card/85 p-4 md:p-5 shadow-sm space-y-3 transition-colors hover:border-border"
                     >
-                      <Avatar className="h-8 w-8 flex-shrink-0">
-                        <AvatarImage src={message.senderAvatar} />
-                        <AvatarFallback>{message.senderName.slice(0, 2)}</AvatarFallback>
-                      </Avatar>
-                      <div className={cn("max-w-[70%] space-y-1", isOwn && "items-end")}>
-                        <div className={cn(
-                          "rounded-2xl px-4 py-2",
-                          isOwn
-                            ? "bg-primary text-primary-foreground rounded-br-md"
-                            : "bg-secondary rounded-bl-md"
-                        )}>
-                          <p className="text-sm">{message.content}</p>
+                      {/* Post Header */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <Avatar className="h-8 w-8 rounded-full border border-border/40">
+                            <AvatarImage src={post.authorAvatar || selectedChannel.avatar} />
+                            <AvatarFallback className="text-xs">
+                              {post.authorName.slice(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-xs font-semibold text-foreground">
+                              {post.authorName}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">{post.authorRole}</p>
+                          </div>
                         </div>
-                        <p className={cn(
-                          "text-xs text-muted-foreground",
-                          isOwn && "text-right"
-                        )}>
-                          {new Date(message.timestamp).toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit'
-                          })}
+
+                        <div className="flex items-center gap-1.5">
+                          {post.pinned && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 border-amber-500/40 text-amber-500 bg-amber-500/5 gap-1"
+                            >
+                              <Pin className="h-2.5 w-2.5" />
+                              Pinned
+                            </Badge>
+                          )}
+                          {post.badge && (
+                            <Badge
+                              variant="secondary"
+                              className="text-[11px] px-2 py-0.5 font-semibold bg-primary/10 text-primary border-primary/20"
+                            >
+                              {post.badge}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Post Title & Content */}
+                      <div>
+                        {post.title && (
+                          <h3 className="text-sm md:text-base font-bold text-foreground mb-1.5">
+                            {post.title}
+                          </h3>
+                        )}
+                        <p className="text-xs md:text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                          {post.content}
                         </p>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </ScrollArea>
 
-            {/* Message Input */}
-            <div className="p-4 border-t border-border">
-              <form
-                onSubmit={(e) => { e.preventDefault(); handleSendMessage() }}
-                className="flex gap-2"
-              >
-                <Input
-                  placeholder="Type a message..."
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  className="flex-1"
-                  disabled={isSending}
-                />
-                <Button type="submit" size="icon" disabled={isSending || !messageInput.trim()}>
-                  <Send className="h-4 w-4" />
-                </Button>
-              </form>
+                      {/* Post Footer: Views & Timestamp */}
+                      <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[11px] text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Eye className="h-3.5 w-3.5 text-muted-foreground/70" />
+                          <span>{post.views.toLocaleString()} views</span>
+                        </div>
+                        <time>{post.timestamp}</time>
+                      </div>
+                    </article>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+
+              {/* Channel Footer: Broadcast for Organizers vs Broadcast Notice & Contact for Players */}
+              <div className="p-3 md:p-4 border-t border-border/70 bg-card/90 backdrop-blur-md flex-shrink-0">
+                {isOrganizer ? (
+                  <form
+                    onSubmit={handleSendChannelMessage}
+                    className="max-w-3xl mx-auto flex items-center gap-2"
+                  >
+                    <Input
+                      placeholder={`Broadcast official announcement to ${selectedChannel.name}...`}
+                      value={channelMessageInput}
+                      onChange={(e) => setChannelMessageInput(e.target.value)}
+                      className="flex-1 h-10 text-sm bg-secondary/60 border-transparent focus-visible:bg-background focus-visible:border-border rounded-full px-4"
+                    />
+                    <Button
+                      type="submit"
+                      size="icon"
+                      disabled={!channelMessageInput.trim()}
+                      className="h-10 w-10 rounded-full flex-shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+                      title="Post announcement"
+                    >
+                      <Send className="h-4 w-4" />
+                      <span className="sr-only">Broadcast announcement</span>
+                    </Button>
+                  </form>
+                ) : (
+                  <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                      <span className="h-2 w-2 rounded-full bg-primary/70 flex-shrink-0" />
+                      <span className="truncate">
+                        Official tournament broadcast • Only organizers can post bulletins
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => setContactModalOpen(true)}
+                      className="h-9 px-4 text-xs font-semibold gap-1.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs flex-shrink-0"
+                    >
+                      <LifeBuoy className="h-3.5 w-3.5" />
+                      <span>Contact Organizer</span>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : activeTab === 'support' && selectedTicket ? (
+            // ── VIEW B: SEPARATE SUPPORT TICKET CHAT ──
+            <>
+              {/* Ticket Header */}
+              <div className="h-16 px-4 border-b border-border/70 flex items-center justify-between bg-card/85 backdrop-blur-sm">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="md:hidden h-8 w-8 -ml-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => setSelectedTicketId(null)}
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+
+                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                    <LifeBuoy className="h-5 w-5" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-bold text-sm text-foreground truncate">
+                        {selectedTicket.subject}
+                      </h2>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        ({selectedTicket.ticketNumber})
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {selectedTicket.organizerName} • Category: {selectedTicket.category.toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'text-xs px-2 py-0.5 capitalize',
+                    selectedTicket.status === 'open' && 'border-amber-500/40 text-amber-500 bg-amber-500/5',
+                    selectedTicket.status === 'in_review' && 'border-blue-500/40 text-blue-500 bg-blue-500/5',
+                    selectedTicket.status === 'resolved' && 'border-emerald-500/40 text-emerald-500 bg-emerald-500/5'
+                  )}
+                >
+                  {selectedTicket.status.replace('_', ' ')}
+                </Badge>
+              </div>
+
+              {/* Ticket Messages Stream */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-3 overscroll-contain">
+                <div className="max-w-3xl mx-auto space-y-3">
+                  {selectedTicket.messages.map((m) => {
+                    const isOwn = m.senderId === currentUserId
+                    return (
+                      <div
+                        key={m.id}
+                        className={cn('flex flex-col', isOwn ? 'items-end' : 'items-start')}
+                      >
+                        <div
+                          className={cn(
+                            'max-w-[85%] sm:max-w-[75%] px-4 py-2.5 rounded-2xl text-sm break-words shadow-xs space-y-1',
+                            isOwn
+                              ? 'bg-primary text-primary-foreground rounded-br-xs'
+                              : 'bg-secondary text-foreground rounded-bl-xs border border-border/40'
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2 text-[10px] opacity-80 mb-0.5">
+                            <span className="font-semibold">{m.senderName}</span>
+                            <span>{m.timestamp}</span>
+                          </div>
+                          <p className="leading-relaxed whitespace-pre-wrap">{m.content}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  <div ref={ticketEndRef} />
+                </div>
+              </div>
+
+              {/* Ticket Reply Input */}
+              <div className="p-3 md:p-4 border-t border-border/70 bg-card/90">
+                <div className="max-w-3xl mx-auto flex items-center gap-2">
+                  <Input
+                    placeholder="Reply to tournament referee desk..."
+                    value={ticketReplyInput}
+                    onChange={(e) => setTicketReplyInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSendTicketReply()
+                      }
+                    }}
+                    className="flex-1 h-10 text-sm bg-secondary/60 border-transparent focus-visible:bg-background focus-visible:border-border rounded-full px-4"
+                  />
+                  <Button
+                    size="icon"
+                    onClick={handleSendTicketReply}
+                    disabled={!ticketReplyInput.trim()}
+                    className="h-10 w-10 rounded-full flex-shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+                  >
+                    <Send className="h-4 w-4" />
+                    <span className="sr-only">Send reply</span>
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            // ── EMPTY STATE (TELEGRAM DESKTOP STYLE) ──
+            <div className="flex-1 flex items-center justify-center p-4">
+              <span className="px-4 py-1.5 rounded-full bg-secondary/80 text-muted-foreground text-xs md:text-sm font-medium shadow-xs select-none backdrop-blur-sm">
+                Select a channel to view announcements
+              </span>
             </div>
+          )}
+        </main>
+
+      {/* ── MODAL 1: Channel Statistics ─────────────────────── */}
+      <Dialog open={statsModalOpen} onOpenChange={setStatsModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              <span>Channel Statistics</span>
+            </DialogTitle>
+            <DialogDescription>
+              Audience engagement and tournament conversion metrics for{' '}
+              <strong className="text-foreground">{selectedChannel?.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedChannel?.stats && (
+            <div className="grid grid-cols-2 gap-3 py-2">
+              <div className="p-3.5 rounded-xl bg-secondary/60 border border-border/50">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                  <Users className="h-3.5 w-3.5 text-primary" />
+                  <span>Followers</span>
+                </div>
+                <div className="text-xl font-bold text-foreground">
+                  {selectedChannel.stats.followers.toLocaleString()}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-secondary/60 border border-border/50">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                  <span>Last 30 Days</span>
+                </div>
+                <div className="text-xl font-bold text-emerald-500">
+                  +{selectedChannel.stats.growth30Days} followers
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-secondary/60 border border-border/50">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                  <Eye className="h-3.5 w-3.5 text-blue-500" />
+                  <span>Avg Post Views</span>
+                </div>
+                <div className="text-xl font-bold text-foreground">
+                  {selectedChannel.stats.avgPostViews.toLocaleString()}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-secondary/60 border border-border/50">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                  <Trophy className="h-3.5 w-3.5 text-amber-500" />
+                  <span>Registrations</span>
+                </div>
+                <div className="text-xl font-bold text-amber-500">
+                  {selectedChannel.stats.registrationsFromChannel} entries
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground">
+            💡 Channel metrics help organizers track direct conversion from announcements to paid tournament entries. Included with TourneyUp Organizer Pro.
           </div>
-        ) : (
-          <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
-            Select a conversation to start messaging
-          </div>
-        )}
-      </div>
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setStatsModalOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── MODAL 2: Dedicated Contact Organizer ─────────────── */}
+      <Dialog open={contactModalOpen} onOpenChange={setContactModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleCreateTicketSubmit}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <LifeBuoy className="h-5 w-5 text-amber-500" />
+                <span>Contact Organizer Support Desk</span>
+              </DialogTitle>
+              <DialogDescription>
+                Submit an inquiry or dispute regarding payments, schedule, or rules.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3.5 py-4 text-xs">
+              <div>
+                <label className="font-semibold block mb-1 text-foreground">Category</label>
+                <select
+                  value={contactForm.category}
+                  onChange={(e) =>
+                    setContactForm({
+                      ...contactForm,
+                      category: e.target.value as SupportTicket['category'],
+                    })
+                  }
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+                >
+                  <option value="payment">Payment Problem</option>
+                  <option value="dispute">Rules / Match Dispute</option>
+                  <option value="schedule">Schedule Conflict</option>
+                  <option value="technical">Technical / Anti-Cheat</option>
+                  <option value="general">General Question</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-semibold block mb-1 text-foreground">Subject</label>
+                <Input
+                  placeholder="e.g. Payment Problem"
+                  value={contactForm.subject}
+                  onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
+                  className="h-9 text-xs"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold block mb-1 text-foreground">Message</label>
+                <Textarea
+                  placeholder="e.g. My payment was deducted but registration is still pending."
+                  value={contactForm.message}
+                  onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+                  rows={4}
+                  className="text-xs resize-none"
+                  required
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setContactModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-primary text-primary-foreground font-semibold">
+                Submit Support Ticket
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
