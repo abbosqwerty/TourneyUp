@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import {
   Channel,
   ChannelPost,
@@ -72,6 +72,89 @@ export default function MessagesClient({
   const [contactModalOpen, setContactModalOpen] = useState(false)
   const [ticketReplyInput, setTicketReplyInput] = useState('')
   const [channelMessageInput, setChannelMessageInput] = useState('')
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [sidebarWidth, setSidebarWidth] = useState<number>(360)
+  const [isDragging, setIsDragging] = useState<boolean>(false)
+
+  // Load persisted custom width on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('tourneyup_messages_sidebar_width')
+      if (saved) {
+        const val = parseInt(saved, 10)
+        if (!isNaN(val) && val >= 260 && val <= 560) {
+          setSidebarWidth(val)
+        }
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [])
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  const handleTouchStart = useCallback(() => {
+    setIsDragging(true)
+  }, [])
+
+  const handleResetSidebarWidth = useCallback(() => {
+    setSidebarWidth(360)
+    try {
+      localStorage.setItem('tourneyup_messages_sidebar_width', '360')
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'col-resize'
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return
+      const rect = containerRef.current.getBoundingClientRect()
+      const newWidth = e.clientX - rect.left
+      const maxAllowed = Math.min(560, Math.floor(rect.width * 0.48))
+      const clamped = Math.max(260, Math.min(maxAllowed, newWidth))
+      setSidebarWidth(clamped)
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!containerRef.current || !e.touches[0]) return
+      const rect = containerRef.current.getBoundingClientRect()
+      const newWidth = e.touches[0].clientX - rect.left
+      const maxAllowed = Math.min(560, Math.floor(rect.width * 0.48))
+      const clamped = Math.max(260, Math.min(maxAllowed, newWidth))
+      setSidebarWidth(clamped)
+    }
+
+    const onEnd = () => {
+      setIsDragging(false)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+      try {
+        localStorage.setItem('tourneyup_messages_sidebar_width', sidebarWidth.toString())
+      } catch {}
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onEnd)
+    window.addEventListener('touchmove', onTouchMove)
+    window.addEventListener('touchend', onEnd)
+
+    return () => {
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onEnd)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onEnd)
+    }
+  }, [isDragging, sidebarWidth])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const ticketEndRef = useRef<HTMLDivElement>(null)
@@ -329,14 +412,26 @@ export default function MessagesClient({
   const openTicketsCount = tickets.filter((t) => t.status !== 'resolved').length
 
   return (
-    <div className="w-full h-[calc(100dvh-4rem-4rem)] md:h-[calc(100dvh-4rem)] flex overflow-hidden bg-background">
-      {/* ── Left Sidebar (Telegram Style Channels & Support) ─── */}
-      <aside
+    <div className="w-full h-[calc(100dvh-4rem-4.5rem)] md:h-[calc(100dvh-4rem)] flex justify-center bg-background p-0 md:p-3 lg:p-4 xl:p-6 overflow-hidden">
+      {/* ── Centered Messenger Frame (Spaces placed outside) ─── */}
+      <div
+        ref={containerRef}
+        style={{
+          '--sidebar-width': `${sidebarWidth}px`,
+        } as React.CSSProperties}
         className={cn(
-          'w-full md:w-[340px] lg:w-[380px] xl:w-[400px] border-r border-border/70 flex flex-col bg-card/95 flex-shrink-0 h-full overflow-hidden',
-          (selectedChannelId || selectedTicketId) ? 'hidden md:flex' : 'flex'
+          'w-full max-w-[1440px] h-full flex overflow-hidden relative',
+          'rounded-none md:rounded-2xl border-0 md:border md:border-border/70 bg-card/60 backdrop-blur-sm shadow-none md:shadow-2xl',
+          isDragging && 'select-none'
         )}
       >
+        {/* ── Left Sidebar (Telegram Style Channels & Support) ─── */}
+        <aside
+          className={cn(
+            'w-full md:w-[var(--sidebar-width)] flex flex-col bg-card/95 flex-shrink-0 h-full overflow-hidden',
+            (selectedChannelId || selectedTicketId) ? 'hidden md:flex' : 'flex'
+          )}
+        >
         {/* Top Search */}
           <div className="p-3 border-b border-border/60">
             <div className="relative">
@@ -555,6 +650,43 @@ export default function MessagesClient({
           </div>
         </aside>
 
+        {/* ── Resizable Line (Draggable between Sidebar & Chat) ── */}
+        <div
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          onDoubleClick={handleResetSidebarWidth}
+          title="Drag left or right to customize sidebar width • Double-click to reset"
+          className={cn(
+            'hidden md:flex relative group cursor-col-resize select-none items-center justify-center',
+            'w-2.5 -mx-1 z-30 flex-shrink-0 transition-colors',
+            isDragging ? 'bg-primary/20' : 'hover:bg-primary/10'
+          )}
+        >
+          {/* Vertical divider line */}
+          <div
+            className={cn(
+              'w-px h-full transition-colors',
+              isDragging ? 'bg-primary w-0.5 shadow-sm' : 'bg-border/80 group-hover:bg-primary/80'
+            )}
+          />
+
+          {/* Grab handle indicator pill */}
+          <div
+            className={cn(
+              'absolute top-1/2 -translate-y-1/2 flex items-center justify-center w-3.5 h-8 rounded-full border shadow-xs transition-all pointer-events-none',
+              isDragging
+                ? 'bg-primary border-primary text-primary-foreground scale-110 shadow-md ring-2 ring-primary/25'
+                : 'bg-card border-border/80 text-muted-foreground group-hover:border-primary/60 group-hover:text-primary group-hover:scale-105'
+            )}
+          >
+            <div className="flex flex-col gap-0.5 items-center justify-center">
+              <span className="w-0.5 h-1 rounded-full bg-current" />
+              <span className="w-0.5 h-1 rounded-full bg-current" />
+              <span className="w-0.5 h-1 rounded-full bg-current" />
+            </div>
+          </div>
+        </div>
+
         {/* ── Right Panel (Channel Feed or Support Ticket) ─────── */}
         <main
           className={cn(
@@ -655,7 +787,7 @@ export default function MessagesClient({
 
               {/* Telegram-style Timeline Post Stream */}
               <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 overscroll-contain">
-                <div className="max-w-3xl mx-auto space-y-4">
+                <div className="w-full space-y-4">
                   {/* Subtle Timeline Date Separator */}
                   <div className="flex justify-center my-1">
                     <span className="px-3.5 py-1 rounded-full bg-secondary/80 text-muted-foreground text-xs font-medium shadow-xs backdrop-blur-sm">
@@ -737,7 +869,7 @@ export default function MessagesClient({
                 {isOrganizer ? (
                   <form
                     onSubmit={handleSendChannelMessage}
-                    className="max-w-3xl mx-auto flex items-center gap-2"
+                    className="w-full flex items-center gap-2"
                   >
                     <Input
                       placeholder={`Broadcast official announcement to ${selectedChannel.name}...`}
@@ -757,7 +889,7 @@ export default function MessagesClient({
                     </Button>
                   </form>
                 ) : (
-                  <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+                  <div className="w-full flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
                       <span className="h-2 w-2 rounded-full bg-primary/70 flex-shrink-0" />
                       <span className="truncate">
@@ -825,7 +957,7 @@ export default function MessagesClient({
 
               {/* Ticket Messages Stream */}
               <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-3 overscroll-contain">
-                <div className="max-w-3xl mx-auto space-y-3">
+                <div className="w-full space-y-3">
                   {selectedTicket.messages.map((m) => {
                     const isOwn = m.senderId === currentUserId
                     return (
@@ -856,7 +988,7 @@ export default function MessagesClient({
 
               {/* Ticket Reply Input */}
               <div className="p-3 md:p-4 border-t border-border/70 bg-card/90">
-                <div className="max-w-3xl mx-auto flex items-center gap-2">
+                <div className="w-full flex items-center gap-2">
                   <Input
                     placeholder="Reply to tournament referee desk..."
                     value={ticketReplyInput}
@@ -890,6 +1022,7 @@ export default function MessagesClient({
             </div>
           )}
         </main>
+      </div>
 
       {/* ── MODAL 1: Channel Statistics ─────────────────────── */}
       <Dialog open={statsModalOpen} onOpenChange={setStatsModalOpen}>
