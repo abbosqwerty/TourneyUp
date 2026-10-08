@@ -59,7 +59,7 @@
    DARK MODE COLORS  (when theme is set to dark)
    ============================================================ */
 .dark {
-  --background: #384959;        /* 🖼️  Page background */
+  --background: #384959;        /* 🖼️  Page background */ 
   --foreground: #ffffe3;        /* ✍️  Main text color */
 
   --card: #384959;              /* 📦  Cards & boxes background (make darker e.g. #273441) */
