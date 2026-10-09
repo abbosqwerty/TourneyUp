@@ -1,17 +1,48 @@
 const { PrismaClient } = require('@prisma/client')
+const { randomBytes, scryptSync } = require('crypto')
+
 const prisma = new PrismaClient()
 
+// Same format as lib/password.ts — `scrypt$N$r$p$saltHex$keyHex`
+function hashPassword(password) {
+  const salt = randomBytes(16)
+  const key = scryptSync(password.normalize('NFKC'), salt, 64, { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 })
+  return ['scrypt', 16384, 8, 1, salt.toString('hex'), key.toString('hex')].join('$')
+}
+
+// Demo credentials — every seeded account shares one password.
+const DEMO_PASSWORD = 'TourneyUp2026!'
+const DEMO_HASH = hashPassword(DEMO_PASSWORD)
+
+function slugify(value) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Seed production muhitida ishlamaydi — u butun bazani o\'chiradi.')
+  }
+
   console.log('Clear database...')
-  await prisma.message.deleteMany()
-  await prisma.conversationParticipant.deleteMany()
-  await prisma.conversation.deleteMany()
+  await prisma.storyView.deleteMany()
+  await prisma.story.deleteMany()
+  await prisma.channelPost.deleteMany()
+  await prisma.channelMember.deleteMany()
+  await prisma.channel.deleteMany()
+  await prisma.tournamentStaff.deleteMany()
   await prisma.savedTournament.deleteMany()
   await prisma.participant.deleteMany()
+  await prisma.organizationApplication.deleteMany()
   await prisma.tournament.deleteMany()
+  await prisma.organization.deleteMany()
   await prisma.match.deleteMany()
   await prisma.sportRank.deleteMany()
   await prisma.achievement.deleteMany()
+  await prisma.session.deleteMany()
+  await prisma.mediaAsset.deleteMany()
   await prisma.user.deleteMany()
 
   console.log('Creating users (Uzbek participants)...')
@@ -104,8 +135,35 @@ async function main() {
   ]
 
   for (const u of users) {
-    await prisma.user.create({ data: u })
+    await prisma.user.create({
+      data: {
+        ...u,
+        role: 'USER',
+        email: `${u.username}@tuit.uz`,
+        passwordHash: DEMO_HASH,
+      },
+    })
   }
+
+  console.log('Creating super admin...')
+
+  await prisma.user.create({
+    data: {
+      id: 'admin1',
+      name: 'TourneyUp Super Admin',
+      username: 'superadmin',
+      email: 'admin@tourneyup.uz',
+      passwordHash: DEMO_HASH,
+      role: 'SUPER_ADMIN',
+      verified: true,
+      avatar: '/placeholder-user.jpg',
+      bio: 'Platforma administratori.',
+      location: 'Tashkent, Uzbekistan',
+      globalRank: 0,
+      totalPoints: 0,
+      joinedDate: '2022-01-01',
+    },
+  })
 
   console.log('Creating organizers...')
 
@@ -120,8 +178,47 @@ async function main() {
     { id: 'org8', name: 'Samarkand Runners Club', username: 'sam_runners', avatar: '/avatars/sf-run.jpg', bio: 'Samarkand\'s largest running community. Hosting local marathons and runs.', location: 'Samarkand, Uzbekistan', globalRank: 0, totalPoints: 0, joinedDate: '2023-02-15' },
   ]
 
+  /** ownerUserId -> organizationId, used to attach tournaments below. */
+  const orgByOwner = {}
+
   for (const o of organizers) {
-    await prisma.user.create({ data: o })
+    await prisma.user.create({
+      data: {
+        ...o,
+        role: 'ORGANIZATION',
+        verified: true,
+        email: `${o.username}@tourneyup.uz`,
+        passwordHash: DEMO_HASH,
+      },
+    })
+
+    const organization = await prisma.organization.create({
+      data: {
+        name: o.name,
+        slug: slugify(o.username),
+        description: o.bio,
+        email: `${o.username}@tourneyup.uz`,
+        location: o.location,
+        status: 'ACTIVE',
+        ownerId: o.id,
+      },
+    })
+    orgByOwner[o.id] = organization.id
+
+    // Every organization gets a Telegram-style broadcast channel.
+    const channel = await prisma.channel.create({
+      data: {
+        type: 'ORGANIZATION',
+        title: o.name,
+        handle: slugify(o.username),
+        description: o.bio,
+        avatar: o.avatar,
+        organizationId: organization.id,
+      },
+    })
+    await prisma.channelMember.create({
+      data: { channelId: channel.id, userId: o.id, role: 'OWNER' },
+    })
   }
 
   console.log('Creating achievements...')
@@ -163,24 +260,6 @@ async function main() {
       { sport: 'Valorant', rank: 5, points: 5500, tier: 'champion', userId: 'user13' },
       { sport: 'Swimming', rank: 3, points: 5800, tier: 'champion', userId: 'user14' },
       { sport: 'Rocket League', rank: 2, points: 6200, tier: 'champion', userId: 'user15' },
-    ]
-  })
-
-  console.log('Creating match history...')
-
-  await prisma.match.createMany({
-    data: [
-      { tournamentId: '5', tournamentName: 'Valorant Uzbekistan Cup', sport: 'Valorant', opponent: 'Team Phoenix', result: 'win', score: '13-9', date: '2026-03-20', userId: 'user1' },
-      { tournamentId: '4', tournamentName: 'TUIT Basketball 3v3 Arena', sport: 'Basketball', opponent: 'WIUT Wolves', result: 'win', score: '21-18', date: '2026-03-15', userId: 'user1' },
-      { tournamentId: '3', tournamentName: 'Uzbekistan National Chess Championship', sport: 'Chess', opponent: 'Dilshod Karimov', result: 'loss', score: '0-1', date: '2026-03-10', userId: 'user1' },
-      { tournamentId: '2', tournamentName: 'PUBG Mobile Tashkent Masters', sport: 'PUBG Mobile', opponent: 'Squad Alpha', result: 'win', score: '#2 finish', date: '2026-03-05', userId: 'user1' },
-      { tournamentId: '1', tournamentName: 'Tashkent Inter-University Football Cup', sport: 'Football', opponent: 'WIUT Wolves', result: 'win', score: '3-1', date: '2026-04-16', userId: 'user1' },
-      { tournamentId: '3', tournamentName: 'Uzbekistan National Chess Championship', sport: 'Chess', opponent: 'Dilshod Karimov', result: 'win', score: '1-0', date: '2026-05-02', userId: 'user10' },
-      { tournamentId: '3', tournamentName: 'Uzbekistan National Chess Championship', sport: 'Chess', opponent: 'Abbos Qurbonov', result: 'win', score: '1-0', date: '2026-05-03', userId: 'user10' },
-      { tournamentId: '4', tournamentName: 'TUIT Basketball 3v3 Arena', sport: 'Basketball', opponent: 'TUIT Lions', result: 'win', score: '21-14', date: '2026-04-08', userId: 'user11' },
-      { tournamentId: '1', tournamentName: 'Tashkent Inter-University Football Cup', sport: 'Football', opponent: 'TUIT Lions', result: 'loss', score: '1-3', date: '2026-04-16', userId: 'user11' },
-      { tournamentId: '8', tournamentName: 'Samarkand Marathon 2026', sport: 'Running', opponent: 'Field of 1000', result: 'win', score: '2:48:15', date: '2026-05-10', userId: 'user12' },
-      { tournamentId: '6', tournamentName: 'Tashkent Swimming Championship', sport: 'Swimming', opponent: '100m Freestyle field', result: 'win', score: '52.3s', date: '2026-04-25', userId: 'user14' },
     ]
   })
 
@@ -346,7 +425,24 @@ async function main() {
   ]
 
   for (const t of tournaments) {
-    await prisma.tournament.create({ data: t })
+    const created = await prisma.tournament.create({
+      data: { ...t, organizationId: orgByOwner[t.organizerId] ?? null },
+    })
+
+    // Each tournament is also a channel (Telegram group feel).
+    const channel = await prisma.channel.create({
+      data: {
+        type: 'TOURNAMENT',
+        title: t.title,
+        handle: `t-${created.id}-${slugify(t.sport)}`.slice(0, 60),
+        description: t.description.slice(0, 500),
+        avatar: t.posterUrl,
+        tournamentId: created.id,
+      },
+    })
+    await prisma.channelMember.create({
+      data: { channelId: channel.id, userId: t.organizerId, role: 'OWNER' },
+    })
   }
 
   console.log('Creating participants...')
@@ -391,6 +487,65 @@ async function main() {
     await prisma.participant.create({ data: p })
   }
 
+  console.log('Creating matches from approved participants...')
+
+  // Real fixtures: pair up approved registrations of the same tournament.
+  // `homeUserId`/`awayUserId`/`winnerUserId` mirror what recordMatchResult
+  // writes at runtime, so profiles and the leaderboard read correct numbers.
+  const approved = await prisma.participant.findMany({
+    where: { status: 'approved' },
+    select: { id: true, name: true, teamName: true, userId: true, tournamentId: true },
+    orderBy: { id: 'asc' },
+  })
+
+  const byTournament = new Map()
+  for (const row of approved) {
+    const list = byTournament.get(row.tournamentId) ?? []
+    list.push(row)
+    byTournament.set(row.tournamentId, list)
+  }
+
+  const label = (row) => row.teamName || row.name
+  const stages = ['Guruh bosqichi', 'Chorak final', 'Yarim final', 'Final']
+  let fixtureIndex = 0
+
+  for (const [tournamentId, rows] of byTournament) {
+    for (let i = 0; i + 1 < rows.length; i += 2) {
+      const home = rows[i]
+      const away = rows[i + 1]
+
+      // Every third fixture stays unplayed so the schedule tab is not empty.
+      const played = fixtureIndex % 3 !== 2
+      const homeScore = played ? 2 + (fixtureIndex % 3) : null
+      const awayScore = played ? 1 + ((fixtureIndex + 1) % 3) : null
+
+      let winnerUserId = null
+      if (played && homeScore !== awayScore) {
+        winnerUserId = homeScore > awayScore ? home.userId : away.userId
+      }
+
+      await prisma.match.create({
+        data: {
+          tournamentId,
+          stage: stages[fixtureIndex % stages.length],
+          status: played ? 'completed' : fixtureIndex % 5 === 0 ? 'live' : 'scheduled',
+          scheduledAt: new Date(Date.UTC(2026, 3, 10 + fixtureIndex, 14, 0)),
+          homeParticipantId: home.id,
+          awayParticipantId: away.id,
+          homeLabel: label(home),
+          awayLabel: label(away),
+          homeUserId: home.userId,
+          awayUserId: away.userId,
+          homeScore,
+          awayScore,
+          winnerUserId,
+        },
+      })
+
+      fixtureIndex += 1
+    }
+  }
+
   console.log('Creating saved tournaments...')
 
   await prisma.savedTournament.createMany({
@@ -401,124 +556,129 @@ async function main() {
     ]
   })
 
-  console.log('Creating conversations and messages...')
+  console.log('Creating channel posts (organization + tournament broadcasts)...')
 
-  await prisma.conversation.create({
-    data: {
-      id: 'conv1',
-      lastMessage: 'Sizning jamoangiz chempionatga tasdiqlandi! Barcha o\'yinchilar 10-aprelga qadar tekshiruvdan o\'tganligiga ishonch hosil qiling.',
-      lastMessageTime: '2026-03-24T10:30:00',
-      unreadCount: 1,
-      tournamentContextId: '1',
-      tournamentContextName: 'Tashkent Inter-University Football Cup 2026'
-    }
-  })
-  await prisma.conversationParticipant.createMany({
-    data: [
-      { conversationId: 'conv1', userId: 'user1' },
-      { conversationId: 'conv1', userId: 'org1' }
-    ]
-  })
-  await prisma.message.createMany({
-    data: [
-      { conversationId: 'conv1', senderId: 'org1', senderName: 'Tashkent Sports Association', senderAvatar: '/avatars/stanford.jpg', content: 'Salom Abbos! Biz sizning Tashkent Inter-University Football Cup turniriga bergan arizangizni ko\'rib chiqdik.', timestamp: '2026-03-24T10:25:00', read: true },
-      { conversationId: 'conv1', senderId: 'org1', senderName: 'Tashkent Sports Association', senderAvatar: '/avatars/stanford.jpg', content: 'Sizning jamoangiz chempionatga tasdiqlandi! Barcha o\'yinchilar 10-aprelga qadar tekshiruvdan o\'tganligiga ishonch hosil qiling.', timestamp: '2026-03-24T10:30:00', read: false },
-      { conversationId: 'conv1', senderId: 'user1', senderName: 'Abbos Qurbonov', senderAvatar: '/avatars/alex.jpg', content: 'Ajoyib yangilik! Katta rahmat. Hamma o\'yinchilarni o\'z vaqtida ro\'yxatdan o\'tkazamiz. Kutib qolamiz!', timestamp: '2026-03-24T10:35:00', read: true },
-      { conversationId: 'conv1', senderId: 'org1', senderName: 'Tashkent Sports Association', senderAvatar: '/avatars/stanford.jpg', content: 'Juda yaxshi! O\'yinlar jadvali: Guruh bosqichi 15-16 aprel, chorak final 17 aprel, yarim final 18 aprel va final 20 aprel kunlari bo\'ladi. Omad! 🏆', timestamp: '2026-03-24T10:40:00', read: false },
-    ]
+  const orgChannels = await prisma.channel.findMany({
+    where: { type: 'ORGANIZATION' },
+    select: { id: true, organization: { select: { ownerId: true, name: true } } },
   })
 
-  await prisma.conversation.create({
-    data: {
-      id: 'conv2',
-      lastMessage: 'Men ham ro\'yxatdan o\'tdim! Bugun soat 20:00 da mashg\'ulot o\'tkazamiz, men xona ochib qo\'yaman.',
-      lastMessageTime: '2026-03-23T18:55:00',
-      unreadCount: 2,
+  const orgPosts = {
+    org1: [
+      'Tashkent Inter-University Football Cup 2026 uchun ro\'yxatdan o\'tish ochildi! 16 jamoa, 50M UZS mukofot fondi.',
+      'Eslatma: jamoa ro\'yxatini 10-aprelga qadar yuboring. Kechikkan arizalar ko\'rib chiqilmaydi.',
+    ],
+    org3: [
+      'Milliy shaxmat chempionati uchun FIDE reytingi tekshiruvi boshlandi.',
+      'Jadval: 1-tur 12-may soat 10:00, Toshkent shaxmat markazi.',
+    ],
+    org5: [
+      'Valorant Uzbekistan Cup B guruhi jadvali e\'lon qilindi.',
+      'Discord serverida o\'yindan 30 daqiqa oldin tasdiqlash majburiy.',
+    ],
+  }
+
+  for (const channel of orgChannels) {
+    const owner = channel.organization?.ownerId
+    const posts = orgPosts[owner]
+    if (!posts) continue
+    let offset = posts.length
+    for (const content of posts) {
+      await prisma.channelPost.create({
+        data: {
+          channelId: channel.id,
+          authorId: owner,
+          content,
+          createdAt: new Date(Date.now() - offset * 36e5),
+        },
+      })
+      offset -= 1
     }
-  })
-  await prisma.conversationParticipant.createMany({
-    data: [
-      { conversationId: 'conv2', userId: 'user1' },
-      { conversationId: 'conv2', userId: 'user11' }
-    ]
-  })
-  await prisma.message.createMany({
-    data: [
-      { conversationId: 'conv2', senderId: 'user11', senderName: 'Sardor Rahimov', senderAvatar: '/avatars/marcus.jpg', content: 'Hey Abbos! Valorant turniri uchun jamoa bo\'lamizmi? Bizga yaxshi Duelist kerak edi.', timestamp: '2026-03-23T18:30:00', read: true },
-      { conversationId: 'conv2', senderId: 'user1', senderName: 'Abbos Qurbonov', senderAvatar: '/avatars/alex.jpg', content: 'Albatta! Men oxirgi paytlarda ko\'p o\'ynab Diamond 2 ga chiqdim. Jamoada yana kimlar bor?', timestamp: '2026-03-23T18:40:00', read: true },
-      { conversationId: 'conv2', senderId: 'user11', senderName: 'Sardor Rahimov', senderAvatar: '/avatars/marcus.jpg', content: 'Yaxshi! NYUdan David Sentinel, Inhadan Dilshodni ise Controller sifatida taklif qilmoqchiman. Bizga yana Initiator kerak.', timestamp: '2026-03-23T18:45:00', read: false },
-      { conversationId: 'conv2', senderId: 'user11', senderName: 'Sardor Rahimov', senderAvatar: '/avatars/marcus.jpg', content: 'Men ham ro\'yxatdan o\'tdim! Bugun soat 20:00 da mashg\'ulot o\'tkazamiz, men xona ochib qo\'yaman.', timestamp: '2026-03-23T18:55:00', read: false },
-    ]
+  }
+
+  // Participants automatically follow the channels of tournaments they joined.
+  const tournamentChannels = await prisma.channel.findMany({
+    where: { type: 'TOURNAMENT' },
+    select: { id: true, tournamentId: true, tournament: { select: { organizerId: true, title: true } } },
   })
 
-  await prisma.conversation.create({
-    data: {
-      id: 'conv3',
-      lastMessage: 'Eslatma: O\'yiningiz 2 soatdan keyin boshlanadi. Iltimos, turnir Discord serverida tasdiqlang.',
-      lastMessageTime: '2026-03-22T14:00:00',
-      unreadCount: 0,
-      tournamentContextId: '5',
-      tournamentContextName: 'Valorant Uzbekistan Cup'
+  for (const channel of tournamentChannels) {
+    const approved = await prisma.participant.findMany({
+      where: { tournamentId: channel.tournamentId, userId: { not: null } },
+      select: { userId: true },
+    })
+
+    for (const p of approved) {
+      await prisma.channelMember.upsert({
+        where: { channelId_userId: { channelId: channel.id, userId: p.userId } },
+        update: {},
+        create: { channelId: channel.id, userId: p.userId, role: 'SUBSCRIBER' },
+      })
     }
-  })
-  await prisma.conversationParticipant.createMany({
+
+    await prisma.channelPost.create({
+      data: {
+        channelId: channel.id,
+        authorId: channel.tournament.organizerId,
+        content: `${channel.tournament.title} kanaliga xush kelibsiz! Barcha rasmiy e\'lonlar shu yerda chiqadi.`,
+        pinned: true,
+      },
+    })
+  }
+
+  console.log('Creating temporary tournament staff grants...')
+
+  // org1 delegates its football cup: one organizer, one support agent.
+  await prisma.tournamentStaff.createMany({
     data: [
-      { conversationId: 'conv3', userId: 'user1' },
-      { conversationId: 'conv3', userId: 'org5' }
-    ]
-  })
-  await prisma.message.createMany({
-    data: [
-      { conversationId: 'conv3', senderId: 'org5', senderName: 'Riot Games Tashkent Community', senderAvatar: '/avatars/riot.jpg', content: 'Valorant Uzbekistan Cup turniriga xush kelibsiz! Jamoangiz B guruhiga joylashtirildi. Birinchi o\'yin 22-mart kuni soat 17:00 da boshlanadi.', timestamp: '2026-03-20T10:00:00', read: true },
-      { conversationId: 'conv3', senderId: 'user1', senderName: 'Abbos Qurbonov', senderAvatar: '/avatars/alex.jpg', content: 'Rahmat! Biz tayyormiz. Ro\'yxatdan o\'tish qayerda bo\'ladi?', timestamp: '2026-03-20T10:15:00', read: true },
-      { conversationId: 'conv3', senderId: 'org5', senderName: 'Riot Games Tashkent Community', senderAvatar: '/avatars/riot.jpg', content: 'O\'yindan 30 daqiqa oldin Discord serverida tasdiqlashingiz kerak. Havola tasdiqlash xatida yuborilgan. Omad!', timestamp: '2026-03-20T10:20:00', read: true },
-      { conversationId: 'conv3', senderId: 'org5', senderName: 'Riot Games Tashkent Community', senderAvatar: '/avatars/riot.jpg', content: 'Eslatma: O\'yiningiz 2 soatdan keyin boshlanadi. Iltimos, turnir Discord serverida tasdiqlang.', timestamp: '2026-03-22T14:00:00', read: true },
-    ]
+      { tournamentId: '1', userId: 'user11', role: 'ORGANIZER', grantedById: 'org1' },
+      { tournamentId: '1', userId: 'user12', role: 'SUPPORT', grantedById: 'org1' },
+      { tournamentId: '5', userId: 'user13', role: 'ADMIN', grantedById: 'org5' },
+    ],
   })
 
-  await prisma.conversation.create({
-    data: {
-      id: 'conv4',
-      lastMessage: 'GG! Ascent xaritasidagi o\'yin dahshat bo\'ldi. Ertaga ranked o\'ynaymizmi? 🎮',
-      lastMessageTime: '2026-03-21T20:30:00',
-      unreadCount: 0,
-    }
-  })
-  await prisma.conversationParticipant.createMany({
-    data: [
-      { conversationId: 'conv4', userId: 'user1' },
-      { conversationId: 'conv4', userId: 'user12' }
-    ]
-  })
-  await prisma.message.createMany({
-    data: [
-      { conversationId: 'conv4', senderId: 'user12', senderName: 'Madina Abdullayeva', senderAvatar: '/avatars/emma.jpg', content: 'Salom Abbos, ajoyib o\'yin bo\'ldi! Jamoangiz stol tennisi turnirida juda yaxshi o\'ynadi.', timestamp: '2026-03-21T20:10:00', read: true },
-      { conversationId: 'conv4', senderId: 'user1', senderName: 'Abbos Qurbonov', senderAvatar: '/avatars/alex.jpg', content: 'Rahmat Madina! Siz ham oxirgi zarbani zo\'r amalga oshirdingiz. Siz ham Valorant turnirida ishtirok etasizmi?', timestamp: '2026-03-21T20:20:00', read: true },
-      { conversationId: 'conv4', senderId: 'user12', senderName: 'Madina Abdullayeva', senderAvatar: '/avatars/emma.jpg', content: 'GG! Ascent xaritasidagi o\'yin dahshat bo\'ldi. Ertaga ranked o\'ynaymizmi? 🎮', timestamp: '2026-03-21T20:30:00', read: true },
-    ]
-  })
+  // Staff also join the tournament channel so they can answer questions.
+  for (const grant of [
+    { tournamentId: '1', userId: 'user11' },
+    { tournamentId: '1', userId: 'user12' },
+    { tournamentId: '5', userId: 'user13' },
+  ]) {
+    const channel = await prisma.channel.findUnique({
+      where: { tournamentId: grant.tournamentId },
+      select: { id: true },
+    })
+    if (!channel) continue
+    await prisma.channelMember.upsert({
+      where: { channelId_userId: { channelId: channel.id, userId: grant.userId } },
+      update: { role: 'STAFF' },
+      create: { channelId: channel.id, userId: grant.userId, role: 'STAFF' },
+    })
+  }
 
-  await prisma.conversation.create({
-    data: {
-      id: 'conv5',
-      lastMessage: 'Ro\'yxatdan o\'tish tasdiqlandi. FIDE ID raqamingiz tekshirildi. Toshkentda ko\'rishguncha! ♟️',
-      lastMessageTime: '2026-04-05T09:00:00',
-      unreadCount: 1,
-      tournamentContextId: '3',
-      tournamentContextName: 'Uzbekistan National Chess Championship'
-    }
-  })
-  await prisma.conversationParticipant.createMany({
+  console.log('Creating pending organization applications...')
+
+  await prisma.organizationApplication.createMany({
     data: [
-      { conversationId: 'conv5', userId: 'user1' },
-      { conversationId: 'conv5', userId: 'org3' }
-    ]
-  })
-  await prisma.message.createMany({
-    data: [
-      { conversationId: 'conv5', senderId: 'org3', senderName: 'Uzbek Chess Federation', senderAvatar: '/avatars/us-chess.jpg', content: 'Milliy shaxmat chempionatiga ro\'yxatdan o\'tganingiz uchun rahmat! Hozir reytingingizni tekshiryapmiz.', timestamp: '2026-04-04T14:00:00', read: true },
-      { conversationId: 'conv5', senderId: 'org3', senderName: 'Uzbek Chess Federation', senderAvatar: '/avatars/us-chess.jpg', content: 'Ro\'yxatdan o\'tish tasdiqlandi. FIDE ID raqamingiz tekshirildi. Toshkentda ko\'rishguncha! ♟️', timestamp: '2026-04-05T09:00:00', read: false },
-    ]
+      {
+        orgName: 'Bukhara University Sports Club',
+        contactName: 'Ulug\'bek Nazarov',
+        email: 'sports@buxdu.uz',
+        phone: '+998 90 123 45 67',
+        website: 'https://buxdu.uz',
+        location: 'Bukhara, Uzbekistan',
+        description: 'Buxoro davlat universiteti sport klubi. Yiliga 12 ta ichki turnir o\'tkazamiz va platformada rasmiy tashkilot bo\'lishni xohlaymiz.',
+        status: 'PENDING',
+      },
+      {
+        orgName: 'Namangan Esports League',
+        contactName: 'Aziz Tursunov',
+        email: 'hello@namanganesports.uz',
+        phone: '+998 91 777 11 22',
+        location: 'Namangan, Uzbekistan',
+        description: 'Namangan viloyatidagi eng katta esports ligasi. Dota 2, CS2 va PUBG Mobile turnirlari.',
+        status: 'PENDING',
+      },
+    ],
   })
 
   console.log('Database seeded successfully!')

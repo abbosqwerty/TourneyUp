@@ -19,7 +19,8 @@ import {
   GraduationCap,
   Dribbble
 } from 'lucide-react'
-import type { Tournament } from '@/lib/mock-data'
+import type { Tournament } from '@/lib/types'
+import { TOURNAMENT_STATUS_CLASSES, TOURNAMENT_STATUS_LABELS } from '@/lib/constants'
 import { useAuthModal } from '@/components/auth-modal'
 import { ParticipantSlots } from '@/components/participant-slots'
 
@@ -34,20 +35,6 @@ const categoryIcons = {
   sports: Dribbble,
   esports: Gamepad2,
   academic: GraduationCap,
-}
-
-const statusColors = {
-  upcoming: 'bg-secondary text-secondary-foreground',
-  ongoing: 'bg-success text-white',
-  completed: 'bg-muted text-muted-foreground',
-  registration_open: 'bg-primary text-primary-foreground',
-}
-
-const statusLabels = {
-  upcoming: 'Upcoming',
-  ongoing: 'Live',
-  completed: 'Completed',
-  registration_open: 'Open',
 }
 
 export function TournamentCard({ 
@@ -129,12 +116,23 @@ export function TournamentCard({
       <Card className="border-primary/30 glow-primary p-3 flex flex-col justify-between">
         {/* Tournament Image Banner — padded with rounded corners */}
         <div className="relative h-48 rounded-xl overflow-hidden bg-gradient-to-br from-primary/30 via-secondary to-accent/30">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Trophy className="h-16 w-16 text-primary/50" />
-          </div>
+          {/* Uploaded poster when there is one; the gradient stays as fallback. */}
+          {tournament.posterUrl ? (
+             
+            <img
+              src={tournament.posterUrl}
+              alt={`${tournament.title} afishasi`}
+              loading="lazy"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Trophy className="h-16 w-16 text-primary/50" />
+            </div>
+          )}
           <div className="absolute top-3 left-3 flex gap-2">
-            <Badge className={cn(statusColors[tournament.status])}>
-              {statusLabels[tournament.status]}
+            <Badge className={cn(TOURNAMENT_STATUS_CLASSES[tournament.status])}>
+              {TOURNAMENT_STATUS_LABELS[tournament.status]}
             </Badge>
             {tournament.featured && (
               <Badge variant="outline" className="border-primary text-primary bg-background/50">
@@ -148,8 +146,10 @@ export function TournamentCard({
               size="icon"
               className="absolute top-3 right-3 bg-background/60 backdrop-blur hover:bg-background/90 rounded-full"
               onClick={handleSaveClick}
+              aria-label={isSaved ? 'Saqlanganlardan olib tashlash' : 'Turnirni saqlash'}
+              aria-pressed={isSaved}
             >
-              <Bookmark className={cn("h-4 w-4", isSaved && "fill-primary text-primary")} />
+              <Bookmark className={cn("h-4 w-4", isSaved && "fill-primary text-primary")} aria-hidden />
             </Button>
           )}
         </div>
@@ -164,7 +164,7 @@ export function TournamentCard({
             
             <div className="flex items-center gap-2 mt-3">
               <Avatar className="h-6 w-6">
-                <AvatarImage src={tournament.organizer.avatar} />
+                <AvatarImage src={tournament.organizer.avatar} alt={`${tournament.organizer.name} logotipi`} />
                 <AvatarFallback>{tournament.organizer.name[0]}</AvatarFallback>
               </Avatar>
               <span className="text-sm text-muted-foreground">{tournament.organizer.name}</span>
@@ -243,12 +243,22 @@ export function TournamentCard({
     <Card className="hover:border-primary/50 transition-all hover:shadow-lg group p-3 flex flex-col justify-between">
       {/* Tournament Image Banner — padded with rounded corners */}
       <div className="relative h-40 rounded-xl overflow-hidden bg-gradient-to-br from-secondary via-card to-secondary">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <CategoryIcon className="h-12 w-12 text-primary/30" />
-        </div>
+        {tournament.posterUrl ? (
+           
+          <img
+            src={tournament.posterUrl}
+            alt={`${tournament.title} afishasi`}
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <CategoryIcon className="h-12 w-12 text-primary/30" />
+          </div>
+        )}
         <div className="absolute top-3 left-3 flex gap-2">
-          <Badge className={cn(statusColors[tournament.status])}>
-            {statusLabels[tournament.status]}
+          <Badge className={cn(TOURNAMENT_STATUS_CLASSES[tournament.status])}>
+            {TOURNAMENT_STATUS_LABELS[tournament.status]}
           </Badge>
         </div>
         {onSave && (
@@ -257,8 +267,10 @@ export function TournamentCard({
             size="icon"
             className="absolute top-3 right-3 bg-background/60 backdrop-blur hover:bg-background/90 rounded-full"
             onClick={handleSaveClick}
+            aria-label={isSaved ? 'Saqlanganlardan olib tashlash' : 'Turnirni saqlash'}
+            aria-pressed={isSaved}
           >
-            <Bookmark className={cn("h-4 w-4", isSaved && "fill-primary text-primary")} />
+            <Bookmark className={cn("h-4 w-4", isSaved && "fill-primary text-primary")} aria-hidden />
           </Button>
         )}
         <Badge variant="secondary" className="absolute bottom-3 left-3">
@@ -276,7 +288,7 @@ export function TournamentCard({
 
           <div className="flex items-center gap-2 mt-2">
             <Avatar className="h-5 w-5">
-              <AvatarImage src={tournament.organizer.avatar} />
+              <AvatarImage src={tournament.organizer.avatar} alt={`${tournament.organizer.name} logotipi`} />
               <AvatarFallback>{tournament.organizer.name[0]}</AvatarFallback>
             </Avatar>
             <span className="text-xs text-muted-foreground line-clamp-1">

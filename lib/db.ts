@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client'
+// Importing this validates DATABASE_URL before any query is attempted.
+import './env'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined

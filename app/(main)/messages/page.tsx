@@ -1,43 +1,69 @@
+import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
-import MessagesClient from './messages-client'
-import { cookies } from 'next/headers'
-import { Metadata } from 'next'
+import { getCurrentUser } from '@/lib/session'
+import { listChannelsForUser } from '@/lib/channels'
+import { DbErrorCard } from '@/components/db-error-card'
+import { ChannelsClient } from './channels-client'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Channels & Support | TourneyUp',
-  description: 'Organizer channels, tournament chronicles, and support desk',
+  title: 'Kanallar',
+  robots: { index: false },
 }
 
 export default async function MessagesPage() {
-  const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value || 'user1'
+  const user = await getCurrentUser()
+  if (!user) redirect('/login?next=%2Fmessages')
 
-  let currentUserName = 'Abbos Qurbonov'
-  let currentUserAvatar = '/avatars/alex.jpg'
-  let isOrganizer = false
-
+  let data: Awaited<ReturnType<typeof load>> | null = null
   try {
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: { id: true, name: true, avatar: true, globalRank: true },
-    })
-    if (user) {
-      currentUserName = user.name
-      currentUserAvatar = user.avatar
-      isOrganizer = user.id.startsWith('org') || user.globalRank === 0
-    }
-  } catch {
-    // Fallback if DB unavailable
+    data = await load(user.id)
+  } catch (error) {
+    console.error('messages page failed', error)
   }
 
-  return (
-    <MessagesClient
-      currentUserId={userId}
-      currentUserName={currentUserName}
-      currentUserAvatar={currentUserAvatar}
-      isOrganizer={isOrganizer}
-    />
-  )
+  if (!data) return <DbErrorCard message="Kanallarni yuklab bo‘lmadi. Keyinroq qayta urinib ko‘ring." />
+
+  return <ChannelsClient channels={data.channels} discover={data.discover} />
+}
+
+async function load(userId: string) {
+  const [channels, discover] = await Promise.all([
+    listChannelsForUser(userId),
+    // Organization channels the user has not joined yet.
+    db.channel.findMany({
+      where: {
+        type: 'ORGANIZATION',
+        archived: false,
+        members: { none: { userId } },
+      },
+      take: 12,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        handle: true,
+        avatar: true,
+        description: true,
+        _count: { select: { members: true } },
+      },
+    }),
+  ])
+
+  return {
+    channels: channels.map((channel) => ({
+      ...channel,
+      lastMessageAt: channel.lastMessageAt?.toISOString() ?? null,
+    })),
+    discover: discover.map((channel) => ({
+      id: channel.id,
+      title: channel.title,
+      handle: channel.handle,
+      avatar: channel.avatar,
+      description: channel.description,
+      memberCount: channel._count.members,
+    })),
+  }
 }

@@ -1,109 +1,161 @@
+import type { Metadata } from 'next'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
+import { tournamentPoster } from '@/lib/media'
+import { listActiveStories } from '@/lib/stories'
+import {
+  FEED_PAGE_SIZE,
+  buildTournamentWhere,
+  parseTournamentFilters,
+  type TournamentFilters,
+} from '@/lib/tournament-filters'
+import type { Tournament, TournamentCategory, TournamentStatusValue } from '@/lib/types'
+import { StoriesBar } from '@/components/stories/stories-bar'
+import { DbErrorCard } from '@/components/db-error-card'
 import FeedClient from './feed-client'
-import { cookies } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
 
-export default async function FeedPage() {
-  const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value || null
-  const tournamentsRaw = await db.tournament.findMany({
-    include: {
-      organizer: true
-    },
-    orderBy: {
-      date: 'asc'
-    }
-  })
+export const metadata: Metadata = {
+  title: 'Turnirlar',
+  description: 'Universitet va shahar turnirlarini kashf qiling, ro‘yxatdan o‘ting va kuzatib boring.',
+}
 
-  // Map database Tournament objects to match frontend types
-  const tournaments = await Promise.all(
-    tournamentsRaw.map(async (t) => {
-      const participantCount = await db.participant.count({
-        where: { tournamentId: t.id }
-      })
+type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
-      return {
-        id: t.id,
-        title: t.title,
-        sport: t.sport,
-        category: t.category as 'sports' | 'esports' | 'academic',
-        location: t.location,
-        date: t.date,
-        endDate: t.endDate || undefined,
-        time: t.time,
-        participants: participantCount,
-        maxParticipants: t.maxParticipants,
-        posterUrl: t.posterUrl,
-        organizer: {
-          id: t.organizer.id,
-          name: t.organizer.name,
-          avatar: t.organizer.avatar,
-          verified: t.organizer.globalRank === 0
-        },
-        description: t.description,
-        rules: JSON.parse(t.rulesJson),
-        requirements: JSON.parse(t.requirementsJson),
-        prizePool: t.prizePool || undefined,
-        entryFee: t.entryFee || undefined,
-        status: t.status as 'upcoming' | 'ongoing' | 'completed' | 'registration_open',
-        featured: t.featured
-      }
-    })
-  )
+export default async function FeedPage({ searchParams }: { searchParams: SearchParams }) {
+  const user = await getCurrentUser()
+  const filters = parseTournamentFilters(await searchParams)
 
-  // Generate highlights dynamically from real database tournaments
-  const dynamicHighlights = await Promise.all(
-    tournamentsRaw
-      .filter(t => t.featured || t.status === 'ongoing' || t.status === 'registration_open')
-      .slice(0, 10)
-      .map(async (t) => {
-        let type: 'live' | 'upcoming' | 'featured' | 'registration' = 'upcoming'
-        if (t.status === 'ongoing') type = 'live'
-        else if (t.status === 'registration_open') type = 'registration'
-        else if (t.featured) type = 'featured'
+  let data: Awaited<ReturnType<typeof load>> | null = null
+  try {
+    data = await load(user?.id ?? null, filters)
+  } catch (error) {
+    console.error('feed page failed', error)
+  }
 
-        const pCount = await db.participant.count({
-          where: { tournamentId: t.id }
-        })
-
-        return {
-          id: t.id,
-          title: t.title,
-          sport: t.sport,
-          category: t.category,
-          location: t.location,
-          date: t.date,
-          time: t.time,
-          prizePool: t.prizePool || undefined,
-          entryFee: t.entryFee || undefined,
-          status: t.status,
-          participants: pCount,
-          maxParticipants: t.maxParticipants,
-          organizerName: t.organizer?.name || 'Tournament Organizer',
-          organizerAvatar: t.organizer?.avatar || '',
-          description: t.description,
-          image: t.posterUrl,
-          tournamentId: t.id,
-          type
-        }
-      })
-  )
-
-  let savedIds: string[] = []
-  if (userId) {
-    const saved = await db.savedTournament.findMany({
-      where: { userId: userId }
-    })
-    savedIds = saved.map(s => s.tournamentId)
+  if (!data) {
+    return <DbErrorCard message="Turnirlarni yuklab bo‘lmadi. Baza bilan aloqa yo‘q — keyinroq qayta urinib ko‘ring." />
   }
 
   return (
-    <FeedClient
-      initialTournaments={tournaments}
-      initialFeaturedStories={dynamicHighlights}
-      initialSavedTournaments={savedIds}
-      currentUserId={userId || undefined}
-    />
+    <div>
+      {data.storyGroups.length > 0 ? (
+        <div className="container mx-auto max-w-7xl px-4 pt-6">
+          <StoriesBar groups={data.storyGroups} />
+        </div>
+      ) : null}
+
+      <FeedClient
+        filters={filters}
+        tournaments={data.tournaments}
+        highlights={data.highlights}
+        savedTournaments={data.savedIds}
+        totalCount={data.totalCount}
+        pageSize={FEED_PAGE_SIZE}
+        currentUserId={user?.id}
+      />
+    </div>
   )
+}
+
+const cardInclude = {
+  organizer: { select: { id: true, name: true, avatar: true, verified: true } },
+  organization: { select: { name: true } },
+  _count: { select: { participants: true } },
+} as const
+
+async function load(userId: string | null, filters: TournamentFilters) {
+  const where = buildTournamentWhere(filters)
+
+  // Filtering and paging both happen in SQL: the browser never receives more
+  // than one page, and `_count` replaces a count query per tournament.
+  const [rows, totalCount, highlightRows, savedRows, storyGroups] = await Promise.all([
+    db.tournament.findMany({
+      where,
+      include: cardInclude,
+      orderBy: [{ featured: 'desc' }, { date: 'asc' }],
+      take: FEED_PAGE_SIZE,
+      skip: (filters.page - 1) * FEED_PAGE_SIZE,
+    }),
+    db.tournament.count({ where }),
+    // Highlights are a separate, always-unfiltered strip of 10.
+    db.tournament.findMany({
+      where: { status: { in: ['ongoing', 'registration_open'] } },
+      include: cardInclude,
+      orderBy: [{ featured: 'desc' }, { date: 'asc' }],
+      take: 10,
+    }),
+    userId
+      ? db.savedTournament.findMany({ where: { userId }, select: { tournamentId: true } })
+      : Promise.resolve([]),
+    listActiveStories(userId),
+  ])
+
+  const tournaments: Tournament[] = rows.map((t) => ({
+    id: t.id,
+    title: t.title,
+    sport: t.sport,
+    category: t.category as TournamentCategory,
+    location: t.location,
+    date: t.date,
+    endDate: t.endDate || undefined,
+    time: t.time,
+    participants: t._count.participants,
+    maxParticipants: t.maxParticipants,
+    posterUrl: tournamentPoster(t) ?? '',
+    organizer: {
+      id: t.organizer.id,
+      name: t.organization?.name ?? t.organizer.name,
+      avatar: t.organizer.avatar,
+      verified: t.organizer.verified,
+    },
+    prizePool: t.prizePool || undefined,
+    entryFee: t.entryFee || undefined,
+    status: t.status as TournamentStatusValue,
+    featured: t.featured,
+  }))
+
+  const highlights = highlightRows.map((t) => {
+    const type: 'live' | 'upcoming' | 'featured' | 'registration' =
+      t.status === 'ongoing'
+        ? 'live'
+        : t.status === 'registration_open'
+          ? 'registration'
+          : t.featured
+            ? 'featured'
+            : 'upcoming'
+
+    return {
+      id: t.id,
+      title: t.title,
+      sport: t.sport,
+      category: t.category,
+      location: t.location,
+      date: t.date,
+      time: t.time,
+      prizePool: t.prizePool || undefined,
+      entryFee: t.entryFee || undefined,
+      status: t.status,
+      participants: t._count.participants,
+      maxParticipants: t.maxParticipants,
+      organizerName: t.organization?.name ?? t.organizer.name,
+      organizerAvatar: t.organizer.avatar,
+      description: t.description,
+      image: tournamentPoster(t) ?? '',
+      tournamentId: t.id,
+      type,
+    }
+  })
+
+  return {
+    tournaments,
+    highlights,
+    totalCount,
+    savedIds: savedRows.map((row) => row.tournamentId),
+    storyGroups: storyGroups.map((group) => ({
+      ...group,
+      stories: group.stories.map((story) => ({ ...story, createdAt: story.createdAt.toISOString() })),
+    })),
+  }
 }

@@ -2,30 +2,10 @@
 
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { RankingTable, TopThreePodium } from '@/components/ranking-table'
-import { Search, Trophy, Medal, Award } from 'lucide-react'
-import type { RankingEntry } from '@/lib/mock-data'
-
-const sportCategories = [
-  { id: 'all', name: 'All Sports' },
-  { id: 'football', name: 'Football' },
-  { id: 'basketball', name: 'Basketball' },
-  { id: 'chess', name: 'Chess' },
-  { id: 'valorant', name: 'Valorant' },
-  { id: 'pubg', name: 'PUBG Mobile' },
-  { id: 'rocket-league', name: 'Rocket League' },
-  { id: 'swimming', name: 'Swimming' },
-  { id: 'running', name: 'Running' },
-]
+import { Search, Trophy } from 'lucide-react'
+import type { RankingEntry } from '@/lib/types'
 
 interface RankingsClientProps {
   initialRankings: RankingEntry[]
@@ -41,7 +21,6 @@ export default function RankingsClient({
   currentUserId,
 }: RankingsClientProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedSport, setSelectedSport] = useState('all')
 
   const filteredRankings = initialRankings.filter(entry => {
     if (!searchQuery) return true
@@ -105,104 +84,35 @@ export default function RankingsClient({
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Select value={selectedSport} onValueChange={setSelectedSport}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Select sport" />
-          </SelectTrigger>
-          <SelectContent>
-            {sportCategories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="global" className="w-full">
-        <TabsList>
-          <TabsTrigger value="global" className="gap-2">
-            <Trophy className="h-4 w-4" />
-            Global
-          </TabsTrigger>
-          <TabsTrigger value="weekly" className="gap-2">
-            <Medal className="h-4 w-4" />
-            Weekly
-          </TabsTrigger>
-          <TabsTrigger value="monthly" className="gap-2">
-            <Award className="h-4 w-4" />
-            Monthly
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="global" className="mt-6 space-y-6">
-          {!searchQuery && (
-            <Card className="bg-gradient-to-b from-secondary/50 to-transparent border-border/50">
-              <CardContent className="pt-6">
-                <TopThreePodium rankings={displayRankings} />
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {selectedSport !== 'all'
-                  ? `${sportCategories.find(c => c.id === selectedSport)?.name} Rankings`
-                  : 'Global Leaderboard'
-                }
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <RankingTable
-                rankings={displayRankings}
-                currentUserId={currentUserId}
-              />
+      {/* Global leaderboard — the only ranking the app actually stores.
+          Weekly/monthly views need rank history, which does not exist yet. */}
+      <div className="space-y-6">
+        {!searchQuery ? (
+          <Card className="border-border/50 bg-gradient-to-b from-secondary/50 to-transparent">
+            <CardContent className="pt-6">
+              <TopThreePodium rankings={displayRankings} />
             </CardContent>
           </Card>
-        </TabsContent>
+        ) : null}
 
-        <TabsContent value="weekly" className="mt-6 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Weekly Top Performers</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <RankingTable
-                rankings={displayRankings.map((r, i) => ({
-                  ...r,
-                  rank: i + 1,
-                  points: Math.floor(r.points * 0.08),
-                  change: (['up', 'down', 'same'] as const)[i % 3],
-                  changeAmount: i % 3 === 2 ? 0 : (i % 7) + 1
-                }))}
-                currentUserId={currentUserId}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <Card>
+          <CardHeader>
+            <CardTitle>Global reyting</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {displayRankings.length === 0 ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                Qidiruv bo‘yicha o‘yinchi topilmadi.
+              </p>
+            ) : (
+              <RankingTable rankings={displayRankings} currentUserId={currentUserId} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-        <TabsContent value="monthly" className="mt-6 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Leaders</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <RankingTable
-                rankings={displayRankings.map((r, i) => ({
-                  ...r,
-                  rank: i + 1,
-                  points: Math.floor(r.points * 0.28),
-                  change: (['up', 'down', 'same'] as const)[i % 3],
-                  changeAmount: i % 3 === 2 ? 0 : (i % 12) + 1
-                }))}
-                currentUserId={currentUserId}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
     </div>
   )
 }

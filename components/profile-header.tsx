@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -10,16 +11,13 @@ import {
   Medal,
   Star,
   Edit,
-  Share2,
-  MoreHorizontal,
   GraduationCap
 } from 'lucide-react'
-import type { User } from '@/lib/mock-data'
+import type { User } from '@/lib/types'
 
 interface ProfileHeaderProps {
   user: User
   isOwnProfile?: boolean
-  onEdit?: () => void
 }
 
 const tierColors = {
@@ -38,7 +36,7 @@ const rarityColors = {
   legendary: 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 text-yellow-400 border-yellow-500/30',
 }
 
-export function ProfileHeader({ user, isOwnProfile = false, onEdit }: ProfileHeaderProps) {
+export function ProfileHeader({ user, isOwnProfile = false }: ProfileHeaderProps) {
   const winRate = user.wins + user.losses > 0 
     ? Math.round((user.wins / (user.wins + user.losses)) * 100) 
     : 0
@@ -46,9 +44,7 @@ export function ProfileHeader({ user, isOwnProfile = false, onEdit }: ProfileHea
   return (
     <Card className="overflow-hidden">
       {/* Banner */}
-      <div className="h-32 md:h-40 bg-gradient-to-br from-primary/30 via-secondary to-accent/30 relative">
-        <div className="absolute inset-0 bg-[url('/patterns/grid.svg')] opacity-10" />
-      </div>
+      <div className="relative h-32 bg-gradient-to-br from-primary/30 via-secondary to-accent/30 md:h-40" />
       
       <CardContent className="relative px-4 md:px-6 pb-6">
         {/* Avatar */}
@@ -68,27 +64,16 @@ export function ProfileHeader({ user, isOwnProfile = false, onEdit }: ProfileHea
             <p className="text-muted-foreground">@{user.username}</p>
           </div>
 
-          <div className="flex gap-2 md:pb-2">
-            {isOwnProfile ? (
-              <Button variant="outline" className="gap-2" onClick={onEdit}>
-                <Edit className="h-4 w-4" />
-                Edit Profile
+          {isOwnProfile ? (
+            <div className="flex gap-2 md:pb-2">
+              <Button variant="outline" className="gap-2" asChild>
+                <Link href="/settings/profile">
+                  <Edit className="h-4 w-4" aria-hidden />
+                  Profilni tahrirlash
+                </Link>
               </Button>
-            ) : (
-              <>
-                <Button className="gap-2">
-                  <Trophy className="h-4 w-4" />
-                  Challenge
-                </Button>
-                <Button variant="outline" size="icon">
-                  <Share2 className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Bio */}
@@ -98,17 +83,17 @@ export function ProfileHeader({ user, isOwnProfile = false, onEdit }: ProfileHea
         <div className="flex flex-wrap gap-4 mt-4 text-sm text-muted-foreground">
           {user.university && (
             <div className="flex items-center gap-1.5">
-              <GraduationCap className="h-4 w-4" />
+              <GraduationCap className="h-4 w-4" aria-hidden />
               {user.university}
             </div>
           )}
           <div className="flex items-center gap-1.5">
-            <MapPin className="h-4 w-4" />
+            <MapPin className="h-4 w-4" aria-hidden />
             {user.location}
           </div>
           <div className="flex items-center gap-1.5">
-            <Calendar className="h-4 w-4" />
-            Joined {new Date(user.joinedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            <Calendar className="h-4 w-4" aria-hidden />
+            {new Date(user.joinedDate).toLocaleDateString('uz-UZ', { month: 'long', year: 'numeric' })}dan beri
           </div>
         </div>
 
@@ -116,19 +101,19 @@ export function ProfileHeader({ user, isOwnProfile = false, onEdit }: ProfileHea
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
           <div className="text-center p-3 rounded-lg bg-secondary/50">
             <p className="text-2xl font-bold text-primary">{user.totalPoints.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Total Points</p>
+            <p className="text-xs text-muted-foreground">Umumiy ball</p>
           </div>
           <div className="text-center p-3 rounded-lg bg-secondary/50">
             <p className="text-2xl font-bold">{user.joinedTournaments}</p>
-            <p className="text-xs text-muted-foreground">Tournaments</p>
+            <p className="text-xs text-muted-foreground">Turnirlar</p>
           </div>
           <div className="text-center p-3 rounded-lg bg-secondary/50">
             <p className="text-2xl font-bold text-success">{user.wins}</p>
-            <p className="text-xs text-muted-foreground">Wins</p>
+            <p className="text-xs text-muted-foreground">G‘alabalar</p>
           </div>
           <div className="text-center p-3 rounded-lg bg-secondary/50">
             <p className="text-2xl font-bold">{winRate}%</p>
-            <p className="text-xs text-muted-foreground">Win Rate</p>
+            <p className="text-xs text-muted-foreground">G‘alaba foizi</p>
           </div>
         </div>
 
@@ -136,7 +121,7 @@ export function ProfileHeader({ user, isOwnProfile = false, onEdit }: ProfileHea
         <div className="mt-6">
           <h3 className="font-semibold mb-3 flex items-center gap-2">
             <Star className="h-4 w-4 text-primary" />
-            Achievements
+            Yutuqlar
           </h3>
           <div className="flex flex-wrap gap-2">
             {user.achievements.map((achievement) => (
@@ -156,7 +141,7 @@ export function ProfileHeader({ user, isOwnProfile = false, onEdit }: ProfileHea
 
         {/* Sport Rankings */}
         <div className="mt-6">
-          <h3 className="font-semibold mb-3">Sport Rankings</h3>
+          <h3 className="font-semibold mb-3">Sport bo‘yicha reyting</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {user.sportRanks.map((sportRank) => (
               <div 
@@ -175,7 +160,7 @@ export function ProfileHeader({ user, isOwnProfile = false, onEdit }: ProfileHea
                   </Badge>
                 </div>
                 <p className="text-lg font-bold">#{sportRank.rank}</p>
-                <p className="text-xs text-muted-foreground">{sportRank.points} pts</p>
+                <p className="text-xs text-muted-foreground">{sportRank.points} ball</p>
               </div>
             ))}
           </div>

@@ -12,8 +12,8 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table'
-import { TrendingUp, TrendingDown, Minus, Trophy, Medal, Award } from 'lucide-react'
-import type { RankingEntry } from '@/lib/mock-data'
+import { Trophy, Medal, Award } from 'lucide-react'
+import type { RankingEntry } from '@/lib/types'
 
 interface RankingTableProps {
   rankings: RankingEntry[]
@@ -50,29 +50,9 @@ function RankBadge({ rank }: { rank: number }) {
   )
 }
 
-function TrendIndicator({ change, amount }: { change: 'up' | 'down' | 'same'; amount: number }) {
-  if (change === 'same' || amount === 0) {
-    return <Minus className="h-4 w-4 text-muted-foreground" />
-  }
-  if (change === 'up') {
-    return (
-      <div className="flex items-center gap-1 text-success">
-        <TrendingUp className="h-4 w-4" />
-        <span className="text-xs font-medium">+{amount}</span>
-      </div>
-    )
-  }
-  return (
-    <div className="flex items-center gap-1 text-destructive">
-      <TrendingDown className="h-4 w-4" />
-      <span className="text-xs font-medium">-{amount}</span>
-    </div>
-  )
-}
-
 export function RankingTable({ rankings, showUniversity = true, currentUserId }: RankingTableProps) {
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
+    <div className="overflow-x-auto rounded-lg border border-border">
       <Table>
         <TableHeader>
           <TableRow className="bg-secondary/50 hover:bg-secondary/50">
@@ -81,7 +61,6 @@ export function RankingTable({ rankings, showUniversity = true, currentUserId }:
             {showUniversity && <TableHead className="hidden md:table-cell">University</TableHead>}
             <TableHead className="text-right">Points</TableHead>
             <TableHead className="text-center hidden sm:table-cell">Wins</TableHead>
-            <TableHead className="w-20 text-center">Change</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -125,11 +104,6 @@ export function RankingTable({ rankings, showUniversity = true, currentUserId }:
               <TableCell className="text-center hidden sm:table-cell">
                 <Badge variant="secondary">{entry.wins}</Badge>
               </TableCell>
-              <TableCell className="text-center">
-                <div className="flex justify-center">
-                  <TrendIndicator change={entry.change} amount={entry.changeAmount} />
-                </div>
-              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -144,7 +118,7 @@ export function TopThreePodium({ rankings }: { rankings: RankingEntry[] }) {
   const [first, second, third] = [top3[0], top3[1], top3[2]]
 
   return (
-    <div className="flex items-end justify-center gap-4 py-8">
+    <div className="flex items-end justify-center gap-4 overflow-x-auto px-2 py-8">
       {/* Second Place */}
       {second && (
         <div className="flex flex-col items-center">

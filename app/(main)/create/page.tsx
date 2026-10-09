@@ -1,24 +1,18 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { isOrganizer } from '@/lib/actions'
+import { getCurrentUser } from '@/lib/session'
 import CreateTournamentClient from './create-client'
 
 export const dynamic = 'force-dynamic'
 
+export const metadata = { title: 'Turnir yaratish', robots: { index: false } }
+
 export default async function CreateTournamentPage() {
-  const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value
+  const user = await getCurrentUser()
 
-  if (!userId) {
-    redirect('/login')
-  }
-
-  const isOrg = await isOrganizer(userId)
-
-  if (!isOrg) {
-    // Non-organizer users cannot access the create page
-    redirect('/feed')
-  }
+  if (!user) redirect('/login?next=%2Fcreate')
+  // Tournament creation belongs to the organization account, not to the
+  // per-tournament staff roles it hands out.
+  if (user.role !== 'ORGANIZATION' && user.role !== 'SUPER_ADMIN') redirect('/feed')
 
   return <CreateTournamentClient />
 }

@@ -24,11 +24,13 @@ import {
   FileText,
   Upload,
   Eye,
-  Save,
   Gamepad2,
   Dribbble,
   GraduationCap
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { ImageUploader, type UploadedImage } from '@/components/image-uploader'
 import { createTournament } from '@/lib/actions'
 
 const sportCategories = [
@@ -112,7 +114,10 @@ const PRESET_TEMPLATES = [
 ]
 
 export default function CreateTournamentClient() {
+  const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [poster, setPoster] = useState<UploadedImage | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [formData, setFormData] = useState({
     title: '',
@@ -148,17 +153,32 @@ export default function CreateTournamentClient() {
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    setErrors(prev => {
+      if (!prev[field]) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
   }
 
   const handleSubmit = async () => {
     setIsSubmitting(true)
-    try {
-      await createTournament(formData)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setIsSubmitting(false)
+    setErrors({})
+
+    const result = await createTournament({
+      ...formData,
+      posterMediaId: poster?.id ?? '',
+    })
+    setIsSubmitting(false)
+
+    if (!result.ok) {
+      setErrors(result.fieldErrors ?? {})
+      toast.error(result.error)
+      return
     }
+
+    toast.success('Turnir yaratildi')
+    router.push(`/tournament/${result.data.tournamentId}`)
   }
 
   const categoryIcons = {
@@ -424,24 +444,32 @@ export default function CreateTournamentClient() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                  <Upload className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-sm font-medium mb-1">
-                    Drag and drop or click to upload
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    PNG, JPG up to 10MB. Recommended: 1200x630px
-                  </p>
-                </div>
+                <ImageUploader
+                  value={poster}
+                  onChange={setPoster}
+                  label="Rasmni tanlang yoki shu yerga tashlang"
+                  hint="PNG, JPG, WebP — maksimal 4 MB. Tavsiya: 1200×630px"
+                />
               </CardContent>
             </Card>
 
+            {/* Validation summary — zod messages from the server action */}
+            {Object.keys(errors).length > 0 ? (
+              <div
+                role="alert"
+                className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+              >
+                <p className="mb-1 font-semibold">Quyidagilarni to‘g‘rilang:</p>
+                <ul className="list-inside list-disc space-y-0.5 text-xs">
+                  {Object.entries(errors).map(([field, message]) => (
+                    <li key={field}>{message}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             {/* Actions */}
             <div className="flex gap-4 justify-end">
-              <Button variant="outline" className="gap-2">
-                <Save className="h-4 w-4" />
-                Save Draft
-              </Button>
               <Button className="gap-2" onClick={handleSubmit} disabled={isSubmitting}>
                 <Trophy className="h-4 w-4" />
                 {isSubmitting ? 'Creating...' : 'Create Tournament'}

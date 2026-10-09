@@ -28,11 +28,11 @@ import {
   XCircle,
   Clock,
   Mail,
-  MoreHorizontal,
   Users,
   Trophy,
   Calendar
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { updateParticipantStatus } from '@/lib/actions'
 import { useRouter } from 'next/navigation'
 import { NoParticipants } from '@/components/empty-state'
@@ -74,9 +74,15 @@ type ParticipantType = {
 interface ParticipantsClientProps {
   tournaments: TournamentType[]
   allParticipants: ParticipantType[]
+  /** Tournaments where this viewer may approve/reject — SUPPORT gets read-only. */
+  manageableTournamentIds: string[]
 }
 
-export default function ParticipantsClient({ tournaments, allParticipants }: ParticipantsClientProps) {
+export default function ParticipantsClient({
+  tournaments,
+  allParticipants,
+  manageableTournamentIds,
+}: ParticipantsClientProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedTournament, setSelectedTournament] = useState(tournaments[0]?.id ?? '')
@@ -84,6 +90,7 @@ export default function ParticipantsClient({ tournaments, allParticipants }: Par
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
+  const canManage = manageableTournamentIds.includes(selectedTournament)
   const tournamentParticipants = participants.filter(p => p.tournamentId === selectedTournament)
 
   const filteredParticipants = tournamentParticipants.filter(p => {
@@ -104,13 +111,51 @@ export default function ParticipantsClient({ tournaments, allParticipants }: Par
   const approvedCount = tournamentParticipants.filter(p => p.status === 'approved').length
   const rejectedCount = tournamentParticipants.filter(p => p.status === 'rejected').length
 
-  const handleStatusUpdate = (participantId: string, newStatus: string) => {
-    // Optimistic update
-    setParticipants(prev =>
-      prev.map(p => p.id === participantId ? { ...p, status: newStatus as 'pending' | 'approved' | 'rejected' } : p)
-    )
+  const handleStatusUpdate = (participantId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
+    if (!canManage) {
+      toast.error('Sizning rolingiz faqat ko‘rish huquqini beradi')
+      return
+    }
+
+    const previous = participants
+    setParticipants(prev => prev.map(p => (p.id === participantId ? { ...p, status: newStatus } : p)))
+
     startTransition(async () => {
-      await updateParticipantStatus(participantId, newStatus, selectedTournament)
+      const result = await updateParticipantStatus({ participantId, status: newStatus })
+      if (!result.ok) {
+        setParticipants(previous)
+        toast.error(result.error)
+        return
+      }
+      router.refresh()
+    })
+  }
+
+  /**
+   * Approve sequentially rather than firing N parallel transitions, so one
+   * failure stops the batch instead of leaving the table out of sync.
+   */
+  const handleApproveAll = () => {
+    if (!canManage) {
+      toast.error('Sizning rolingiz faqat ko‘rish huquqini beradi')
+      return
+    }
+
+    const pending = tournamentParticipants.filter(p => p.status === 'pending')
+    if (pending.length === 0) return
+
+    startTransition(async () => {
+      let approved = 0
+      for (const participant of pending) {
+        const result = await updateParticipantStatus({ participantId: participant.id, status: 'approved' })
+        if (!result.ok) {
+          toast.error(`${participant.name}: ${result.error}`)
+          break
+        }
+        approved += 1
+      }
+
+      if (approved > 0) toast.success(`${approved} ishtirokchi tasdiqlandi`)
       router.refresh()
     })
   }
@@ -191,7 +236,7 @@ export default function ParticipantsClient({ tournaments, allParticipants }: Par
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <Avatar className="h-9 w-9">
-                                <AvatarImage src={participant.avatar} />
+                                <AvatarImage src={participant.avatar} alt={`${participant.name} avatari`} />
                                 <AvatarFallback>{participant.name.slice(0, 2)}</AvatarFallback>
                               </Avatar>
                               <div>
@@ -224,12 +269,13 @@ export default function ParticipantsClient({ tournaments, allParticipants }: Par
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
-                              {participant.status === 'pending' && (
+                              {canManage && participant.status === 'pending' ? (
                                 <>
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="h-8 w-8 p-0 text-success hover:text-success hover:bg-success/10"
+                                    aria-label={`${participant.name} ni tasdiqlash`}
+                                    className="h-8 w-8 p-0 text-success hover:bg-success/10 hover:text-success"
                                     onClick={() => handleStatusUpdate(participant.id, 'approved')}
                                     disabled={isPending}
                                   >
@@ -238,19 +284,31 @@ export default function ParticipantsClient({ tournaments, allParticipants }: Par
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    aria-label={`${participant.name} ni rad etish`}
+                                    className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
                                     onClick={() => handleStatusUpdate(participant.id, 'rejected')}
                                     disabled={isPending}
                                   >
                                     <XCircle className="h-4 w-4" />
                                   </Button>
                                 </>
-                              )}
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                                <Mail className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
+                              ) : null}
+                              {canManage && participant.status !== 'pending' ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  aria-label={`${participant.name} statusini kutilmoqdaga qaytarish`}
+                                  className="h-8 w-8 p-0 text-muted-foreground"
+                                  onClick={() => handleStatusUpdate(participant.id, 'pending')}
+                                  disabled={isPending}
+                                >
+                                  <Clock className="h-4 w-4" />
+                                </Button>
+                              ) : null}
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild>
+                                <a href={`mailto:${participant.email}`} aria-label={`${participant.name} ga email yozish`}>
+                                  <Mail className="h-4 w-4" />
+                                </a>
                               </Button>
                             </div>
                           </TableCell>
@@ -346,19 +404,27 @@ export default function ParticipantsClient({ tournaments, allParticipants }: Par
                 variant="outline"
                 className="w-full justify-start gap-2"
                 size="sm"
-                onClick={() => {
-                  tournamentParticipants
-                    .filter(p => p.status === 'pending')
-                    .forEach(p => handleStatusUpdate(p.id, 'approved'))
-                }}
-                disabled={isPending || pendingCount === 0}
+                onClick={handleApproveAll}
+                disabled={isPending || pendingCount === 0 || !canManage}
               >
                 <CheckCircle className="h-4 w-4" />
-                Approve All Pending ({pendingCount})
+                Barcha kutilayotganni tasdiqlash ({pendingCount})
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-2" size="sm">
-                <Mail className="h-4 w-4" />
-                Email All Participants
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                size="sm"
+                disabled={tournamentParticipants.length === 0}
+                asChild
+              >
+                <a
+                  href={`mailto:?bcc=${encodeURIComponent(
+                    tournamentParticipants.map(p => p.email).join(',')
+                  )}&subject=${encodeURIComponent(tournament?.title ?? 'Turnir')}`}
+                >
+                  <Mail className="h-4 w-4" />
+                  Hammaga email yozish
+                </a>
               </Button>
             </CardContent>
           </Card>

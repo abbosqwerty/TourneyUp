@@ -10,26 +10,31 @@
   --background: #ffffe3;        /* 🖼️  Page background — the main canvas color */
   --foreground: #4a4a4a;        /* ✍️  Main text color — all body text */
 
-  --card: #ffffe3;              /* 📦  Cards & boxes background */
+  --card: #fffff4;              /* 📦  Cards & boxes background — lifted off the canvas */
   --card-foreground: #4a4a4a;  /* ✍️  Text inside cards */
 
   --popover: #ffffe3;           /* 💬  Dropdowns & popups background */
   --popover-foreground: #4a4a4a; /* ✍️  Text inside dropdowns */
 
-  --primary: #6d8196;           /* 🎨  Buttons, active links, highlights */
+  --primary: #53687d;           /* 🎨  Buttons, active links, highlights (AA on #ffffe3) */
   --primary-foreground: #ffffe3; /* ✍️  Text ON primary buttons */
 
   --secondary: #cbcbcb;         /* 🎨  Secondary buttons & badges */
   --secondary-foreground: #4a4a4a; /* ✍️  Text on secondary buttons */
 
-  --muted: #f2f0d9;             /* 🔇  Subtle backgrounds (disabled areas, tags) */
-  --muted-foreground: #6d8196; /* ✍️  Subtle / dimmed text (captions, placeholders) */
+  --muted: #ecead2;             /* 🔇  Subtle backgrounds (disabled areas, tags) */
+  --muted-foreground: #4f6476; /* ✍️  Subtle / dimmed text — 5.6:1 on the canvas */
 
   --accent: #bdddfc;            /* ✨  Hover highlights & accent backgrounds */
   --accent-foreground: #384959; /* ✍️  Text on accent backgrounds */
 
   --destructive: #b44a4a;       /* 🔴  Delete buttons & error states */
   --destructive-foreground: #ffffe3; /* ✍️  Text on destructive buttons */
+
+  --success: #2f7a52;           /* 🟢  Approved / live-ok states */
+  --success-foreground: #ffffe3; /* ✍️  Text on success backgrounds */
+  --warning: #9a6508;           /* 🟡  Pending / caution states */
+  --warning-foreground: #ffffe3; /* ✍️  Text on warning backgrounds */
 
   --border: #cbcbcb;            /* 📐  Border lines around cards, inputs (set transparent to remove) */
   --input: #cbcbcb;             /* 📝  Input field border color */
@@ -42,7 +47,7 @@
   --chart-4: #4a4a4a;
   --chart-5: #bdddfc;
 
-  --radius: 0.875rem;           /* 🔲  Corner roundness of all boxes */
+  --radius: 0.625rem;           /* 🔲  Corner roundness of all boxes */
 
   /* 🗂️  Sidebar (left navigation panel) */
   --sidebar: #ffffe3;
@@ -62,7 +67,7 @@
   --background: #384959;        /* 🖼️  Page background */ 
   --foreground: #ffffe3;        /* ✍️  Main text color */
 
-  --card: #384959;              /* 📦  Cards & boxes background (make darker e.g. #273441) */
+  --card: #2e3d4b;              /* 📦  Cards & boxes background — distinct from the page */
   --card-foreground: #ffffe3;  /* ✍️  Text inside cards */
 
   --popover: #384959;           /* 💬  Dropdowns & popups background */
@@ -74,7 +79,7 @@
   --secondary: #4d6274;         /* 🎨  Secondary buttons & badges */
   --secondary-foreground: #ffffe3; /* ✍️  Text on secondary buttons */
 
-  --muted: #384959;             /* 🔇  Subtle backgrounds */
+  --muted: #44576b;             /* 🔇  Subtle backgrounds — visible against #384959 */
   --muted-foreground: #bdddfc; /* ✍️  Dimmed text (captions, placeholders) */
 
   --accent: #6a89a7;            /* ✨  Hover highlights */
@@ -82,6 +87,11 @@
 
   --destructive: #ef8383;       /* 🔴  Delete buttons & error states */
   --destructive-foreground: #384959; /* ✍️  Text on destructive buttons */
+
+  --success: #6ed79b;           /* 🟢  Approved / live-ok states */
+  --success-foreground: #1d3a2a; /* ✍️  Text on success backgrounds */
+  --warning: #f0c56a;           /* 🟡  Pending / caution states */
+  --warning-foreground: #3a2d0c; /* ✍️  Text on warning backgrounds */
 
   --border: #6a89a7;            /* 📐  Border lines (set transparent to remove) */
   --input: #4d6274;             /* 📝  Input field border color */
@@ -127,6 +137,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -161,4 +175,27 @@
   font-weight: 700;
   letter-spacing: -0.12em;
   text-transform: uppercase;
+}
+
+/* ============================================================
+   Utilities referenced across the app
+   ============================================================ */
+@utility glow-primary {
+  box-shadow: 0 0 20px -4px color-mix(in oklab, var(--primary) 70%, transparent);
+}
+
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }

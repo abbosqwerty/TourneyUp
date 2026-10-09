@@ -1,8 +1,10 @@
 import Link from 'next/link'
-import { ArrowRight, Check, Trophy, Calendar, MapPin, Users } from 'lucide-react'
-import { cookies } from 'next/headers'
+import { ArrowRight, Calendar, MapPin, Users } from 'lucide-react'
+import type { Tournament } from '@/lib/types'
+import { tournamentPoster } from '@/lib/media'
 import { db } from '@/lib/db'
-import { LandingNavbar } from '@/components/landing-navbar'
+import { getCurrentUser } from '@/lib/session'
+import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,23 +21,22 @@ function PixelMark() {
 }
 
 export default async function LandingPage() {
-  const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value
-  let user = null
-
-  if (userId) {
-    try {
-      user = await db.user.findUnique({ where: { id: userId } })
-    } catch {
-      user = null
-    }
-  }
+  const sessionUser = await getCurrentUser()
+  const user = sessionUser
+    ? {
+        id: sessionUser.id,
+        name: sessionUser.name,
+        username: sessionUser.username,
+        avatar: sessionUser.avatar,
+        role: sessionUser.role,
+      }
+    : null
 
   // Fetch live stats and featured tournaments directly from database
   let playerCount = 0
   let tournamentCount = 0
   let registrationCount = 0
-  let featuredTournaments: any[] = []
+  let featuredTournaments: Tournament[] = []
 
   try {
     const [players, tourneys, registrations, topTourneys] = await Promise.all([
@@ -45,34 +46,55 @@ export default async function LandingPage() {
       db.tournament.findMany({
         take: 3,
         include: {
-          organizer: true,
-          participants: true,
+          organizer: { select: { id: true, name: true, avatar: true, verified: true } },
+          organization: { select: { name: true } },
+          _count: { select: { participants: true } },
         },
-        orderBy: { date: 'asc' }
+        orderBy: { date: 'asc' },
       })
     ])
 
     playerCount = players
     tournamentCount = tourneys
     registrationCount = registrations
-    featuredTournaments = topTourneys
+    featuredTournaments = topTourneys.map((t) => ({
+      id: t.id,
+      title: t.title,
+      sport: t.sport,
+      category: t.category as Tournament['category'],
+      location: t.location,
+      date: t.date,
+      time: t.time,
+      participants: t._count.participants,
+      maxParticipants: t.maxParticipants,
+      posterUrl: tournamentPoster(t) ?? '',
+      organizer: {
+        id: t.organizer.id,
+        name: t.organization?.name ?? t.organizer.name,
+        avatar: t.organizer.avatar,
+        verified: t.organizer.verified,
+      },
+      status: t.status as Tournament['status'],
+      featured: t.featured,
+    }))
   } catch {
     playerCount = 0
     tournamentCount = 0
     registrationCount = 0
   }
 
+  // Only real counts — no decorative placeholder numbers.
   const liveStats = [
-    { value: playerCount > 0 ? `${playerCount}` : '10+', label: 'ranked players' },
-    { value: tournamentCount > 0 ? `${tournamentCount}` : '8', label: 'live tournaments' },
-    { value: registrationCount > 0 ? `${registrationCount}` : '24+', label: 'match entries' },
+    { value: `${playerCount}`, label: 'ranked players' },
+    { value: `${tournamentCount}`, label: 'live tournaments' },
+    { value: `${registrationCount}`, label: 'match entries' },
   ]
 
   const exploreHref = '/feed'
 
   return (
     <div className="min-h-screen bg-background">
-      <LandingNavbar currentUser={user} />
+      <Navbar currentUser={user} />
       <main>
         {/* Hero Section */}
         <section className="border-b border-border">
@@ -180,7 +202,7 @@ export default async function LandingPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Users className="h-3.5 w-3.5 text-primary" />
-                          <span>{t.participants?.length || 0} / {t.maxParticipants} players</span>
+                          <span>{t.participants} / {t.maxParticipants} players</span>
                         </div>
                       </div>
                     </CardContent>

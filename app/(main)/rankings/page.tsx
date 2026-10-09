@@ -1,32 +1,64 @@
+import type { Metadata } from 'next'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
+import { DbErrorCard } from '@/components/db-error-card'
 import RankingsClient from './rankings-client'
-import { cookies } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
 
-export default async function RankingsPage() {
-  const cookieStore = await cookies()
-  const activeUserId = cookieStore.get('userId')?.value || ''
+export const metadata: Metadata = {
+  title: 'Reyting',
+  description: 'TourneyUp global reytingi — eng ko‘p ball to‘plagan o‘yinchilar.',
+}
 
-  // Fetch all ranked users (non-organizers, globalRank > 0) sorted by rank
+const PAGE_SIZE = 100
+
+export default async function RankingsPage() {
+  const user = await getCurrentUser()
+
+  let data: Awaited<ReturnType<typeof load>> | null = null
+  try {
+    data = await load(user?.id ?? null)
+  } catch (error) {
+    console.error('rankings page failed', error)
+  }
+
+  if (!data) return <DbErrorCard message="Reytingni yuklab bo‘lmadi. Keyinroq qayta urinib ko‘ring." />
+
+  return (
+    <RankingsClient
+      initialRankings={data.rankings}
+      currentUserRank={data.myRank}
+      currentUserPoints={data.myPoints}
+      currentUserId={user?.id ?? ''}
+    />
+  )
+}
+
+async function load(userId: string | null) {
+  // Win counts come from the database, not from loading every match into
+  // memory and filtering in JS.
   const users = await db.user.findMany({
-    where: { globalRank: { gt: 0 } },
+    where: { role: 'USER', globalRank: { gt: 0 } },
     orderBy: { globalRank: 'asc' },
-    include: {
-      sportRanks: true,
-      matchHistory: true,
-    }
+    take: PAGE_SIZE,
+    select: {
+      id: true,
+      name: true,
+      username: true,
+      avatar: true,
+      university: true,
+      globalRank: true,
+      totalPoints: true,
+      // Wins are completed fixtures this user won — one aggregate, no row loading.
+      _count: { select: { wonMatches: true } },
+    },
   })
 
-  // Build rankings entries with win counts from match history
-  const rankings = users.map((u, index) => {
-    const wins = u.matchHistory.filter(m => m.result === 'win').length
-    // Simple change simulation based on rank position (in real app this would come from historical data)
-    const changeOptions: Array<'up' | 'down' | 'same'> = ['up', 'down', 'same']
-    const change = changeOptions[index % 3]
-    const changeAmount = index % 3 === 2 ? 0 : (index % 5) + 1
+  const me = userId ? users.find((u) => u.id === userId) : undefined
 
-    return {
+  return {
+    rankings: users.map((u, index) => ({
       rank: index + 1,
       user: {
         id: u.id,
@@ -36,21 +68,9 @@ export default async function RankingsPage() {
         university: u.university ?? undefined,
       },
       points: u.totalPoints,
-      wins,
-      change,
-      changeAmount,
-    }
-  })
-
-  // Current active user stats
-  const currentUser = users.find(u => u.id === activeUserId)
-
-  return (
-    <RankingsClient
-      initialRankings={rankings}
-      currentUserRank={currentUser?.globalRank ?? 0}
-      currentUserPoints={currentUser?.totalPoints ?? 0}
-      currentUserId={activeUserId}
-    />
-  )
+      wins: u._count.wonMatches,
+    })),
+    myRank: me?.globalRank ?? 0,
+    myPoints: me?.totalPoints ?? 0,
+  }
 }

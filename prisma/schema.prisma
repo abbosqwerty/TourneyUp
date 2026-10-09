@@ -8,143 +8,477 @@ generator client {
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
+// ============================================================
+// Enums
+// ============================================================
+
+/// Platform-wide account type. Everyone signs up as USER.
+/// ORGANIZATION accounts are created by a SUPER_ADMIN after an
+/// application is approved — they are never self-registered.
+enum UserRole {
+  USER
+  ORGANIZATION
+  SUPER_ADMIN
+}
+
+/// Temporary, per-tournament permission granted by an organization.
+/// Revoked automatically when the tournament closes.
+enum StaffRole {
+  ADMIN
+  ORGANIZER
+  SUPPORT
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TournamentStatus {
+  upcoming
+  registration_open
+  ongoing
+  completed
+  cancelled
+}
+
+/// Lifecycle of a single fixture.
+enum MatchStatus {
+  scheduled
+  live
+  completed
+  cancelled
+}
+
+/// What produced a notification — drives the icon and the link.
+enum NotificationType {
+  PARTICIPANT_APPROVED
+  PARTICIPANT_REJECTED
+  PARTICIPANT_REGISTERED
+  TOURNAMENT_STATUS
+  STAFF_ASSIGNED
+  CHANNEL_POST
+}
+
+enum ChannelType {
+  ORGANIZATION
+  TOURNAMENT
+}
+
+/// Channels are broadcast-style (Telegram channel / group), not DM threads.
+enum ChannelMemberRole {
+  OWNER
+  STAFF
+  SUBSCRIBER
+}
+
+// ============================================================
+// Identity
+// ============================================================
+
 model User {
-  id                String       @id
-  name              String
-  username          String       @unique
-  avatar            String
-  bio               String       @db.Text
-  university        String?
-  location          String
-  globalRank        Int
-  totalPoints       Int
-  joinedDate        String
-  
+  id           String    @id @default(cuid())
+  name         String
+  username     String    @unique
+  email        String?   @unique
+  passwordHash String?
+  role         UserRole  @default(USER)
+  verified     Boolean   @default(false)
+  avatar       String    @default("/placeholder-user.jpg")
+  bio          String    @db.Text
+  university   String?
+  location     String    @default("")
+  globalRank   Int       @default(0)
+  totalPoints  Int       @default(0)
+  joinedDate   String
+  mustChangePassword Boolean @default(false)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+
   // Relations
   achievements      Achievement[]
   sportRanks        SportRank[]
-  matchHistory      Match[]
-  tournaments       Tournament[] @relation("OrganizedTournaments")
+  homeMatches       Match[]                   @relation("MatchHomeUser")
+  awayMatches       Match[]                   @relation("MatchAwayUser")
+  wonMatches        Match[]                   @relation("MatchWinner")
+  recordedMatches   Match[]                   @relation("MatchRecorder")
+  tournaments       Tournament[]              @relation("OrganizedTournaments")
   participants      Participant[]
   saves             SavedTournament[]
-  conversations     ConversationParticipant[]
+  ownedOrganization Organization?             @relation("OrganizationOwner")
+  staffAssignments  TournamentStaff[]         @relation("StaffUser")
+  grantedStaff      TournamentStaff[]         @relation("StaffGrantedBy")
+  reviewedApps      OrganizationApplication[] @relation("ApplicationReviewer")
+  uploads           MediaAsset[]
+  channelMemberships ChannelMember[]
+  channelPosts      ChannelPost[]
+  stories           Story[]
+  storyViews        StoryView[]
+  sessions          Session[]
+  notifications     Notification[]
 }
 
-model Achievement {
-  id          String   @id @default(cuid())
-  title       String
-  description String
-  icon        String
-  date        String
-  rarity      String   // common, rare, epic, legendary
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  userAgent String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
-model SportRank {
-  id      String @id @default(cuid())
-  sport   String
-  rank    Int
-  points  Int
-  tier    String // bronze, silver, gold, platinum, diamond, champion
-  userId  String
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+// ============================================================
+// Organizations
+// ============================================================
+
+model Organization {
+  id          String             @id @default(cuid())
+  name        String
+  slug        String             @unique
+  description String             @db.Text
+  email       String
+  phone       String?
+  website     String?
+  location    String             @default("")
+  logoMediaId String?
+  logoMedia   MediaAsset?        @relation("OrganizationLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
+  status      OrganizationStatus @default(ACTIVE)
+  ownerId     String             @unique
+  owner       User               @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime           @default(now())
+
+  tournaments  Tournament[]
+  applications OrganizationApplication[]
+  channel      Channel?                  @relation("OrganizationChannel")
+  stories      Story[]
 }
 
-model Match {
-  id             String @id @default(cuid())
-  tournamentId   String
-  tournamentName String
-  sport          String
-  opponent       String
-  result         String // win, loss, draw
-  score          String
-  date           String
-  userId         String
-  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+/// Public sign-up request. A SUPER_ADMIN reviews it and, on approval,
+/// provisions the ORGANIZATION user account (login + password).
+model OrganizationApplication {
+  id          String            @id @default(cuid())
+  orgName     String
+  contactName String
+  email       String
+  phone       String?
+  website     String?
+  location    String            @default("")
+  description String            @db.Text
+  status      ApplicationStatus @default(PENDING)
+
+  reviewedById String?
+  reviewedBy   User?     @relation("ApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  reviewNote   String?   @db.Text
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([status])
 }
+
+// ============================================================
+// Media (stored in the database — no external object storage)
+// ============================================================
+
+model MediaAsset {
+  id           String   @id @default(cuid())
+  mimeType     String
+  byteSize     Int
+  width        Int?
+  height       Int?
+  originalName String?
+  data         Bytes    @db.LongBlob
+  uploadedById String?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+
+  tournamentPosters Tournament[]   @relation("TournamentPoster")
+  organizationLogos Organization[] @relation("OrganizationLogo")
+  stories           Story[]
+  channelPosts      ChannelPost[]
+}
+
+// ============================================================
+// Tournaments
+// ============================================================
 
 model Tournament {
-  id               String       @id @default(cuid())
+  id               String           @id @default(cuid())
   title            String
   sport            String
-  category         String       // sports, esports, academic
+  category         String // sports, esports, academic
   location         String
   date             String
   endDate          String?
   time             String
   maxParticipants  Int
-  posterUrl        String
+  posterUrl        String           @default("")
+  posterMediaId    String?
+  posterMedia      MediaAsset?      @relation("TournamentPoster", fields: [posterMediaId], references: [id], onDelete: SetNull)
   organizerId      String
-  organizer        User         @relation("OrganizedTournaments", fields: [organizerId], references: [id], onDelete: Cascade)
-  description      String       @db.Text
-  rulesJson        String       @db.Text // JSON list
-  requirementsJson String       @db.Text // JSON list
+  organizer        User             @relation("OrganizedTournaments", fields: [organizerId], references: [id], onDelete: Cascade)
+  organizationId   String?
+  organization     Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  description      String           @db.Text
+  rulesJson        String           @db.Text // JSON list
+  requirementsJson String           @db.Text // JSON list
   prizePool        String?
   entryFee         String?
-  status           String       // upcoming, ongoing, completed, registration_open
-  featured         Boolean      @default(false)
-  
+  status           TournamentStatus @default(registration_open)
+  featured         Boolean          @default(false)
+  closedAt         DateTime?
+  createdAt        DateTime         @default(now())
+
   // Relations
-  participants     Participant[]
-  saves            SavedTournament[]
+  participants Participant[]
+  matches      Match[]
+  saves        SavedTournament[]
+  staff        TournamentStaff[]
+  channel      Channel?          @relation("TournamentChannel")
+  stories      Story[]
+
+  @@index([status])
+  @@index([organizationId])
+}
+
+/// Temporary access grant. `revokedAt == null` means the grant is live.
+model TournamentStaff {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation("StaffUser", fields: [userId], references: [id], onDelete: Cascade)
+  role         StaffRole
+  grantedById  String?
+  grantedBy    User?      @relation("StaffGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
+  grantedAt    DateTime   @default(now())
+  revokedAt    DateTime?
+  revokeReason String?
+
+  @@unique([tournamentId, userId])
+  @@index([userId, revokedAt])
 }
 
 model Participant {
-  id            String      @id @default(cuid())
+  id            String     @id @default(cuid())
   name          String
   email         String
   avatar        String
   registeredAt  String
-  status        String      // pending, approved, rejected
+  status        String // pending, approved, rejected
   teamName      String?
-  paymentStatus String      // paid, pending, waived
+  paymentStatus String // paid, pending, waived
   tournamentId  String
-  tournament    Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   userId        String?
-  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user          User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  homeMatches Match[] @relation("MatchHomeSide")
+  awayMatches Match[] @relation("MatchAwaySide")
+
+  @@unique([tournamentId, userId])
+  @@index([tournamentId, status])
 }
 
 model SavedTournament {
   userId       String
-  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   tournamentId String
-  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
 
   @@id([userId, tournamentId])
 }
 
-model Conversation {
-  id                   String                   @id
-  lastMessage          String
-  lastMessageTime      String
-  unreadCount          Int                      @default(0)
-  tournamentContextId  String?
-  tournamentContextName String?
-  
-  // Relations
-  messages             Message[]
-  participants         ConversationParticipant[]
+// ============================================================
+// Channels (Telegram-style broadcast) — replaces 1:1 conversations
+// ============================================================
+
+model Channel {
+  id          String      @id @default(cuid())
+  type        ChannelType
+  title       String
+  handle      String      @unique
+  description String      @db.Text
+  avatar      String      @default("/placeholder-user.jpg")
+
+  organizationId String?       @unique
+  organization   Organization? @relation("OrganizationChannel", fields: [organizationId], references: [id], onDelete: Cascade)
+  tournamentId   String?       @unique
+  tournament     Tournament?   @relation("TournamentChannel", fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  members ChannelMember[]
+  posts   ChannelPost[]
 }
 
-model ConversationParticipant {
-  id             String       @id @default(cuid())
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+model ChannelMember {
+  id        String            @id @default(cuid())
+  channelId String
+  channel   Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      ChannelMemberRole @default(SUBSCRIBER)
+  lastReadAt DateTime?
+  joinedAt  DateTime          @default(now())
 
-  @@unique([conversationId, userId])
+  @@unique([channelId, userId])
+  @@index([userId])
 }
 
-model Message {
-  id             String       @id @default(cuid())
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  senderId       String
-  senderName     String
-  senderAvatar   String
-  content        String       @db.Text
-  timestamp      String
-  read           Boolean      @default(false)
+model ChannelPost {
+  id        String      @id @default(cuid())
+  channelId String
+  channel   Channel     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String      @db.Text
+  mediaId   String?
+  media     MediaAsset? @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  pinned    Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  @@index([channelId, createdAt])
+}
+
+// ============================================================
+// Stories (Instagram-style, 24h)
+// ============================================================
+
+model Story {
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tournamentId   String?
+  tournament     Tournament?   @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  authorId       String
+  author         User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  mediaId        String
+  media          MediaAsset    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  caption        String?       @db.Text
+  createdAt      DateTime      @default(now())
+  expiresAt      DateTime
+
+  views StoryView[]
+
+  @@index([expiresAt])
+}
+
+model StoryView {
+  id       String   @id @default(cuid())
+  storyId  String
+  story    Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  viewedAt DateTime @default(now())
+
+  @@unique([storyId, userId])
+}
+
+// ============================================================
+// Profile data
+// ============================================================
+
+model Achievement {
+  id          String @id @default(cuid())
+  title       String
+  description String
+  icon        String
+  date        String
+  rarity      String // common, rare, epic, legendary
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SportRank {
+  id     String @id @default(cuid())
+  sport  String
+  rank   Int
+  points Int
+  tier   String // bronze, silver, gold, platinum, diamond, champion
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A real fixture between two registered sides.
+///
+/// `homeUserId` / `awayUserId` / `winnerUserId` are denormalised copies of the
+/// participants' user ids. They exist so a profile can list "my matches" and
+/// the leaderboard can count wins with a single `_count` — without them both
+/// would need a join through `Participant` that Prisma cannot express in an
+/// aggregate.
+model Match {
+  id           String      @id @default(cuid())
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  stage        String      @default("")
+  status       MatchStatus @default(scheduled)
+  scheduledAt  DateTime?
+
+  homeParticipantId String?
+  homeParticipant   Participant? @relation("MatchHomeSide", fields: [homeParticipantId], references: [id], onDelete: SetNull)
+  awayParticipantId String?
+  awayParticipant   Participant? @relation("MatchAwaySide", fields: [awayParticipantId], references: [id], onDelete: SetNull)
+
+  /// Snapshot labels: a side keeps its name even if the registration is removed.
+  homeLabel String
+  awayLabel String
+
+  homeUserId String?
+  homeUser   User?   @relation("MatchHomeUser", fields: [homeUserId], references: [id], onDelete: SetNull)
+  awayUserId String?
+  awayUser   User?   @relation("MatchAwayUser", fields: [awayUserId], references: [id], onDelete: SetNull)
+
+  homeScore Int?
+  awayScore Int?
+
+  /// Null for a draw, a cancelled match, or a side with no linked account.
+  winnerUserId String?
+  winnerUser   User?   @relation("MatchWinner", fields: [winnerUserId], references: [id], onDelete: SetNull)
+
+  notes        String?  @db.Text
+  recordedById String?
+  recordedBy   User?    @relation("MatchRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tournamentId, status])
+  @@index([homeUserId])
+  @@index([awayUserId])
+  @@index([winnerUserId])
+  @@index([status, scheduledAt])
+}
+
+// ============================================================
+// Notifications
+// ============================================================
+
+/// In-app notifications. Written by the server actions that change state
+/// someone else is waiting on (approve/reject, status change, staff grant).
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String           @db.Text
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
 }

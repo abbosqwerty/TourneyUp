@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { 
   Trophy, 
@@ -18,10 +17,8 @@ import {
   Play, 
   Pause, 
   MapPin, 
-  Users, 
   ArrowRight,
   CheckCircle,
-  Clock
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -104,6 +101,16 @@ function getSportIcon(sportOrCategory?: string) {
   return Dribbble
 }
 
+/**
+ * Resolves the icon inside its own component — assigning `getSportIcon(...)` to
+ * a capitalised const during render creates a new component type every pass.
+ */
+function SportGlyph({ sport, className }: { sport?: string; className?: string }) {
+  // `createElement` keeps the icon out of a capitalised local, which React's
+  // static-components lint rule reads as defining a component mid-render.
+  return React.createElement(getSportIcon(sport), { className })
+}
+
 // ----------------------------------------------------
 // Instagram Story Modal Viewer
 // ----------------------------------------------------
@@ -114,7 +121,6 @@ interface StoryViewerProps {
 }
 
 function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProps) {
-  const router = useRouter()
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [progress, setProgress] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
@@ -123,7 +129,6 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
 
   const currentStory = stories[currentIndex]
   const config = typeConfig[currentStory.type] || typeConfig.registration
-  const SportIcon = getSportIcon(currentStory.sport || currentStory.category)
 
   const goToNext = useCallback(() => {
     setProgress(0)
@@ -251,7 +256,7 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
           <div className="flex items-center justify-between text-foreground">
             <div className="flex items-center gap-2.5">
               <Avatar className="h-9 w-9 border-2 border-primary/40 shadow-sm">
-                <AvatarImage src={currentStory.organizerAvatar} />
+                <AvatarImage src={currentStory.organizerAvatar} alt={currentStory.organizerName ?? 'Tashkilotchi'} />
                 <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">
                   {(currentStory.organizerName || 'T')[0]}
                 </AvatarFallback>
@@ -334,7 +339,7 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
           <div className="relative mb-5">
             <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-primary to-accent opacity-40 blur-xl scale-125 animate-pulse" />
             <div className="relative h-24 w-24 rounded-full bg-secondary/80 border-2 border-primary/30 flex items-center justify-center backdrop-blur-md shadow-xl">
-              <SportIcon className="h-12 w-12 text-primary" />
+              <SportGlyph sport={currentStory.sport || currentStory.category} className="h-12 w-12 text-primary" />
             </div>
           </div>
 
@@ -429,7 +434,6 @@ export function FeaturedStoriesRow({ stories }: { stories: StoryData[] }) {
         <div className="w-fit mx-auto flex items-start justify-center gap-6 sm:gap-7 px-4">
           {stories.map((story, index) => {
             const config = typeConfig[story.type] || typeConfig.registration
-            const SportIcon = getSportIcon(story.sport || story.category)
 
             return (
               <button
@@ -449,7 +453,7 @@ export function FeaturedStoriesRow({ stories }: { stories: StoryData[] }) {
                     <div className="w-full h-full rounded-full p-[2.5px] bg-background">
                       {/* Circle Media Thumbnail */}
                       <div className="w-full h-full rounded-full overflow-hidden relative flex items-center justify-center bg-gradient-to-br from-secondary/60 via-card to-secondary/40 border border-border/50">
-                        <SportIcon className="h-9 w-9 sm:h-11 sm:w-11 text-primary/80 group-hover:text-primary transition-colors group-hover:scale-110 duration-200" />
+                        <SportGlyph sport={story.sport || story.category} className="h-9 w-9 sm:h-11 sm:w-11 text-primary/80 group-hover:text-primary transition-colors group-hover:scale-110 duration-200" />
                       </div>
                     </div>
                   </div>

@@ -15,7 +15,6 @@ import {
   Clock,
   Trophy,
   CheckCircle,
-  Share2,
   Bookmark,
   ChevronLeft,
   DollarSign,
@@ -23,9 +22,15 @@ import {
   AlertCircle,
   Gamepad2,
   Dribbble,
-  GraduationCap
+  GraduationCap,
+  ShieldCheck
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { useRouter } from 'next/navigation'
+import type { Tournament, TournamentDetail, TournamentStatusValue } from '@/lib/types'
+import { TOURNAMENT_STATUS_CLASSES, TOURNAMENT_STATUS_LABELS } from '@/lib/constants'
+import { toast } from 'sonner'
+import { ShareButton } from '@/components/share-button'
 import { registerParticipant, toggleSaveTournament } from '@/lib/actions'
 import { useAuthModal } from '@/components/auth-modal'
 import { ParticipantSlots } from '@/components/participant-slots'
@@ -36,18 +41,18 @@ const categoryIcons = {
   academic: GraduationCap,
 }
 
-const statusColors = {
-  upcoming: 'bg-secondary text-secondary-foreground',
-  ongoing: 'bg-success text-white',
-  completed: 'bg-muted text-muted-foreground',
-  registration_open: 'bg-primary text-primary-foreground',
-}
+const STAFF_LABELS = {
+  ADMIN: 'Admin',
+  ORGANIZER: 'Tournament organizer',
+  SUPPORT: 'Support',
+} as const
 
-const statusLabels = {
-  upcoming: 'Upcoming',
-  ongoing: 'Live Now',
-  completed: 'Completed',
-  registration_open: 'Registration Open',
+export type TournamentAbilityProps = {
+  canEditTournament: boolean
+  canManageParticipants: boolean
+  canManageStaff: boolean
+  staffRole: 'ADMIN' | 'ORGANIZER' | 'SUPPORT' | null
+  isOwner: boolean
 }
 
 export default function TournamentClient({
@@ -56,70 +61,80 @@ export default function TournamentClient({
   isUserRegistered,
   relatedTournaments,
   participantsCount,
-  isOrganizer = false,
+  ability,
+  channelId,
   currentUser,
-  currentUserId,
 }: {
-  tournament: any
+  tournament: TournamentDetail
   isSaved: boolean
   isUserRegistered: boolean
-  relatedTournaments: any[]
+  relatedTournaments: Tournament[]
   participantsCount: number
-  isOrganizer?: boolean
-  currentUser?: any
-  currentUserId?: string
+  ability: TournamentAbilityProps
+  channelId: string | null
+  currentUser: { id: string; name: string; username: string; avatar: string; role: string } | null
 }) {
   const { openLoginModal } = useAuthModal()
+  const router = useRouter()
+  const currentUserId = currentUser?.id
+  const canRegister = currentUser?.role === 'USER'
   const [saved, setSaved] = useState(isSaved)
   const [registered, setRegistered] = useState(isUserRegistered)
   const [registering, setRegistering] = useState(false)
   const [teamName, setTeamName] = useState('')
   const [currentParticipants, setCurrentParticipants] = useState(participantsCount)
-  const [followOrganizer, setFollowOrganizer] = useState(true)
-  const [joinTournamentChannel, setJoinTournamentChannel] = useState(true)
 
   const CategoryIcon = categoryIcons[tournament.category as keyof typeof categoryIcons] || Trophy
-  const participantPercentage = (currentParticipants / tournament.maxParticipants) * 100
-  const spotsLeft = tournament.maxParticipants - currentParticipants
 
   const handleSave = async () => {
     if (!currentUserId) {
       openLoginModal({
-        title: 'Sign in to Save',
-        description: `Sign in to bookmark "${tournament.title}".`
+        title: 'Saqlash uchun kiring',
+        description: `"${tournament.title}" ni saqlash uchun akkauntingizga kiring.`,
       })
       return
     }
+
+    const previous = saved
     setSaved(!saved)
-    await toggleSaveTournament(tournament.id, currentUserId)
+
+    const result = await toggleSaveTournament(tournament.id)
+    if (!result.ok) {
+      setSaved(previous)
+      toast.error(result.error)
+    }
   }
 
   const handleRegister = async () => {
     if (!currentUserId) {
       openLoginModal({
-        title: 'Sign in to Join',
-        description: `Sign in to register for "${tournament.title}".`,
-        callback: () => {
-          window.location.reload()
-        }
+        title: 'Qo‘shilish uchun kiring',
+        description: `"${tournament.title}" turniriga yozilish uchun akkauntingizga kiring.`,
       })
       return
     }
 
-    setRegistering(true)
-    try {
-      await registerParticipant(tournament.id, currentUserId, {
-        name: currentUser?.name || 'Registered Player',
-        email: currentUser?.username ? `${currentUser.username}@tourneyup.uz` : 'player@tourneyup.uz',
-        teamName: teamName.trim() || undefined
-      })
-      setRegistered(true)
-      setCurrentParticipants(prev => prev + 1)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setRegistering(false)
+    if (!canRegister) {
+      toast.error('Tashkilot va admin akkauntlari turnirga yozilmaydi')
+      return
     }
+
+    setRegistering(true)
+    const result = await registerParticipant({
+      tournamentId: tournament.id,
+      teamName: teamName.trim() || undefined,
+    })
+    setRegistering(false)
+
+    if (!result.ok) {
+      toast.error(result.error)
+      return
+    }
+
+    setRegistered(true)
+    setCurrentParticipants(prev => prev + 1)
+    toast.success('Arizangiz yuborildi — tashkilotchi tasdiqlashini kuting')
+    router.refresh()
   }
 
   return (
@@ -142,8 +157,8 @@ export default function TournamentClient({
                 <CategoryIcon className="h-24 w-24 text-primary/30" />
               </div>
               <div className="absolute top-4 left-4 flex gap-2">
-                <Badge className={statusColors[tournament.status as keyof typeof statusColors]}>
-                  {statusLabels[tournament.status as keyof typeof statusLabels]}
+                <Badge className={TOURNAMENT_STATUS_CLASSES[tournament.status as TournamentStatusValue]}>
+                  {TOURNAMENT_STATUS_LABELS[tournament.status as TournamentStatusValue]}
                 </Badge>
                 {tournament.featured && (
                   <Badge variant="outline" className="border-primary text-primary bg-background/50">
@@ -152,15 +167,15 @@ export default function TournamentClient({
                 )}
               </div>
               <div className="absolute top-4 right-4 flex gap-2">
-                <Button variant="secondary" size="icon">
-                  <Share2 className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant={saved ? "default" : "secondary"} 
+                <ShareButton title={tournament.title} path={`/tournament/${tournament.id}`} />
+                <Button
+                  variant={saved ? 'default' : 'secondary'}
                   size="icon"
                   onClick={handleSave}
+                  aria-label={saved ? 'Saqlanganlardan olib tashlash' : 'Turnirni saqlash'}
+                  aria-pressed={saved}
                 >
-                  <Bookmark className="h-4 w-4" />
+                  <Bookmark className="h-4 w-4" aria-hidden />
                 </Button>
               </div>
               <Badge variant="secondary" className="absolute bottom-4 left-4 text-sm">
@@ -173,7 +188,7 @@ export default function TournamentClient({
               {/* Organizer */}
               <div className="flex items-center gap-3 mb-6">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={tournament.organizer.avatar} />
+                  <AvatarImage src={tournament.organizer.avatar} alt={`${tournament.organizer.name} logotipi`} />
                   <AvatarFallback>{tournament.organizer.name[0]}</AvatarFallback>
                 </Avatar>
                 <div>
@@ -316,25 +331,53 @@ export default function TournamentClient({
                 />
               </div>
 
+              {/* Management shortcuts for the organization and its staff */}
+              {ability.canManageParticipants || ability.canManageStaff ? (
+                <div className="mb-4 space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <p className="flex items-center gap-2 text-sm font-medium">
+                    <ShieldCheck className="h-4 w-4 text-primary" aria-hidden />
+                    {ability.isOwner
+                      ? 'Siz bu turnir egasisiz'
+                      : `Vaqtinchalik rol: ${STAFF_LABELS[ability.staffRole ?? 'SUPPORT']}`}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {ability.canManageParticipants ? (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href="/dashboard/participants">Ishtirokchilar</Link>
+                      </Button>
+                    ) : null}
+                    {ability.canManageStaff ? (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/dashboard/tournaments/${tournament.id}/staff`}>Xodimlar</Link>
+                      </Button>
+                    ) : null}
+                    {channelId ? (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/messages/${channelId}`}>Kanal</Link>
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
               {/* Registration CTA */}
-              {isOrganizer ? (
+              {currentUser && !canRegister ? (
                 <div className="space-y-3">
-                  <div className="p-4 rounded-lg bg-secondary/50 border border-border">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                      <span className="font-medium text-sm">Organizer Account</span>
+                  <div className="rounded-lg border border-border bg-secondary/50 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-muted-foreground" aria-hidden />
+                      <span className="text-sm font-medium">
+                        {currentUser.role === 'ORGANIZATION' ? 'Tashkilot akkaunti' : 'Admin akkaunti'}
+                      </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Organizers cannot register as participants. Switch to a player account to join tournaments.
+                      Bu akkaunt turnirga ishtirokchi bo‘lib yozilmaydi. Yozilish uchun oddiy foydalanuvchi
+                      akkauntidan foydalaning.
                     </p>
                   </div>
-                  <Button 
-                    variant={saved ? "default" : "outline"} 
-                    className="w-full gap-2"
-                    onClick={handleSave}
-                  >
+                  <Button variant={saved ? 'default' : 'outline'} className="w-full gap-2" onClick={handleSave}>
                     <Bookmark className="h-4 w-4" />
-                    {saved ? 'Saved' : 'Save for Later'}
+                    {saved ? 'Saqlangan' : 'Keyinroq uchun saqlash'}
                   </Button>
                 </div>
               ) : registered ? (
@@ -362,30 +405,11 @@ export default function TournamentClient({
                     />
                   </div>
 
-                  {/* Auto-Subscribe Options */}
-                  <div className="p-2.5 rounded-lg bg-secondary/40 border border-border/50 space-y-2 text-xs">
-                    <div className="text-[11px] font-semibold text-foreground">
-                      Auto-subscribe to tournament updates:
-                    </div>
-                    <label className="flex items-center gap-2 cursor-pointer select-none text-muted-foreground hover:text-foreground">
-                      <input
-                        type="checkbox"
-                        checked={followOrganizer}
-                        onChange={(e) => setFollowOrganizer(e.target.checked)}
-                        className="rounded border-input text-primary focus:ring-primary h-3.5 w-3.5"
-                      />
-                      <span>Follow {tournament.organizer?.name || 'Organizer'}</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer select-none text-muted-foreground hover:text-foreground">
-                      <input
-                        type="checkbox"
-                        checked={joinTournamentChannel}
-                        onChange={(e) => setJoinTournamentChannel(e.target.checked)}
-                        className="rounded border-input text-primary focus:ring-primary h-3.5 w-3.5"
-                      />
-                      <span>Join Tournament Channel</span>
-                    </label>
-                  </div>
+                  {/* Registering subscribes you to the tournament channel. */}
+                  <p className="rounded-lg border border-border/50 bg-secondary/40 p-2.5 text-xs text-muted-foreground">
+                    Yozilganingizdan keyin turnir kanaliga avtomatik obuna bo‘lasiz — barcha rasmiy e‘lonlar
+                    shu yerda chiqadi.
+                  </p>
 
                   <Button 
                     className="w-full gap-2" 
@@ -459,7 +483,7 @@ export default function TournamentClient({
               <h3 className="font-semibold mb-4">About the Organizer</h3>
               <div className="flex items-center gap-3">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src={tournament.organizer.avatar} />
+                  <AvatarImage src={tournament.organizer.avatar} alt={`${tournament.organizer.name} logotipi`} />
                   <AvatarFallback>{tournament.organizer.name[0]}</AvatarFallback>
                 </Avatar>
                 <div>
