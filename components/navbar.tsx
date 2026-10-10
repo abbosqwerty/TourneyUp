@@ -18,6 +18,7 @@ import {
   Plus,
   Search,
   Settings,
+  Shirt,
   Shield,
   Sun,
   Trophy,
@@ -76,10 +77,11 @@ export function Navbar({
   const navLinks = [
     { href: '/feed', label: 'Turnirlar', icon: Home, show: true },
     { href: '/rankings', label: 'Reyting', icon: BarChart3, show: true },
-    { href: '/results', label: 'Natijalar', icon: Activity, show: true, isLive: true },
+    { href: '/results', label: 'Musobaqa', icon: Activity, show: true, isLive: true },
+    { href: '/teams', label: 'Jamoalarim', icon: Shirt, show: currentUser?.role === 'USER' },
     {
       href: '/messages',
-      label: 'Kanallar',
+      label: 'Xabarlar',
       icon: MessageSquare,
       show: Boolean(currentUser),
       badge: unreadCount,

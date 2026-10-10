@@ -32,6 +32,46 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ImageUploader, type UploadedImage } from '@/components/image-uploader'
 import { createTournament } from '@/lib/actions'
+import { Switch } from '@/components/ui/switch'
+import { FORMAT_LABELS, TOURNAMENT_FORMATS, type TournamentFormat } from '@/lib/competition/config'
+
+type FormatState = {
+  format: TournamentFormat
+  participantType: 'INDIVIDUAL' | 'TEAM'
+  teamSize: string
+  teamSizeMax: string
+  seeding: 'random' | 'seeded'
+  thirdPlaceMatch: boolean
+  grandFinalReset: boolean
+  groupCount: string
+  advancePerGroup: string
+  swissRounds: string
+  winPoints: string
+  drawPoints: string
+}
+
+const INITIAL_FORMAT: FormatState = {
+  format: 'SINGLE_ELIMINATION',
+  participantType: 'INDIVIDUAL',
+  teamSize: '',
+  teamSizeMax: '',
+  seeding: 'random',
+  thirdPlaceMatch: false,
+  grandFinalReset: true,
+  groupCount: '',
+  advancePerGroup: '2',
+  swissRounds: '',
+  winPoints: '3',
+  drawPoints: '1',
+}
+
+const FORMAT_HINTS: Record<TournamentFormat, string> = {
+  SINGLE_ELIMINATION: 'One loss and you are out. Byes go to the top seeds automatically.',
+  DOUBLE_ELIMINATION: 'Winners and losers brackets; a second loss eliminates. Grand final decides the champion.',
+  ROUND_ROBIN: 'Everyone plays everyone once. Standings decide the placings.',
+  GROUPS_KNOCKOUT: 'Round-robin groups, then the best of each group play a knockout bracket.',
+  SWISS: 'Fixed number of rounds; each round pairs players with similar scores, no rematches.',
+}
 
 const sportCategories = [
   { id: 'football', name: 'Football' },
@@ -119,6 +159,9 @@ export default function CreateTournamentClient() {
   const [poster, setPoster] = useState<UploadedImage | null>(null)
   const [gallery, setGallery] = useState<(UploadedImage | null)[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [formatState, setFormatState] = useState<FormatState>(INITIAL_FORMAT)
+  const setFormat = <K extends keyof FormatState>(field: K, value: FormatState[K]) =>
+    setFormatState((prev) => ({ ...prev, [field]: value }))
 
   const [formData, setFormData] = useState({
     title: '',
@@ -166,8 +209,26 @@ export default function CreateTournamentClient() {
     setIsSubmitting(true)
     setErrors({})
 
+    const f = formatState
     const result = await createTournament({
       ...formData,
+      // Store the display name ("Football"), the same vocabulary the feed
+      // filters and the leaderboard's game filter use.
+      sport: sportCategories.find((c) => c.id === formData.sport)?.name ?? formData.sport,
+      format: f.format,
+      participantType: f.participantType,
+      teamSize: f.participantType === 'TEAM' ? f.teamSize : '',
+      teamSizeMax: f.participantType === 'TEAM' ? f.teamSizeMax : '',
+      formatConfig: {
+        seeding: f.seeding,
+        thirdPlaceMatch: f.thirdPlaceMatch,
+        grandFinalReset: f.grandFinalReset,
+        groupCount: f.groupCount,
+        advancePerGroup: f.advancePerGroup,
+        swissRounds: f.swissRounds,
+        winPoints: f.winPoints,
+        drawPoints: f.drawPoints,
+      },
       posterMediaId: poster?.id ?? '',
       galleryMediaIds: gallery.flatMap((image) => (image ? [image.id] : [])),
     })
@@ -381,6 +442,199 @@ export default function CreateTournamentClient() {
                       </div>
                     </Field>
                   </div>
+                </FieldGroup>
+              </CardContent>
+            </Card>
+
+            {/* Competition Format */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-primary" />
+                  Competition Format
+                </CardTitle>
+                <CardDescription>
+                  When you start the tournament, TourneyUp makes the draw and creates every match automatically.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FieldGroup>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <Field>
+                      <FieldLabel htmlFor="format">Format</FieldLabel>
+                      <Select value={formatState.format} onValueChange={(v) => setFormat('format', v as TournamentFormat)}>
+                        <SelectTrigger id="format">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TOURNAMENT_FORMATS.map((format) => (
+                            <SelectItem key={format} value={format}>
+                              {FORMAT_LABELS[format]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+
+                    <Field>
+                      <FieldLabel htmlFor="participantType">Participants</FieldLabel>
+                      <Select
+                        value={formatState.participantType}
+                        onValueChange={(v) => setFormat('participantType', v as FormatState['participantType'])}
+                      >
+                        <SelectTrigger id="participantType">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="INDIVIDUAL">Individual players</SelectItem>
+                          <SelectItem value="TEAM">Teams</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{FORMAT_HINTS[formatState.format]}</p>
+
+                  {formatState.participantType === 'TEAM' ? (
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="teamSize">Roster size (min)</FieldLabel>
+                        <Input
+                          id="teamSize"
+                          type="number"
+                          min={1}
+                          placeholder="e.g., 5"
+                          value={formatState.teamSize}
+                          onChange={(e) => setFormat('teamSize', e.target.value)}
+                        />
+                        {errors.teamSize ? <p className="text-xs text-destructive">{errors.teamSize}</p> : null}
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="teamSizeMax">Roster size (max)</FieldLabel>
+                        <Input
+                          id="teamSizeMax"
+                          type="number"
+                          min={1}
+                          placeholder="Same as min"
+                          value={formatState.teamSizeMax}
+                          onChange={(e) => setFormat('teamSizeMax', e.target.value)}
+                        />
+                        {errors.teamSizeMax ? <p className="text-xs text-destructive">{errors.teamSizeMax}</p> : null}
+                      </Field>
+                    </div>
+                  ) : null}
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <Field>
+                      <FieldLabel htmlFor="seeding">Draw</FieldLabel>
+                      <Select value={formatState.seeding} onValueChange={(v) => setFormat('seeding', v as FormatState['seeding'])}>
+                        <SelectTrigger id="seeding">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="random">Random draw</SelectItem>
+                          <SelectItem value="seeded">Use seeds (set on the participants page)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+
+                    {formatState.format === 'GROUPS_KNOCKOUT' ? (
+                      <Field>
+                        <FieldLabel htmlFor="groupCount">Number of groups</FieldLabel>
+                        <Input
+                          id="groupCount"
+                          type="number"
+                          min={1}
+                          placeholder="Auto (≈4 per group)"
+                          value={formatState.groupCount}
+                          onChange={(e) => setFormat('groupCount', e.target.value)}
+                        />
+                      </Field>
+                    ) : null}
+
+                    {formatState.format === 'SWISS' ? (
+                      <Field>
+                        <FieldLabel htmlFor="swissRounds">Rounds</FieldLabel>
+                        <Input
+                          id="swissRounds"
+                          type="number"
+                          min={1}
+                          placeholder="Auto (log₂ of players)"
+                          value={formatState.swissRounds}
+                          onChange={(e) => setFormat('swissRounds', e.target.value)}
+                        />
+                      </Field>
+                    ) : null}
+                  </div>
+
+                  {formatState.format === 'GROUPS_KNOCKOUT' ? (
+                    <Field>
+                      <FieldLabel htmlFor="advancePerGroup">Advance from each group</FieldLabel>
+                      <Input
+                        id="advancePerGroup"
+                        type="number"
+                        min={1}
+                        value={formatState.advancePerGroup}
+                        onChange={(e) => setFormat('advancePerGroup', e.target.value)}
+                      />
+                    </Field>
+                  ) : null}
+
+                  {['ROUND_ROBIN', 'GROUPS_KNOCKOUT', 'SWISS'].includes(formatState.format) ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="winPoints">Points for a win</FieldLabel>
+                        <Input
+                          id="winPoints"
+                          type="number"
+                          min={0}
+                          step="0.5"
+                          value={formatState.winPoints}
+                          onChange={(e) => setFormat('winPoints', e.target.value)}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="drawPoints">Points for a draw</FieldLabel>
+                        <Input
+                          id="drawPoints"
+                          type="number"
+                          min={0}
+                          step="0.5"
+                          value={formatState.drawPoints}
+                          onChange={(e) => setFormat('drawPoints', e.target.value)}
+                        />
+                      </Field>
+                    </div>
+                  ) : null}
+
+                  {formatState.format === 'SINGLE_ELIMINATION' || formatState.format === 'GROUPS_KNOCKOUT' ? (
+                    <label className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+                      <span>
+                        <span className="block text-sm font-medium">Third-place match</span>
+                        <span className="block text-xs text-muted-foreground">
+                          Off: both semi-final losers share 3rd place.
+                        </span>
+                      </span>
+                      <Switch
+                        checked={formatState.thirdPlaceMatch}
+                        onCheckedChange={(v) => setFormat('thirdPlaceMatch', v)}
+                      />
+                    </label>
+                  ) : null}
+
+                  {formatState.format === 'DOUBLE_ELIMINATION' ? (
+                    <label className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+                      <span>
+                        <span className="block text-sm font-medium">Grand final reset</span>
+                        <span className="block text-xs text-muted-foreground">
+                          If the losers-bracket finalist wins the grand final, a deciding match is played.
+                        </span>
+                      </span>
+                      <Switch
+                        checked={formatState.grandFinalReset}
+                        onCheckedChange={(v) => setFormat('grandFinalReset', v)}
+                      />
+                    </label>
+                  ) : null}
                 </FieldGroup>
               </CardContent>
             </Card>

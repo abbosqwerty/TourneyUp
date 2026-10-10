@@ -7,6 +7,7 @@ import { assignStaffSchema, fieldErrors, revokeStaffSchema } from './schemas'
 import { fail, succeedWith, type ActionResult } from './action-result'
 import { notify } from './notifications'
 import { STAFF_ROLE_LABELS } from './staff-labels'
+import { syncTournamentChannel } from './channels'
 
 /**
  * Grant a temporary, tournament-scoped role to an existing platform user.
@@ -60,15 +61,8 @@ export async function assignTournamentStaff(
       create: { tournamentId, userId: target.id, role, grantedById: actor.id },
     })
 
-    // Staff need write access in the tournament channel.
-    const channel = await db.channel.findUnique({ where: { tournamentId }, select: { id: true } })
-    if (channel) {
-      await db.channelMember.upsert({
-        where: { channelId_userId: { channelId: channel.id, userId: target.id } },
-        update: { role: 'STAFF' },
-        create: { channelId: channel.id, userId: target.id, role: 'STAFF' },
-      })
-    }
+    // Staff join the tournament group with write access.
+    await syncTournamentChannel(tournamentId)
 
     await notify({
       userId: target.id,
@@ -115,16 +109,8 @@ export async function revokeTournamentStaff(input: unknown): Promise<ActionResul
       },
     })
 
-    const channel = await db.channel.findUnique({
-      where: { tournamentId: grant.tournamentId },
-      select: { id: true },
-    })
-    if (channel) {
-      await db.channelMember.updateMany({
-        where: { channelId: channel.id, userId: grant.userId, role: 'STAFF' },
-        data: { role: 'SUBSCRIBER' },
-      })
-    }
+    // Out of the group too, unless they also play in this tournament.
+    await syncTournamentChannel(grant.tournamentId)
 
     revalidatePath(`/dashboard/tournaments/${grant.tournamentId}/staff`)
     revalidatePath('/staff')

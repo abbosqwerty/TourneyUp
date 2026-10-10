@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TOURNAMENT_FORMATS } from './competition/config'
 
 const trimmed = (max: number) => z.string().trim().max(max)
 
@@ -75,7 +76,31 @@ export const tournamentStatuses = ['upcoming', 'registration_open', 'ongoing', '
 export const tournamentCategories = ['sports', 'esports', 'academic'] as const
 export const staffRoles = ['ADMIN', 'ORGANIZER', 'SUPPORT'] as const
 
-export const createTournamentSchema = z.object({
+/** Empty form input → undefined, otherwise a whole number. */
+const optionalInt = (min: number, max: number) =>
+  z.preprocess(
+    (value) => (value === '' || value === null || value === undefined ? undefined : value),
+    z.coerce.number().int('Butun son kiriting').min(min, `Kamida ${min}`).max(max, `Ko‘pi bilan ${max}`).optional()
+  )
+
+export const participantTypes = ['INDIVIDUAL', 'TEAM'] as const
+
+/** Format options as the create form sends them; defaults live in lib/competition/config. */
+export const formatConfigInputSchema = z
+  .object({
+    seeding: z.enum(['random', 'seeded']).optional(),
+    thirdPlaceMatch: z.boolean().optional(),
+    grandFinalReset: z.boolean().optional(),
+    groupCount: optionalInt(1, 64),
+    advancePerGroup: optionalInt(1, 16),
+    swissRounds: optionalInt(1, 30),
+    winPoints: z.coerce.number().min(0).max(10).optional(),
+    drawPoints: z.coerce.number().min(0).max(10).optional(),
+    lossPoints: z.coerce.number().min(0).max(10).optional(),
+  })
+  .partial()
+
+const tournamentBaseSchema = z.object({
   title: trimmed(140).min(5, 'Sarlavha kamida 5 belgi'),
   sport: trimmed(60).min(2, 'Sport turini tanlang'),
   category: z.enum(tournamentCategories),
@@ -99,11 +124,30 @@ export const createTournamentSchema = z.object({
   entryFee: trimmed(60).optional().or(z.literal('')),
   posterMediaId: z.string().optional().or(z.literal('')),
   galleryMediaIds: z.array(z.string()).max(4).optional(),
+  format: z.enum(TOURNAMENT_FORMATS).default('SINGLE_ELIMINATION'),
+  participantType: z.enum(participantTypes).default('INDIVIDUAL'),
+  teamSize: optionalInt(1, 50),
+  teamSizeMax: optionalInt(1, 50),
+  formatConfig: formatConfigInputSchema.optional(),
 })
 
-export const updateTournamentSchema = createTournamentSchema.extend({
-  tournamentId: z.string().min(1),
-})
+type TeamSizeFields = { participantType: string; teamSize?: number; teamSizeMax?: number }
+
+/** A team tournament needs a roster size, and the maximum cannot be below it. */
+function checkTeamSize(data: TeamSizeFields, ctx: z.RefinementCtx) {
+  if (data.participantType !== 'TEAM') return
+  if (!data.teamSize) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['teamSize'], message: 'Jamoa tarkibi sonini kiriting' })
+  } else if (data.teamSizeMax && data.teamSizeMax < data.teamSize) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['teamSizeMax'], message: 'Minimaldan kichik bo‘lmasin' })
+  }
+}
+
+export const createTournamentSchema = tournamentBaseSchema.superRefine(checkTeamSize)
+
+export const updateTournamentSchema = tournamentBaseSchema
+  .extend({ tournamentId: z.string().min(1) })
+  .superRefine(checkTeamSize)
 
 export const setTournamentStatusSchema = z.object({
   tournamentId: z.string().min(1),
@@ -113,6 +157,42 @@ export const setTournamentStatusSchema = z.object({
 export const registerParticipantSchema = z.object({
   tournamentId: z.string().min(1),
   teamName: trimmed(60).optional().or(z.literal('')),
+  /** Team tournaments: which team, and which of its members play. */
+  teamId: z.string().optional().or(z.literal('')),
+  rosterUserIds: z.array(z.string().min(1)).max(50).optional(),
+})
+
+// ------------------------------------------------------------
+// Teams
+// ------------------------------------------------------------
+
+export const teamFieldsSchema = z.object({
+  name: trimmed(50).min(2, 'Jamoa nomi kamida 2 belgi'),
+  sport: trimmed(60).min(2, 'O‘yin turini tanlang'),
+  category: z.enum(tournamentCategories),
+  description: trimmed(500).optional().or(z.literal('')),
+  logoMediaId: z.string().optional().or(z.literal('')),
+})
+
+export const updateTeamSchema = teamFieldsSchema.extend({ teamId: z.string().min(1) })
+
+export const inviteMemberSchema = z.object({
+  teamId: z.string().min(1),
+  userQuery: trimmed(120).min(2, 'Username yoki email kiriting'),
+})
+
+export const respondInviteSchema = z.object({
+  inviteId: z.string().min(1),
+  accept: z.boolean(),
+})
+
+export const teamMemberSchema = z.object({
+  teamId: z.string().min(1),
+  userId: z.string().min(1),
+})
+
+export const setTeamRoleSchema = teamMemberSchema.extend({
+  role: z.enum(['CAPTAIN', 'MEMBER']),
 })
 
 export const participantStatusSchema = z.object({
@@ -131,37 +211,80 @@ export const revokeStaffSchema = z.object({
   reason: trimmed(200).optional().or(z.literal('')),
 })
 
-export const matchStatuses = ['scheduled', 'live', 'completed', 'cancelled'] as const
+export const recordMatchResultSchema = z
+  .object({
+    matchId: z.string().min(1),
+    homeScore: optionalInt(0, 999),
+    awayScore: optionalInt(0, 999),
+    /** The side that did not show up — that side did not participate. */
+    forfeit: z.enum(['HOME', 'AWAY']).optional().or(z.literal('')),
+    notes: trimmed(500).optional().or(z.literal('')),
+    /** Required when changing an already-finalized result. */
+    reason: trimmed(500).optional().or(z.literal('')),
+  })
+  .superRefine((data, ctx) => {
+    if (data.forfeit) return
+    if (data.homeScore === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['homeScore'], message: 'Hisobni kiriting' })
+    if (data.awayScore === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['awayScore'], message: 'Hisobni kiriting' })
+  })
 
-const optionalId = z.string().optional().or(z.literal(''))
-
-export const createMatchSchema = z.object({
-  tournamentId: z.string().min(1),
-  stage: trimmed(60).optional().or(z.literal('')),
-  scheduledAt: trimmed(40).optional().or(z.literal('')),
-  homeParticipantId: optionalId,
-  awayParticipantId: optionalId,
-  /** Used when a side has no registration row (e.g. an invited guest team). */
-  homeLabel: trimmed(80).optional().or(z.literal('')),
-  awayLabel: trimmed(80).optional().or(z.literal('')),
-})
-
-export const recordMatchResultSchema = z.object({
-  matchId: z.string().min(1),
-  homeScore: z.coerce.number().int('Butun son kiriting').min(0, 'Manfiy bo‘lmasin').max(999),
-  awayScore: z.coerce.number().int('Butun son kiriting').min(0, 'Manfiy bo‘lmasin').max(999),
-  notes: trimmed(500).optional().or(z.literal('')),
-})
-
+/** Only the live/scheduled toggle — completion goes through the result form. */
 export const setMatchStatusSchema = z.object({
   matchId: z.string().min(1),
-  status: z.enum(matchStatuses),
+  status: z.enum(['scheduled', 'live']),
+})
+
+export const scheduleMatchSchema = z.object({
+  matchId: z.string().min(1),
+  /** `YYYY-MM-DDTHH:mm` in Tashkent time, or empty to clear. */
+  scheduledAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Sana va vaqtni kiriting')
+    .optional()
+    .or(z.literal('')),
+})
+
+export const participantSeedSchema = z.object({
+  participantId: z.string().min(1),
+  seed: optionalInt(1, 10_000),
 })
 
 export const channelPostSchema = z.object({
   channelId: z.string().min(1),
   content: trimmed(4000).min(1, 'Xabar bo‘sh bo‘lmasin'),
   mediaId: z.string().optional().or(z.literal('')),
+  /** Publish as an official announcement (organizer side only). */
+  announce: z.boolean().optional(),
+})
+
+// ------------------------------------------------------------
+// Support
+// ------------------------------------------------------------
+
+export const supportCategories = ['TECHNICAL', 'TOURNAMENT_ISSUE', 'REPORT_BEHAVIOR', 'ACCOUNT', 'OTHER'] as const
+
+export const createTicketSchema = z
+  .object({
+    scope: z.enum(['PLATFORM', 'TOURNAMENT']),
+    tournamentId: z.string().optional().or(z.literal('')),
+    category: z.enum(supportCategories),
+    subject: trimmed(140).min(4, 'Mavzu kamida 4 belgi'),
+    content: trimmed(4000).min(10, 'Muammoni batafsilroq yozing (kamida 10 belgi)'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.scope === 'TOURNAMENT' && !data.tournamentId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tournamentId'], message: 'Turnirni tanlang' })
+    }
+  })
+
+export const replyTicketSchema = z.object({
+  ticketId: z.string().min(1),
+  content: trimmed(4000).min(1, 'Xabar bo‘sh bo‘lmasin'),
+})
+
+export const ticketStatusSchema = z.object({
+  ticketId: z.string().min(1),
+  status: z.enum(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']),
 })
 
 export const createStorySchema = z.object({

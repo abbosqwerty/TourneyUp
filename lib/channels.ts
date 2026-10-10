@@ -1,5 +1,6 @@
 import { db } from './db'
-import type { ChannelMemberRole } from '@prisma/client'
+import type { ChannelMemberRole, Prisma, TeamRole } from '@prisma/client'
+import { mediaUrl } from './media'
 
 /** Plain helpers — not server actions. See the note in `lib/staff.ts`. */
 
@@ -81,27 +82,127 @@ export async function ensureOrganizationChannel(organizationId: string) {
   return channel.id
 }
 
-export type ChannelWriteAccess = {
+type Client = Prisma.TransactionClient | typeof db
+
+const TEAM_CHANNEL_ROLE: Record<TeamRole, ChannelMemberRole> = {
+  OWNER: 'OWNER',
+  CAPTAIN: 'STAFF',
+  MEMBER: 'SUBSCRIBER',
+}
+
+/**
+ * Create the team's private group if it does not exist yet. The group has no
+ * membership list of its own: `syncTeamChannel` mirrors TeamMember into it.
+ */
+export async function ensureTeamChannel(teamId: string, client: Client = db) {
+  const existing = await client.channel.findUnique({ where: { teamId }, select: { id: true } })
+  if (existing) return existing.id
+
+  const team = await client.team.findUnique({
+    where: { id: teamId },
+    select: { name: true, slug: true, sport: true, description: true, logoMediaId: true },
+  })
+  if (!team) return null
+
+  const channel = await client.channel.create({
+    data: {
+      type: 'TEAM',
+      title: team.name,
+      handle: await uniqueHandle(`team-${team.slug}`),
+      description: (team.description ?? `${team.sport} jamoasi`).slice(0, 500),
+      avatar: mediaUrl(team.logoMediaId) || '/placeholder-user.jpg',
+      teamId,
+    },
+    select: { id: true },
+  })
+  return channel.id
+}
+
+/**
+ * Make the team group's members exactly the team's current members. Run in
+ * the same transaction as every membership change, so someone who leaves or
+ * is removed loses access to the private conversation at once.
+ */
+export async function syncTeamChannel(teamId: string, client: Client = db) {
+  const channelId = await ensureTeamChannel(teamId, client)
+  if (!channelId) return
+
+  const [team, members, current] = await Promise.all([
+    client.team.findUniqueOrThrow({ where: { id: teamId }, select: { name: true, logoMediaId: true, disbandedAt: true } }),
+    client.teamMember.findMany({ where: { teamId, leftAt: null }, select: { userId: true, role: true } }),
+    client.channelMember.findMany({ where: { channelId }, select: { userId: true, role: true } }),
+  ])
+
+  const desired = new Map(members.map((m) => [m.userId, TEAM_CHANNEL_ROLE[m.role]]))
+  const stale = current.filter((m) => !desired.has(m.userId)).map((m) => m.userId)
+  if (stale.length > 0) await client.channelMember.deleteMany({ where: { channelId, userId: { in: stale } } })
+
+  for (const [userId, role] of desired) {
+    const existing = current.find((m) => m.userId === userId)
+    if (existing?.role === role) continue
+    await client.channelMember.upsert({
+      where: { channelId_userId: { channelId, userId } },
+      update: { role },
+      create: { channelId, userId, role },
+    })
+  }
+
+  await client.channel.update({
+    where: { id: channelId },
+    data: {
+      title: team.name,
+      avatar: mediaUrl(team.logoMediaId) || '/placeholder-user.jpg',
+      archived: team.disbandedAt !== null,
+    },
+  })
+}
+
+export type ChannelAccess = {
+  canRead: boolean
   canPost: boolean
+  /** May publish official announcements and pin. */
+  canAnnounce: boolean
+  /** May delete other people's messages. */
+  canModerate: boolean
   memberRole: ChannelMemberRole | null
   isSubscribed: boolean
 }
 
+const NO_ACCESS: ChannelAccess = {
+  canRead: false,
+  canPost: false,
+  canAnnounce: false,
+  canModerate: false,
+  memberRole: null,
+  isSubscribed: false,
+}
+
 /**
- * Channels are broadcast-style: only the owner and active staff may post.
- * Subscribers read. This is the Telegram-channel behaviour the product
- * asks for — it is deliberately not a peer-to-peer chat.
+ * Who may read and write a channel — the only place this is decided, and
+ * always on the server.
+ *
+ *   ORGANIZATION  everyone signed in reads (and may follow); only the
+ *                 organization owner publishes.
+ *   TOURNAMENT    private group: organizer, organization owner and live staff
+ *                 (ADMIN/ORGANIZER/SUPPORT) plus confirmed participants. All of
+ *                 them may write; only the organizer side announces.
+ *   TEAM          private group of the team's current members.
+ *
+ * An archived channel stays readable for its members but nobody writes.
+ * A super admin can read and moderate everything.
  */
-export async function getChannelAccess(channelId: string, userId?: string | null): Promise<ChannelWriteAccess> {
-  if (!userId) return { canPost: false, memberRole: null, isSubscribed: false }
+export async function getChannelAccess(channelId: string, userId?: string | null): Promise<ChannelAccess> {
+  if (!userId) return NO_ACCESS
 
   const [channel, membership, user] = await Promise.all([
     db.channel.findUnique({
       where: { id: channelId },
       select: {
+        type: true,
         archived: true,
         organization: { select: { ownerId: true } },
         tournament: { select: { id: true, organizerId: true, organization: { select: { ownerId: true } } } },
+        teamId: true,
       },
     }),
     db.channelMember.findUnique({
@@ -110,37 +211,124 @@ export async function getChannelAccess(channelId: string, userId?: string | null
     }),
     db.user.findUnique({ where: { id: userId }, select: { role: true } }),
   ])
+  if (!channel || !user) return NO_ACCESS
 
-  if (!channel) return { canPost: false, memberRole: null, isSubscribed: false }
-
+  const memberRole = membership?.role ?? null
   const isSubscribed = Boolean(membership)
-  if (channel.archived && user?.role !== 'SUPER_ADMIN') {
-    return { canPost: false, memberRole: membership?.role ?? null, isSubscribed }
+  const open = !channel.archived
+
+  if (user.role === 'SUPER_ADMIN') {
+    return { canRead: true, canPost: open, canAnnounce: open, canModerate: true, memberRole, isSubscribed }
   }
 
-  const isOwner =
-    user?.role === 'SUPER_ADMIN' ||
-    channel.organization?.ownerId === userId ||
-    channel.tournament?.organizerId === userId ||
-    channel.tournament?.organization?.ownerId === userId
+  if (channel.type === 'ORGANIZATION') {
+    const owner = channel.organization?.ownerId === userId
+    return { canRead: true, canPost: owner && open, canAnnounce: owner && open, canModerate: owner, memberRole, isSubscribed }
+  }
 
-  if (isOwner) return { canPost: true, memberRole: membership?.role ?? 'OWNER', isSubscribed }
+  if (channel.type === 'TOURNAMENT' && channel.tournament) {
+    const owner =
+      channel.tournament.organizerId === userId || channel.tournament.organization?.ownerId === userId
+    if (owner) return { canRead: true, canPost: open, canAnnounce: open, canModerate: true, memberRole: memberRole ?? 'OWNER', isSubscribed }
 
-  // Tournament channels also accept posts from live staff grants.
-  if (channel.tournament) {
     const grant = await db.tournamentStaff.findUnique({
       where: { tournamentId_userId: { tournamentId: channel.tournament.id, userId } },
-      select: { revokedAt: true },
+      select: { role: true, revokedAt: true },
     })
     if (grant && !grant.revokedAt) {
-      return { canPost: true, memberRole: membership?.role ?? 'STAFF', isSubscribed }
+      const lead = grant.role === 'ADMIN' || grant.role === 'ORGANIZER'
+      return { canRead: true, canPost: open, canAnnounce: lead && open, canModerate: lead, memberRole: memberRole ?? 'STAFF', isSubscribed }
     }
+    if (!membership) return NO_ACCESS
+    return { canRead: true, canPost: open, canAnnounce: false, canModerate: false, memberRole, isSubscribed }
   }
 
-  return { canPost: false, memberRole: membership?.role ?? null, isSubscribed }
+  if (channel.type === 'TEAM' && channel.teamId) {
+    const member = await db.teamMember.findUnique({
+      where: { teamId_userId: { teamId: channel.teamId, userId } },
+      select: { role: true, leftAt: true },
+    })
+    if (!member || member.leftAt) return NO_ACCESS
+    const lead = member.role === 'OWNER' || member.role === 'CAPTAIN'
+    return { canRead: true, canPost: open, canAnnounce: lead && open, canModerate: lead, memberRole, isSubscribed }
+  }
+
+  return NO_ACCESS
 }
 
-/** Channels the user can see in /messages, newest activity first. */
+/**
+ * Make a tournament group's membership match who is actually in the
+ * tournament: organizer side (OWNER), live staff (STAFF) and confirmed
+ * players — approved registrations before the draw, the drawn entrants
+ * after it; for team events every rostered player. Anyone else is removed.
+ *
+ * Runs while the tournament is open; once it closes, `closeTournamentAccess`
+ * archives the group and everyone left keeps read access.
+ */
+export async function syncTournamentChannel(tournamentId: string, client: Client = db) {
+  const tournament = await client.tournament.findUnique({
+    where: { id: tournamentId },
+    select: {
+      status: true,
+      organizerId: true,
+      drawGeneratedAt: true,
+      organization: { select: { ownerId: true } },
+      channel: { select: { id: true } },
+    },
+  })
+  if (!tournament?.channel) return
+  if (tournament.status === 'completed' || tournament.status === 'cancelled') return
+  const channelId = tournament.channel.id
+
+  const [staff, participants, drawn, current] = await Promise.all([
+    client.tournamentStaff.findMany({ where: { tournamentId, revokedAt: null }, select: { userId: true } }),
+    client.participant.findMany({
+      where: { tournamentId, status: 'approved' },
+      select: { id: true, userId: true, roster: { select: { userId: true } } },
+    }),
+    tournament.drawGeneratedAt
+      ? client.match.findMany({
+          where: { tournamentId, bracket: { not: 'MANUAL' } },
+          select: { homeParticipantId: true, awayParticipantId: true },
+        })
+      : Promise.resolve(null),
+    client.channelMember.findMany({ where: { channelId }, select: { userId: true, role: true } }),
+  ])
+
+  const inDraw = drawn ? new Set(drawn.flatMap((m) => [m.homeParticipantId, m.awayParticipantId])) : null
+  const desired = new Map<string, ChannelMemberRole>()
+  for (const p of participants) {
+    if (inDraw && !inDraw.has(p.id)) continue
+    if (p.userId) desired.set(p.userId, 'SUBSCRIBER')
+    for (const r of p.roster) desired.set(r.userId, 'SUBSCRIBER')
+  }
+  for (const s of staff) desired.set(s.userId, 'STAFF')
+  desired.set(tournament.organizerId, 'OWNER')
+  if (tournament.organization) desired.set(tournament.organization.ownerId, 'OWNER')
+
+  const stale = current.filter((m) => !desired.has(m.userId)).map((m) => m.userId)
+  if (stale.length > 0) await client.channelMember.deleteMany({ where: { channelId, userId: { in: stale } } })
+
+  for (const [userId, role] of desired) {
+    const existing = current.find((m) => m.userId === userId)
+    if (existing?.role === role) continue
+    await client.channelMember.upsert({
+      where: { channelId_userId: { channelId, userId } },
+      update: { role },
+      create: { channelId, userId, role },
+    })
+  }
+}
+
+/** A line written by the system (draw made, tournament finished …). */
+export async function postSystemMessage(channelId: string | null | undefined, authorId: string, content: string) {
+  if (!channelId) return
+  await db.channelPost.create({ data: { channelId, authorId, content, kind: 'SYSTEM' } })
+}
+
+export type ChannelListEntry = Awaited<ReturnType<typeof listChannelsForUser>>[number]
+
+/** Channels the user belongs to, newest activity first. */
 export async function listChannelsForUser(userId: string) {
   const memberships = await db.channelMember.findMany({
     where: { userId },
@@ -157,6 +345,7 @@ export async function listChannelsForUser(userId: string) {
           archived: true,
           organization: { select: { id: true, name: true, slug: true } },
           tournament: { select: { id: true, title: true, status: true, sport: true } },
+          team: { select: { id: true, name: true, sport: true, _count: { select: { members: { where: { leftAt: null } } } } } },
           posts: {
             orderBy: { createdAt: 'desc' },
             take: 1,
@@ -172,6 +361,7 @@ export async function listChannelsForUser(userId: string) {
       const unread = await db.channelPost.count({
         where: {
           channelId: m.channel.id,
+          authorId: { not: userId },
           ...(m.lastReadAt ? { createdAt: { gt: m.lastReadAt } } : {}),
         },
       })
@@ -186,6 +376,9 @@ export async function listChannelsForUser(userId: string) {
         memberRole: m.role,
         organization: m.channel.organization,
         tournament: m.channel.tournament,
+        team: m.channel.team
+          ? { id: m.channel.team.id, name: m.channel.team.name, sport: m.channel.team.sport, memberCount: m.channel.team._count.members }
+          : null,
         lastMessage: last?.content ?? null,
         lastMessageAt: last?.createdAt ?? null,
         lastAuthor: last?.author.name ?? null,

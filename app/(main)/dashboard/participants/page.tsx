@@ -81,7 +81,10 @@ async function load(userId: string, role: 'USER' | 'ORGANIZATION' | 'SUPER_ADMIN
 
   const participants = await db.participant.findMany({
     where: { tournamentId: { in: tournaments.map((tournament) => tournament.id) } },
-    include: { tournament: { select: { title: true } } },
+    include: {
+      tournament: { select: { title: true, drawGeneratedAt: true } },
+      roster: { select: { user: { select: { name: true } } } },
+    },
     orderBy: { registeredAt: 'desc' },
   })
 
@@ -118,6 +121,9 @@ async function load(userId: string, role: 'USER' | 'ORGANIZATION' | 'SUPER_ADMIN
       paymentStatus: participant.paymentStatus as 'paid' | 'pending' | 'waived',
       tournamentId: participant.tournamentId,
       tournamentName: participant.tournament.title,
+      roster: participant.roster.map((r) => r.user.name),
+      seed: participant.seed,
+      drawn: participant.tournament.drawGeneratedAt !== null,
     })),
   }
 }

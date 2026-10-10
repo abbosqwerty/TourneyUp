@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Building2, FileClock, Trophy, UserCheck, Users } from 'lucide-react'
 import { db } from '@/lib/db'
+import { RecalculatePointsButton } from './recalculate-points'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -191,6 +192,19 @@ export default async function AdminOverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Tourney Points</CardTitle>
+          <CardDescription>
+            Ballar turnir natijalaridan avtomatik hisoblanadi. Ball jadvali o‘zgartirilgandan keyin butun reytingni
+            qayta hisoblash uchun ishlating — har bir o‘zgarish audit tarixiga yoziladi.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RecalculatePointsButton />
+        </CardContent>
+      </Card>
     </div>
   )
 }

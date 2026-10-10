@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Calendar, MessageSquare, ShieldCheck, Trophy, Users } from 'lucide-react'
+import { Calendar, LifeBuoy, MessageSquare, ShieldCheck, Trophy, Users } from 'lucide-react'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { STAFF_ROLE_DESCRIPTIONS, STAFF_ROLE_LABELS } from '@/lib/staff-labels'
@@ -122,10 +122,22 @@ export default async function StaffPage() {
                       <Button size="sm" variant="outline" className="gap-2" asChild>
                         <Link href={`/messages/${grant.tournament.channelId}`}>
                           <MessageSquare className="h-4 w-4" aria-hidden />
-                          Kanal
+                          Guruh
                         </Link>
                       </Button>
                     ) : null}
+                    {grant.role !== 'SUPPORT' ? (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/dashboard/tournaments/${grant.tournament.id}/matches`}>Natijalar</Link>
+                      </Button>
+                    ) : null}
+                    {/* Tournament support desk — the queue lives under Messages → Yordam. */}
+                    <Button size="sm" variant="outline" className="gap-2" asChild>
+                      <Link href="/messages">
+                        <LifeBuoy className="h-4 w-4" aria-hidden />
+                        Murojaatlar
+                      </Link>
+                    </Button>
                   </div>
 
                   <p className="text-xs text-muted-foreground">

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useMemo, useState, useTransition } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
@@ -12,114 +13,87 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RankingTable, TopThreePodium } from '@/components/ranking-table'
-import { Search, Trophy, Calendar, Award, Flame } from 'lucide-react'
+import { Search, Trophy, Calendar, Award, Flame, Loader2 } from 'lucide-react'
 import type { RankingEntry } from '@/lib/types'
+import type { LeaderboardPeriod } from '@/lib/points/leaderboard'
 
-const sportCategories = [
-  { id: 'all', name: 'All Sports' },
-  { id: 'Football', name: 'Football' },
-  { id: 'Basketball', name: 'Basketball' },
-  { id: 'Chess', name: 'Chess' },
-  { id: 'Valorant', name: 'Valorant' },
-  { id: 'PUBG Mobile', name: 'PUBG Mobile' },
-  { id: 'Rocket League', name: 'Rocket League' },
-  { id: 'Swimming', name: 'Swimming' },
-  { id: 'Table Tennis', name: 'Table Tennis' },
-  { id: 'Running', name: 'Running' },
-]
+type Timeframe = 'weekly' | 'monthly' | 'global'
+
+const toTimeframe = (period: LeaderboardPeriod): Timeframe => (period === 'all' ? 'global' : period)
+const toPeriod = (timeframe: Timeframe): LeaderboardPeriod => (timeframe === 'global' ? 'all' : timeframe)
 
 interface RankingsClientProps {
-  initialRankings: RankingEntry[]
-  currentUserRank: number
-  currentUserPoints: number
+  /** Already computed on the server for the selected period and game. */
+  rankings: RankingEntry[]
+  me: { rank: number; points: number } | null
   currentUserId: string
+  period: LeaderboardPeriod
+  sport: string
+  sports: string[]
 }
 
+/**
+ * Leaderboard. Period and game live in the URL and are summed on the server
+ * from the Tourney Points ledger; the browser only filters by name.
+ */
 export default function RankingsClient({
-  initialRankings,
-  currentUserRank,
-  currentUserPoints,
+  rankings,
+  me,
   currentUserId,
+  period,
+  sport,
+  sports,
 }: RankingsClientProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [isPending, startTransition] = useTransition()
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedSport, setSelectedSport] = useState('all')
-  const [timeframe, setTimeframe] = useState<'weekly' | 'monthly' | 'global'>('monthly')
+  const timeframe = toTimeframe(period)
+  const selectedSport = sport || 'all'
 
-  // Compute rankings dynamically based on selected sport and timeframe
+  const navigate = (next: { period?: LeaderboardPeriod; sport?: string }) => {
+    const params = new URLSearchParams()
+    const p = next.period ?? period
+    const s = next.sport ?? sport
+    if (p !== 'monthly') params.set('period', p)
+    if (s && s !== 'all') params.set('sport', s)
+    const qs = params.toString()
+    startTransition(() => router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false }))
+  }
+
+  const setTimeframe = (value: Timeframe) => navigate({ period: toPeriod(value) })
+  const setSelectedSport = (value: string) => navigate({ sport: value === 'all' ? '' : value })
+
+  const sportCategories = useMemo(
+    () => [{ id: 'all', name: 'All Games' }, ...sports.map((name) => ({ id: name, name }))],
+    [sports]
+  )
+
   const displayRankings = useMemo(() => {
-    // 1. Filter by Sport
-    let baseList: RankingEntry[] = []
-
-    if (selectedSport === 'all') {
-      baseList = initialRankings
-    } else {
-      const sportLower = selectedSport.toLowerCase()
-      const matching = initialRankings
-        .map((entry) => {
-          const sr = entry.sportRanks?.find(
-            (s) => s.sport.toLowerCase() === sportLower
-          )
-          if (!sr) return null
-          return {
-            ...entry,
-            points: sr.points,
-          }
-        })
-        .filter((e): e is RankingEntry => e !== null)
-
-      matching.sort((a, b) => b.points - a.points)
-      baseList = matching.map((e, index) => ({
-        ...e,
-        rank: index + 1,
-      }))
-    }
-
-    // 2. Adjust points by Timeframe
-    let timedList = baseList.map((entry) => {
-      let points = entry.points
-      if (timeframe === 'monthly') {
-        const charCode = entry.user.id.charCodeAt(entry.user.id.length - 1) || 0
-        const factor = 0.32 + ((charCode % 5) - 2) * 0.02
-        points = Math.max(80, Math.round(entry.points * factor))
-      } else if (timeframe === 'weekly') {
-        const charCode = entry.user.id.charCodeAt(0) || 0
-        const factor = 0.11 + ((charCode % 5) - 2) * 0.015
-        points = Math.max(30, Math.round(entry.points * factor))
-      }
-      return { ...entry, points }
-    })
-
-    if (timeframe !== 'global') {
-      timedList.sort((a, b) => b.points - a.points)
-      timedList = timedList.map((e, index) => ({
-        ...e,
-        rank: index + 1,
-      }))
-    }
-
-    // 3. Search query filter
-    if (!searchQuery) return timedList
-
+    if (!searchQuery) return rankings
     const query = searchQuery.toLowerCase()
-    return timedList.filter(
+    return rankings.filter(
       (entry) =>
         entry.user.name.toLowerCase().includes(query) ||
         entry.user.username.toLowerCase().includes(query) ||
         entry.user.university?.toLowerCase().includes(query)
     )
-  }, [initialRankings, selectedSport, timeframe, searchQuery])
+  }, [rankings, searchQuery])
 
-  // Current user rank in active view
-  const myActiveEntry = displayRankings.find((r) => r.user.id === currentUserId)
+  // Current user's position in the active view (even outside the top 100).
+  const myActiveEntry = me ?? undefined
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6 theme-lb bg-background text-foreground">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 max-w-2xl mx-auto w-full">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Leaderboard</h1>
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
+            Leaderboard
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden /> : null}
+          </h1>
           <p className="text-muted-foreground text-sm">
-            Top performers, seasonal champions, and sport rankings
+            Tourney Points (T) earned in finished tournaments
           </p>
         </div>
 
@@ -134,7 +108,7 @@ export default function RankingsClient({
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Your Rank</p>
-                <p className="font-bold text-sm">{myActiveEntry.points.toLocaleString()} points</p>
+                <p className="font-bold text-sm">{myActiveEntry.points.toLocaleString()} T</p>
               </div>
             </CardContent>
           </Card>
@@ -157,7 +131,7 @@ export default function RankingsClient({
         <div className="flex items-center justify-center">
           <Tabs
             value={timeframe}
-            onValueChange={(v) => setTimeframe(v as 'weekly' | 'monthly' | 'global')}
+            onValueChange={(v) => setTimeframe(v as Timeframe)}
             className="w-full"
           >
             <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-secondary/60 p-1">

@@ -33,7 +33,7 @@ import {
   Calendar
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { updateParticipantStatus } from '@/lib/actions'
+import { setParticipantSeed, updateParticipantStatus } from '@/lib/actions'
 import { useRouter } from 'next/navigation'
 import { NoParticipants } from '@/components/empty-state'
 
@@ -69,6 +69,11 @@ type ParticipantType = {
   paymentStatus: 'paid' | 'pending' | 'waived'
   tournamentId: string
   tournamentName: string
+  /** Team registrations: the players on the roster. */
+  roster: string[]
+  seed: number | null
+  /** Draw made — line-up and seeds are final. */
+  drawn: boolean
 }
 
 interface ParticipantsClientProps {
@@ -246,7 +251,17 @@ export default function ParticipantsClient({
                             </div>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
-                            {participant.teamName || '-'}
+                            <p>{participant.teamName || '-'}</p>
+                            {participant.roster.length > 0 ? (
+                              <p className="max-w-56 truncate text-xs text-muted-foreground" title={participant.roster.join(', ')}>
+                                Tarkib: {participant.roster.join(', ')}
+                              </p>
+                            ) : null}
+                            {manageableTournamentIds.includes(participant.tournamentId) && !participant.drawn && participant.status === 'approved' ? (
+                              <SeedInput participantId={participant.id} seed={participant.seed} />
+                            ) : participant.seed ? (
+                              <p className="text-xs text-muted-foreground">Seed #{participant.seed}</p>
+                            ) : null}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={statusColors[participant.status]}>
@@ -431,5 +446,42 @@ export default function ParticipantsClient({
         </div>
       </div>
     </div>
+  )
+}
+
+/** Manual seed for the "seeded" draw. Saved on blur. */
+function SeedInput({ participantId, seed }: { participantId: string; seed: number | null }) {
+  const router = useRouter()
+  const [value, setValue] = useState(seed ? String(seed) : '')
+  const [saving, startSaving] = useTransition()
+
+  const save = () => {
+    if (value === (seed ? String(seed) : '')) return
+    startSaving(async () => {
+      const result = await setParticipantSeed({ participantId, seed: value })
+      if (!result.ok) {
+        toast.error(result.error)
+        setValue(seed ? String(seed) : '')
+        return
+      }
+      router.refresh()
+    })
+  }
+
+  return (
+    <label className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+      Seed
+      <Input
+        type="number"
+        min={1}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        disabled={saving}
+        className="h-7 w-16 px-2 text-xs"
+        aria-label="Seed raqami"
+        placeholder="—"
+      />
+    </label>
   )
 }
