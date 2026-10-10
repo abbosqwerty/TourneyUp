@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,14 +10,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { 
   Calendar, 
   MapPin, 
-  Users, 
   Clock, 
   Trophy,
   Bookmark,
   CheckCircle,
   Gamepad2,
   GraduationCap,
-  Dribbble
+  Dribbble,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import type { Tournament } from '@/lib/types'
 import { TOURNAMENT_STATUS_CLASSES, TOURNAMENT_STATUS_LABELS } from '@/lib/constants'
@@ -44,26 +45,11 @@ export function TournamentCard({
   isSaved = false
 }: TournamentCardProps) {
   const { currentUser, openLoginModal } = useAuthModal()
-  const router = useRouter()
+  const [posterIndex, setPosterIndex] = useState(0)
+  const posterUrls = [tournament.posterUrl, ...(tournament.galleryUrls ?? [])].filter(Boolean)
+  const activePoster = posterUrls[posterIndex] ?? ''
 
   const CategoryIcon = categoryIcons[tournament.category]
-  const spotsLeft = Math.max(0, tournament.maxParticipants - tournament.participants)
-  const isAlmostFull = spotsLeft <= Math.max(2, Math.floor(tournament.maxParticipants * 0.2))
-
-  const handleJoinClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!currentUser) {
-      openLoginModal({
-        title: 'Sign in to Join',
-        description: `Please sign in to register for "${tournament.title}".`,
-        redirectTo: `/tournament/${tournament.id}#register`
-      })
-    } else {
-      router.push(`/tournament/${tournament.id}#register`)
-    }
-  }
-
   const handleSaveClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -81,7 +67,7 @@ export function TournamentCard({
 
   if (variant === 'compact') {
     return (
-      <Card className="hover:border-primary/50 transition-colors group p-3">
+      <Card className="shadow-sm hover:shadow-md transition-shadow group p-3">
         <Link href={`/tournament/${tournament.id}`}>
           <div className="flex gap-4 items-center">
             <div className="relative h-20 w-20 rounded-lg overflow-hidden bg-secondary flex-shrink-0">
@@ -113,14 +99,13 @@ export function TournamentCard({
 
   if (variant === 'featured') {
     return (
-      <Card className="border-primary/30 glow-primary p-3 flex flex-col justify-between">
+      <Card className="shadow-sm hover:shadow-md transition-shadow p-3 flex flex-col justify-between">
         {/* Tournament Image Banner — padded with rounded corners */}
-        <div className="relative h-48 rounded-xl overflow-hidden bg-gradient-to-br from-primary/30 via-secondary to-accent/30">
+        <div className="relative h-64 sm:h-72 rounded-xl overflow-hidden bg-gradient-to-br from-primary/30 via-secondary to-accent/30">
           {/* Uploaded poster when there is one; the gradient stays as fallback. */}
-          {tournament.posterUrl ? (
-             
+          {activePoster ? (
             <img
-              src={tournament.posterUrl}
+              src={activePoster}
               alt={`${tournament.title} afishasi`}
               loading="lazy"
               className="absolute inset-0 h-full w-full object-cover"
@@ -130,15 +115,43 @@ export function TournamentCard({
               <Trophy className="h-16 w-16 text-primary/50" />
             </div>
           )}
+          {posterUrls.length > 1 ? (
+            <>
+              <button
+                type="button"
+                aria-label="Oldingi poster"
+                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/35 p-1.5 text-white backdrop-blur hover:bg-black/55"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setPosterIndex((current) => (current - 1 + posterUrls.length) % posterUrls.length)
+                }}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Keyingi poster"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/35 p-1.5 text-white backdrop-blur hover:bg-black/55"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setPosterIndex((current) => (current + 1) % posterUrls.length)
+                }}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+                {posterUrls.map((url, index) => (
+                  <span key={url} className={cn('h-1.5 w-1.5 rounded-full', index === posterIndex ? 'bg-white' : 'bg-white/45')} />
+                ))}
+              </div>
+            </>
+          ) : null}
           <div className="absolute top-3 left-3 flex gap-2">
             <Badge className={cn(TOURNAMENT_STATUS_CLASSES[tournament.status])}>
               {TOURNAMENT_STATUS_LABELS[tournament.status]}
             </Badge>
-            {tournament.featured && (
-              <Badge variant="outline" className="border-primary text-primary bg-background/50">
-                Featured
-              </Badge>
-            )}
           </div>
           {onSave && (
             <Button
@@ -192,23 +205,8 @@ export function TournamentCard({
               </div>
             </div>
 
-            {/* Organized Tiny Circles Participation Slots */}
+            {/* Capacity is shown once, inside the slot visual. */}
             <div className="mt-4">
-              <div className="flex items-center justify-between text-sm mb-2">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Users className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-foreground">
-                    {tournament.participants}/{tournament.maxParticipants} players
-                  </span>
-                </div>
-                <span className="text-xs font-medium">
-                  {isAlmostFull ? (
-                    <span className="text-warning font-semibold">Almost full! ({spotsLeft} left)</span>
-                  ) : (
-                    <span className="text-muted-foreground">{spotsLeft} spots left</span>
-                  )}
-                </span>
-              </div>
               <ParticipantSlots
                 current={tournament.participants}
                 max={tournament.maxParticipants}
@@ -223,14 +221,11 @@ export function TournamentCard({
             )}
           </div>
 
-          <div className="mt-5 flex gap-3">
-            <Button asChild className="flex-1">
+          <div className="mt-5">
+            <Button asChild className="w-full">
               <Link href={`/tournament/${tournament.id}`}>
                 View Details
               </Link>
-            </Button>
-            <Button variant="outline" onClick={handleJoinClick}>
-              Join
             </Button>
           </div>
         </CardContent>
@@ -240,13 +235,12 @@ export function TournamentCard({
 
   // Default variant
   return (
-    <Card className="hover:border-primary/50 transition-all hover:shadow-lg group p-3 flex flex-col justify-between">
+    <Card className="shadow-sm hover:shadow-md transition-shadow group p-3 flex flex-col justify-between">
       {/* Tournament Image Banner — padded with rounded corners */}
-      <div className="relative h-40 rounded-xl overflow-hidden bg-gradient-to-br from-secondary via-card to-secondary">
-        {tournament.posterUrl ? (
-           
+      <div className="relative h-56 sm:h-60 rounded-xl overflow-hidden bg-gradient-to-br from-secondary via-card to-secondary">
+        {activePoster ? (
           <img
-            src={tournament.posterUrl}
+            src={activePoster}
             alt={`${tournament.title} afishasi`}
             loading="lazy"
             className="absolute inset-0 h-full w-full object-cover"
@@ -256,6 +250,39 @@ export function TournamentCard({
             <CategoryIcon className="h-12 w-12 text-primary/30" />
           </div>
         )}
+        {posterUrls.length > 1 ? (
+          <>
+            <button
+              type="button"
+              aria-label="Oldingi poster"
+              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/35 p-1.5 text-white backdrop-blur hover:bg-black/55"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setPosterIndex((current) => (current - 1 + posterUrls.length) % posterUrls.length)
+              }}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Keyingi poster"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/35 p-1.5 text-white backdrop-blur hover:bg-black/55"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setPosterIndex((current) => (current + 1) % posterUrls.length)
+              }}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+              {posterUrls.map((url, index) => (
+                <span key={url} className={cn('h-1.5 w-1.5 rounded-full', index === posterIndex ? 'bg-white' : 'bg-white/45')} />
+              ))}
+            </div>
+          </>
+        ) : null}
         <div className="absolute top-3 left-3 flex gap-2">
           <Badge className={cn(TOURNAMENT_STATUS_CLASSES[tournament.status])}>
             {TOURNAMENT_STATUS_LABELS[tournament.status]}
@@ -308,8 +335,8 @@ export function TournamentCard({
               })}
             </div>
             <div className="flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5 text-primary" />
-              {tournament.participants}/{tournament.maxParticipants}
+              <Clock className="h-3.5 w-3.5 text-primary" />
+              {tournament.time}
             </div>
             <div className="flex items-center gap-1.5 col-span-2">
               <MapPin className="h-3.5 w-3.5 text-primary" />
@@ -328,7 +355,7 @@ export function TournamentCard({
 
         <Button asChild className="w-full mt-4" size="sm">
           <Link href={`/tournament/${tournament.id}`}>
-            View Tournament
+            View Details
           </Link>
         </Button>
       </CardContent>

@@ -29,9 +29,9 @@ export async function createStory(input: unknown): Promise<ActionResult> {
       where: { id: mediaId },
       select: { id: true, uploadedById: true },
     })
-    if (!media) return fail('Rasm topilmadi')
+    if (!media) return fail('Media fayli topilmadi')
     if (media.uploadedById !== user.id && user.role !== 'SUPER_ADMIN') {
-      return fail('Bu rasm sizga tegishli emas')
+      return fail('Bu media fayli sizga tegishli emas')
     }
 
     let organizationId: string | null = null

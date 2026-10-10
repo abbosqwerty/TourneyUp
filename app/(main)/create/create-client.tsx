@@ -117,6 +117,7 @@ export default function CreateTournamentClient() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [poster, setPoster] = useState<UploadedImage | null>(null)
+  const [gallery, setGallery] = useState<(UploadedImage | null)[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [formData, setFormData] = useState({
@@ -168,6 +169,7 @@ export default function CreateTournamentClient() {
     const result = await createTournament({
       ...formData,
       posterMediaId: poster?.id ?? '',
+      galleryMediaIds: gallery.flatMap((image) => (image ? [image.id] : [])),
     })
     setIsSubmitting(false)
 
@@ -188,7 +190,7 @@ export default function CreateTournamentClient() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-4 py-6 theme-create bg-background text-foreground">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-6">
@@ -450,6 +452,26 @@ export default function CreateTournamentClient() {
                   label="Rasmni tanlang yoki shu yerga tashlang"
                   hint="PNG, JPG, WebP — maksimal 4 MB. Tavsiya: 1200×630px"
                 />
+                <div className="mt-5 space-y-3">
+                  <div>
+                    <p className="text-sm font-medium">Qo‘shimcha posterlar (ixtiyoriy)</p>
+                    <p className="text-xs text-muted-foreground">Feed kartasida Instagram kabi slayd bo‘ladi. Detail sahifada faqat asosiy poster ko‘rinadi.</p>
+                  </div>
+                  {gallery.map((image, index) => (
+                    <ImageUploader
+                      key={image?.id ?? `draft-${index}`}
+                      value={image}
+                      onChange={(next) => setGallery((items) => next ? items.map((item, itemIndex) => itemIndex === index ? next : item) : items.filter((_, itemIndex) => itemIndex !== index))}
+                      label={`Qo‘shimcha poster ${index + 1}`}
+                      hint="PNG, JPG yoki WebP — maksimal 4 MB"
+                    />
+                  ))}
+                  {gallery.length < 4 ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setGallery((items) => [...items, null])}>
+                      Qo‘shimcha rasm qo‘shish
+                    </Button>
+                  ) : null}
+                </div>
               </CardContent>
             </Card>
 
@@ -571,3 +593,4 @@ export default function CreateTournamentClient() {
     </div>
   )
 }
+

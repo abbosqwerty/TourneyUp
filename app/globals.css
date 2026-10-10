@@ -3,124 +3,457 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ============================================================
-   LIGHT MODE COLORS  (when theme is light / default)
-   ============================================================ */
+/* ╔══════════════════════════════════════════════════════════════╗
+   ║                    LIGHT MODE COLORS                        ║
+   ║  Each section has its own colors.                           ║
+   ║  Changing one section will NOT affect any other section.    ║
+   ╚══════════════════════════════════════════════════════════════╝ */
 :root {
-  --background: #ffffe3;        /* 🖼️  Page background — the main canvas color */
-  --foreground: #4a4a4a;        /* ✍️  Main text color — all body text */
 
-  --card: #fffff4;              /* 📦  Cards & boxes background — lifted off the canvas */
-  --card-foreground: #4a4a4a;  /* ✍️  Text inside cards */
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  GLOBAL BASE — used by shared UI components (buttons,      │
+     │  badges, modals, dropdowns) that appear across ALL pages.  │
+     │  If a section doesn't override something, it falls back    │
+     │  to these global values.                                   │
+     └─────────────────────────────────────────────────────────────┘ */
+  --background: #FFFFFF;              /* The main page background color (behind everything) */
+  --foreground: #000000;              /* Default text color everywhere */
 
-  --popover: #ffffe3;           /* 💬  Dropdowns & popups background */
-  --popover-foreground: #4a4a4a; /* ✍️  Text inside dropdowns */
+  --card: #FFFFFF;                    /* Default card/box background */
+  --card-foreground: #000000;         /* Text inside cards/boxes */
 
-  --primary: #53687d;           /* 🎨  Buttons, active links, highlights (AA on #ffffe3) */
-  --primary-foreground: #ffffe3; /* ✍️  Text ON primary buttons */
+  --popover: #FFFFFF;                 /* Dropdown menus, tooltips, floating panels background */
+  --popover-foreground: #000000;      /* Text inside dropdowns/tooltips */
 
-  --secondary: #cbcbcb;         /* 🎨  Secondary buttons & badges */
-  --secondary-foreground: #4a4a4a; /* ✍️  Text on secondary buttons */
+  --primary: #1c1c1c;                /* Main action color — buttons like "View Details", "Save", links */
+  --primary-foreground: #FFFFFF;      /* Text ON primary-colored buttons (must contrast with --primary) */
 
-  --muted: #ecead2;             /* 🔇  Subtle backgrounds (disabled areas, tags) */
-  --muted-foreground: #4f6476; /* ✍️  Subtle / dimmed text — 5.6:1 on the canvas */
+  --secondary: #EFEFEF;              /* Less important buttons, tags, secondary actions background */
+  --secondary-foreground: #000000;    /* Text on secondary buttons */
 
-  --accent: #bdddfc;            /* ✨  Hover highlights & accent backgrounds */
-  --accent-foreground: #384959; /* ✍️  Text on accent backgrounds */
+  --muted: #FAFAFA;                  /* Very subtle background for disabled/inactive areas */
+  --muted-foreground: #737373;        /* Gray text — timestamps, "3 hours ago", placeholders */
 
-  --destructive: #b44a4a;       /* 🔴  Delete buttons & error states */
-  --destructive-foreground: #ffffe3; /* ✍️  Text on destructive buttons */
+  --accent: #FAFAFA;                 /* Hover/focus background highlight on items */
+  --accent-foreground: #000000;       /* Text on hover-highlighted items */
 
-  --success: #2f7a52;           /* 🟢  Approved / live-ok states */
-  --success-foreground: #ffffe3; /* ✍️  Text on success backgrounds */
-  --warning: #9a6508;           /* 🟡  Pending / caution states */
-  --warning-foreground: #ffffe3; /* ✍️  Text on warning backgrounds */
+  --destructive: #ED4956;            /* Dangerous actions — "Delete", "Cancel", error messages */
+  --destructive-foreground: #FFFFFF;  /* Text on red/destructive buttons */
 
-  --border: #cbcbcb;            /* 📐  Border lines around cards, inputs (set transparent to remove) */
-  --input: #cbcbcb;             /* 📝  Input field border color */
-  --ring: #88bdf2;              /* 🔵  Focus ring glow when clicking inputs */
+  --success: #34C759;                /* Positive states — "Active", "Approved", "Online" badges */
+  --success-foreground: #FFFFFF;      /* Text on green/success badges */
 
-  /* 📊 Chart / Graph colors */
-  --chart-1: #6d8196;
-  --chart-2: #88bdf2;
-  --chart-3: #6a89a7;
-  --chart-4: #4a4a4a;
-  --chart-5: #bdddfc;
+  --warning: #FFCC00;                /* Caution states — "Pending", "Review needed" badges */
+  --warning-foreground: #000000;      /* Text on yellow/warning badges */
 
-  --radius: 0.625rem;           /* 🔲  Corner roundness of all boxes */
+  --border: #DBDBDB;                 /* DEFAULT border for everything (if section doesn't override) */
+  --input: #DBDBDB;                  /* Border color around text inputs, search boxes, textareas */
+  --ring: #1c1c1c;                   /* Glow/outline when you click/focus on an input field */
+  --divider: #EFEFEF;               /* Thin separator lines between list items */
 
-  /* 🗂️  Sidebar (left navigation panel) */
-  --sidebar: #ffffe3;
-  --sidebar-foreground: #4a4a4a;
-  --sidebar-primary: #6d8196;
-  --sidebar-primary-foreground: #ffffe3;
-  --sidebar-accent: #bdddfc;
-  --sidebar-accent-foreground: #384959;
-  --sidebar-border: #cbcbcb;
-  --sidebar-ring: #88bdf2;
+  /* Chart/graph colors (used in stats, analytics pages) */
+  --chart-1: #1c1c1c;               /* 1st data series color */
+  --chart-2: #34C759;               /* 2nd data series color */
+  --chart-3: #ED4956;               /* 3rd data series color */
+  --chart-4: #FFCC00;               /* 4th data series color */
+  --chart-5: #737373;               /* 5th data series color */
+
+  --radius: 0.5rem;                  /* How round the corners are on boxes/buttons (bigger = rounder) */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  HEADER — The top navigation bar                           │
+     │  Contains: logo, search, theme toggle, user avatar         │
+     └─────────────────────────────────────────────────────────────┘ */
+  --header-bg: #FFFFFF;              /* Header strip background color */
+  --header-fg: #000000;              /* Text/icons in the header */
+  --header-border: #DBDBDB;          /* Bottom line under the header */
+  --header-primary: #1c1c1c;         /* Active/selected nav item in header */
+  --header-primary-fg: #FFFFFF;      /* Text on active nav item */
+  --header-muted: #737373;           /* Inactive nav items, hint text in search */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  SIDEBAR — Left navigation panel                           │
+     │  Contains: nav links (Feed, Rankings, Messages, etc.)      │
+     └─────────────────────────────────────────────────────────────┘ */
+  --sidebar: #FFFFFF;                     /* Sidebar background */
+  --sidebar-foreground: #000000;          /* Text/icons in sidebar */
+  --sidebar-primary: #1c1c1c;             /* Currently active/selected page link background */
+  --sidebar-primary-foreground: #FFFFFF;  /* Text on the active page link */
+  --sidebar-accent: #FAFAFA;              /* Hover background when mouse is over a link */
+  --sidebar-accent-foreground: #000000;   /* Text on hovered link */
+  --sidebar-border: #DBDBDB;              /* Right-side border of the sidebar */
+  --sidebar-ring: #1c1c1c;                /* Focus ring on sidebar items */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  FEED — Tournament cards listing page (/feed)              │
+     │  Contains: tournament cards grid, filters, search          │
+     │  This is the main page users see with all tournaments.     │
+     └─────────────────────────────────────────────────────────────┘ */
+  --feed-bg: #FFFFFF;                /* Feed page background */
+  --feed-fg: #000000;                /* Text on the feed page (headings, labels) */
+  --feed-border: #DBDBDB;            /* Border around the feed section area */
+  --feed-card-bg: #FFFFFF;           /* Each tournament card's background */
+  --feed-card-fg: #000000;           /* Text inside tournament cards (title, organizer name) */
+  --feed-card-border: #DBDBDB;       /* Border around each tournament card */
+  --feed-primary: #1c1c1c;           /* "View Details" button color on feed cards */
+  --feed-primary-fg: #FFFFFF;        /* Text on the "View Details" button */
+  --feed-muted: #737373;             /* Gray text in feed cards (date, time, location) */
+  --feed-story-unseen: #1c1c1c;      /* Story circle border when unseen */
+  --feed-story-seen: #A3A3A3;        /* Story circle border when already seen */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  LEADERBOARD — Rankings page (/rankings)                   │
+     │  Contains: podium (top 3), ranking table, sport filter     │
+     │  Weekly/Monthly/All Time tabs                              │
+     └─────────────────────────────────────────────────────────────┘ */
+  --lb-bg: #FFFFFF;                  /* Leaderboard page background */
+  --lb-fg: #000000;                  /* Text on leaderboard page */
+  --lb-border: #DBDBDB;              /* Border around leaderboard section */
+  --lb-card-bg: #FFFFFF;             /* Ranking table card background */
+  --lb-card-fg: #000000;             /* Text in ranking rows (player name, points) */
+  --lb-card-border: #DBDBDB;         /* Border around the ranking table card */
+  --lb-primary: #1c1c1c;             /* Active tab color, highlighted rank */
+  --lb-primary-fg: #FFFFFF;          /* Text on active tab */
+  --lb-muted: #737373;               /* Secondary text (rank numbers, sport labels) */
+  --lb-gold: #FFD700;               /* 🥇 1st place podium color */
+  --lb-silver: #C0C0C0;             /* 🥈 2nd place podium color */
+  --lb-bronze: #CD7F32;             /* 🥉 3rd place podium color */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  DASHBOARD — User's personal dashboard (/dashboard)        │
+     │  Contains: stats cards, recent activity, quick actions     │
+     └─────────────────────────────────────────────────────────────┘ */
+  --dash-bg: #FFFFFF;                /* Dashboard page background */
+  --dash-fg: #000000;                /* Text on dashboard */
+  --dash-border: #DBDBDB;            /* Border around dashboard sections */
+  --dash-card-bg: #FFFFFF;           /* Stats card background (wins, tournaments played, etc.) */
+  --dash-card-fg: #000000;           /* Text inside stats cards */
+  --dash-card-border: #DBDBDB;       /* Border around stats cards */
+  --dash-primary: #1c1c1c;           /* Action buttons on dashboard */
+  --dash-primary-fg: #FFFFFF;        /* Text on dashboard action buttons */
+  --dash-muted: #737373;             /* Secondary text (labels, descriptions) */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  TOURNAMENT DETAIL — Single tournament page (/tournament/X)│
+     │  Contains: poster, info, participants, brackets, join btn  │
+     └─────────────────────────────────────────────────────────────┘ */
+  --detail-bg: #FFFFFF;              /* Detail page background */
+  --detail-fg: #000000;              /* Text on detail page */
+  --detail-border: #DBDBDB;          /* Borders between info sections */
+  --detail-card-bg: #FFFFFF;         /* Info card backgrounds (Rules, Schedule, Prizes) */
+  --detail-card-fg: #000000;         /* Text inside info cards */
+  --detail-card-border: #DBDBDB;     /* Border around info cards */
+  --detail-primary: #1c1c1c;         /* "Join Tournament" button color */
+  --detail-primary-fg: #FFFFFF;      /* Text on "Join Tournament" button */
+  --detail-muted: #737373;           /* Secondary text (organizer, dates, location) */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  PROFILE — User profile page (/profile)                    │
+     │  Contains: avatar, bio, stats, tournament history          │
+     └─────────────────────────────────────────────────────────────┘ */
+  --profile-bg: #FFFFFF;             /* Profile page background */
+  --profile-fg: #000000;             /* Text on profile page */
+  --profile-border: #DBDBDB;         /* Border between profile sections */
+  --profile-card-bg: #FFFFFF;        /* Profile info cards background */
+  --profile-card-fg: #000000;        /* Text in profile cards */
+  --profile-card-border: #DBDBDB;    /* Border around profile cards */
+  --profile-primary: #1c1c1c;        /* "Edit Profile" button color */
+  --profile-primary-fg: #FFFFFF;     /* Text on "Edit Profile" button */
+  --profile-muted: #737373;          /* Bio text, join date, labels */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  MESSAGES — Chat/messaging page (/messages)                │
+     │  Contains: conversation list, chat bubbles, input box      │
+     └─────────────────────────────────────────────────────────────┘ */
+  --msg-bg: #FFFFFF;                 /* Messages page background */
+  --msg-fg: #000000;                 /* Text on messages page */
+  --msg-border: #DBDBDB;             /* Border between conversation list and chat area */
+  --msg-card-bg: #FFFFFF;            /* Conversation list item background */
+  --msg-card-fg: #000000;            /* Text in conversation list (name, last message) */
+  --msg-card-border: #DBDBDB;        /* Border between conversation items */
+  --msg-primary: #1c1c1c;            /* "Send" button color */
+  --msg-primary-fg: #FFFFFF;         /* Text on "Send" button */
+  --msg-muted: #737373;              /* Timestamp, "typing...", read receipts */
+  --msg-bubble-sent: #1c1c1c;        /* YOUR message bubble background (sent messages) */
+  --msg-bubble-sent-fg: #FFFFFF;     /* Text inside YOUR sent message bubbles */
+  --msg-bubble-received: #EFEFEF;    /* OTHER person's message bubble background */
+  --msg-bubble-received-fg: #000000; /* Text inside received message bubbles */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  SETTINGS — Settings page (/settings)                      │
+     │  Contains: account settings, notifications, theme toggle   │
+     └─────────────────────────────────────────────────────────────┘ */
+  --settings-bg: #FFFFFF;            /* Settings page background */
+  --settings-fg: #000000;            /* Text on settings page */
+  --settings-border: #DBDBDB;        /* Border between settings sections */
+  --settings-card-bg: #FFFFFF;       /* Settings group card background */
+  --settings-card-fg: #000000;       /* Text inside settings cards */
+  --settings-card-border: #DBDBDB;   /* Border around settings cards */
+  --settings-primary: #1c1c1c;       /* "Save" button color */
+  --settings-primary-fg: #FFFFFF;    /* Text on "Save" button */
+  --settings-muted: #737373;         /* Helper text under settings fields */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  NOTIFICATIONS — Notifications page (/notifications)       │
+     │  Contains: notification cards, read/unread states          │
+     └─────────────────────────────────────────────────────────────┘ */
+  --notif-bg: #FFFFFF;               /* Notifications page background */
+  --notif-fg: #000000;               /* Text on notifications page */
+  --notif-border: #DBDBDB;           /* Border between notification items */
+  --notif-card-bg: #FFFFFF;          /* Individual notification card background */
+  --notif-card-fg: #000000;          /* Notification text (title, message) */
+  --notif-card-border: #DBDBDB;      /* Border around notification cards */
+  --notif-primary: #1c1c1c;          /* Unread dot / action button color */
+  --notif-muted: #737373;            /* Timestamp, "2 hours ago" text */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  CREATE TOURNAMENT — Tournament creation page (/create)    │
+     │  Contains: form fields, poster upload, submit button       │
+     └─────────────────────────────────────────────────────────────┘ */
+  --create-bg: #FFFFFF;              /* Create page background */
+  --create-fg: #000000;              /* Text on create page */
+  --create-border: #DBDBDB;          /* Border around form sections */
+  --create-card-bg: #FFFFFF;         /* Form section card background */
+  --create-card-fg: #000000;         /* Text in form sections */
+  --create-card-border: #DBDBDB;     /* Border around form cards */
+  --create-primary: #1c1c1c;         /* "Create Tournament" submit button color */
+  --create-primary-fg: #FFFFFF;      /* Text on submit button */
+  --create-muted: #737373;           /* Helper text, field descriptions */
 }
 
-/* ============================================================
-   DARK MODE COLORS  (when theme is set to dark)
-   ============================================================ */
+
+/* ╔══════════════════════════════════════════════════════════════╗
+   ║                     DARK MODE COLORS                        ║
+   ║  Same sections as above — just the dark versions.           ║
+   ║  Each section is still independent from all others.         ║
+   ╚══════════════════════════════════════════════════════════════╝ */
 .dark {
-  --background: #384959;        /* 🖼️  Page background */ 
-  --foreground: #ffffe3;        /* ✍️  Main text color */
 
-  --card: #2e3d4b;              /* 📦  Cards & boxes background — distinct from the page */
-  --card-foreground: #ffffe3;  /* ✍️  Text inside cards */
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  GLOBAL BASE (Dark)                                        │
+     └─────────────────────────────────────────────────────────────┘ */
+  --background: #000000;              /* The main page background — true OLED black */
+  --foreground: #F5F5F5;              /* Default text color — clean white */
 
-  --popover: #384959;           /* 💬  Dropdowns & popups background */
-  --popover-foreground: #ffffe3; /* ✍️  Text inside dropdowns */
+  --card: #000000;                    /* Default card background */
+  --card-foreground: #F5F5F5;         /* Text inside cards */
 
-  --primary: #88bdf2;           /* 🎨  Buttons, active links, highlights */
-  --primary-foreground: #384959; /* ✍️  Text ON primary buttons */
+  --popover: #000000;                 /* Dropdown/tooltip background */
+  --popover-foreground: #F5F5F5;      /* Text inside dropdowns */
 
-  --secondary: #4d6274;         /* 🎨  Secondary buttons & badges */
-  --secondary-foreground: #ffffe3; /* ✍️  Text on secondary buttons */
+  --primary: #fafaff;                 /* Main action color — Ghost White (inverted from light) */
+  --primary-foreground: #000000;      /* Text ON primary buttons */
 
-  --muted: #44576b;             /* 🔇  Subtle backgrounds — visible against #384959 */
-  --muted-foreground: #bdddfc; /* ✍️  Dimmed text (captions, placeholders) */
+  --secondary: #262626;               /* Secondary button background */
+  --secondary-foreground: #F5F5F5;    /* Text on secondary buttons */
 
-  --accent: #6a89a7;            /* ✨  Hover highlights */
-  --accent-foreground: #ffffe3; /* ✍️  Text on accent backgrounds */
+  --muted: #121212;                   /* Subtle/disabled area background */
+  --muted-foreground: #A3A3A3;        /* Gray text — timestamps, placeholders */
 
-  --destructive: #ef8383;       /* 🔴  Delete buttons & error states */
-  --destructive-foreground: #384959; /* ✍️  Text on destructive buttons */
+  --accent: #121212;                  /* Hover background */
+  --accent-foreground: #F5F5F5;       /* Text on hover */
 
-  --success: #6ed79b;           /* 🟢  Approved / live-ok states */
-  --success-foreground: #1d3a2a; /* ✍️  Text on success backgrounds */
-  --warning: #f0c56a;           /* 🟡  Pending / caution states */
-  --warning-foreground: #3a2d0c; /* ✍️  Text on warning backgrounds */
+  --destructive: #ED4956;             /* Dangerous actions (same red in both modes) */
+  --destructive-foreground: #FFFFFF;
 
-  --border: #6a89a7;            /* 📐  Border lines (set transparent to remove) */
-  --input: #4d6274;             /* 📝  Input field border color */
-  --ring: #bdddfc;              /* 🔵  Focus ring glow */
+  --success: #34C759;                 /* Positive states */
+  --success-foreground: #FFFFFF;
 
-  /* 📊 Chart / Graph colors */
-  --chart-1: #88bdf2;
-  --chart-2: #bdddfc;
-  --chart-3: #6a89a7;
-  --chart-4: #ffffe3;
-  --chart-5: #6d8196;
+  --warning: #FFCC00;                 /* Caution states */
+  --warning-foreground: #000000;
 
-  /* 🗂️  Sidebar (left navigation panel) */
-  --sidebar: #384959;
-  --sidebar-foreground: #ffffe3;
-  --sidebar-primary: #88bdf2;
-  --sidebar-primary-foreground: #384959;
-  --sidebar-accent: #4d6274;
-  --sidebar-accent-foreground: #ffffe3;
-  --sidebar-border: #6a89a7;
-  --sidebar-ring: #bdddfc;
+  --border: #262626;                  /* Default border */
+  --input: #262626;                   /* Input field border */
+  --ring: #fafaff;                    /* Focus ring glow */
+  --divider: #1A1A1A;                /* List separator lines */
+
+  --chart-1: #fafaff;
+  --chart-2: #34C759;
+  --chart-3: #ED4956;
+  --chart-4: #FFCC00;
+  --chart-5: #A3A3A3;
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  HEADER (Dark)                                             │
+     └─────────────────────────────────────────────────────────────┘ */
+  --header-bg: #000000;              /* Header background */
+  --header-fg: #F5F5F5;              /* Header text/icons */
+  --header-border: #262626;          /* Bottom border of header */
+  --header-primary: #fafaff;         /* Active nav item */
+  --header-primary-fg: #000000;      /* Text on active nav */
+  --header-muted: #A3A3A3;           /* Inactive nav items */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  SIDEBAR (Dark)                                            │
+     └─────────────────────────────────────────────────────────────┘ */
+  --sidebar: #000000;                     /* Sidebar background */
+  --sidebar-foreground: #F5F5F5;          /* Sidebar text */
+  --sidebar-primary: #fafaff;             /* Active link background */
+  --sidebar-primary-foreground: #000000;  /* Active link text */
+  --sidebar-accent: #121212;              /* Hover background */
+  --sidebar-accent-foreground: #F5F5F5;   /* Hover text */
+  --sidebar-border: #262626;              /* Sidebar border */
+  --sidebar-ring: #fafaff;                /* Focus ring */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  FEED (Dark) — Tournament cards                            │
+     └─────────────────────────────────────────────────────────────┘ */
+  --feed-bg: #000000;                /* Feed page background */
+  --feed-fg: #F5F5F5;                /* Feed page text */
+  --feed-border: #262626;            /* Feed section border */
+  --feed-card-bg: #000000;           /* Tournament card background */
+  --feed-card-fg: #F5F5F5;           /* Tournament card text */
+  --feed-card-border: #262626;       /* Tournament card border */
+  --feed-primary: #fafaff;           /* "View Details" button */
+  --feed-primary-fg: #000000;        /* Button text */
+  --feed-muted: #A3A3A3;             /* Date, time, location text */
+  --feed-story-unseen: #FFFFFF;      /* Story circle border in dark theme (unseen = white) */
+  --feed-story-seen: #525252;        /* Story circle border in dark theme (seen = grey) */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  LEADERBOARD (Dark) — Rankings                             │
+     └─────────────────────────────────────────────────────────────┘ */
+  --lb-bg: #000000;                  /* Leaderboard background */
+  --lb-fg: #F5F5F5;                  /* Leaderboard text */
+  --lb-border: #262626;              /* Section border */
+  --lb-card-bg: #000000;             /* Ranking table background */
+  --lb-card-fg: #F5F5F5;             /* Ranking table text */
+  --lb-card-border: #262626;         /* Table border */
+  --lb-primary: #fafaff;             /* Active tab */
+  --lb-primary-fg: #000000;          /* Active tab text */
+  --lb-muted: #A3A3A3;               /* Secondary text */
+  --lb-gold: #FFD700;               /* 🥇 1st place */
+  --lb-silver: #C0C0C0;             /* 🥈 2nd place */
+  --lb-bronze: #CD7F32;             /* 🥉 3rd place */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  DASHBOARD (Dark)                                          │
+     └─────────────────────────────────────────────────────────────┘ */
+  --dash-bg: #000000;                /* Dashboard background */
+  --dash-fg: #F5F5F5;                /* Dashboard text */
+  --dash-border: #262626;            /* Section borders */
+  --dash-card-bg: #000000;           /* Stats card background */
+  --dash-card-fg: #F5F5F5;           /* Stats card text */
+  --dash-card-border: #262626;       /* Stats card border */
+  --dash-primary: #fafaff;           /* Action buttons */
+  --dash-primary-fg: #000000;        /* Button text */
+  --dash-muted: #A3A3A3;             /* Labels */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  TOURNAMENT DETAIL (Dark)                                  │
+     └─────────────────────────────────────────────────────────────┘ */
+  --detail-bg: #000000;              /* Detail page background */
+  --detail-fg: #F5F5F5;              /* Detail page text */
+  --detail-border: #262626;          /* Section borders */
+  --detail-card-bg: #000000;         /* Info card background */
+  --detail-card-fg: #F5F5F5;         /* Info card text */
+  --detail-card-border: #262626;     /* Info card border */
+  --detail-primary: #fafaff;         /* "Join" button */
+  --detail-primary-fg: #000000;      /* "Join" button text */
+  --detail-muted: #A3A3A3;           /* Secondary info */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  PROFILE (Dark)                                            │
+     └─────────────────────────────────────────────────────────────┘ */
+  --profile-bg: #000000;             /* Profile background */
+  --profile-fg: #F5F5F5;             /* Profile text */
+  --profile-border: #262626;         /* Section borders */
+  --profile-card-bg: #000000;        /* Card background */
+  --profile-card-fg: #F5F5F5;        /* Card text */
+  --profile-card-border: #262626;    /* Card border */
+  --profile-primary: #fafaff;        /* "Edit Profile" button */
+  --profile-primary-fg: #000000;     /* Button text */
+  --profile-muted: #A3A3A3;          /* Bio, labels */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  MESSAGES (Dark)                                           │
+     └─────────────────────────────────────────────────────────────┘ */
+  --msg-bg: #000000;                 /* Messages page background */
+  --msg-fg: #F5F5F5;                 /* Messages page text */
+  --msg-border: #262626;             /* Borders */
+  --msg-card-bg: #000000;            /* Conversation item background */
+  --msg-card-fg: #F5F5F5;            /* Conversation item text */
+  --msg-card-border: #262626;        /* Between conversations */
+  --msg-primary: #fafaff;            /* "Send" button */
+  --msg-primary-fg: #000000;         /* "Send" button text */
+  --msg-muted: #A3A3A3;              /* Timestamps */
+  --msg-bubble-sent: #fafaff;        /* YOUR sent message bubble */
+  --msg-bubble-sent-fg: #000000;     /* Text in your sent bubble */
+  --msg-bubble-received: #262626;    /* RECEIVED message bubble */
+  --msg-bubble-received-fg: #F5F5F5; /* Text in received bubble */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  SETTINGS (Dark)                                           │
+     └─────────────────────────────────────────────────────────────┘ */
+  --settings-bg: #000000;            /* Settings background */
+  --settings-fg: #F5F5F5;            /* Settings text */
+  --settings-border: #262626;        /* Section borders */
+  --settings-card-bg: #000000;       /* Settings card background */
+  --settings-card-fg: #F5F5F5;       /* Settings card text */
+  --settings-card-border: #262626;   /* Card border */
+  --settings-primary: #fafaff;       /* "Save" button */
+  --settings-primary-fg: #000000;    /* "Save" button text */
+  --settings-muted: #A3A3A3;         /* Helper text */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  NOTIFICATIONS (Dark)                                      │
+     └─────────────────────────────────────────────────────────────┘ */
+  --notif-bg: #000000;               /* Notifications background */
+  --notif-fg: #F5F5F5;               /* Notifications text */
+  --notif-border: #262626;           /* Between items */
+  --notif-card-bg: #000000;          /* Notification card background */
+  --notif-card-fg: #F5F5F5;          /* Notification text */
+  --notif-card-border: #262626;      /* Card border */
+  --notif-primary: #fafaff;          /* Unread dot */
+  --notif-muted: #A3A3A3;            /* Timestamp */
+
+
+  /* ┌─────────────────────────────────────────────────────────────┐
+     │  CREATE TOURNAMENT (Dark)                                  │
+     └─────────────────────────────────────────────────────────────┘ */
+  --create-bg: #000000;              /* Create page background */
+  --create-fg: #F5F5F5;              /* Create page text */
+  --create-border: #262626;          /* Form borders */
+  --create-card-bg: #000000;         /* Form section background */
+  --create-card-fg: #F5F5F5;         /* Form section text */
+  --create-card-border: #262626;     /* Form card border */
+  --create-primary: #fafaff;         /* "Create" submit button */
+  --create-primary-fg: #000000;      /* Submit button text */
+  --create-muted: #A3A3A3;           /* Helper text */
 }
 
-/* ============================================================
-   DO NOT EDIT BELOW — Tailwind internal mappings
-   ============================================================ */
+
+/* ╔══════════════════════════════════════════════════════════════╗
+   ║  TAILWIND MAPPINGS — Registers all tokens as Tailwind       ║
+   ║  utility classes. e.g. --color-feed-bg → class "bg-feed-bg" ║
+   ║  DO NOT EDIT unless you add/remove a section above.         ║
+   ╚══════════════════════════════════════════════════════════════╝ */
 @theme inline {
   --font-sans: var(--font-inter), Arial, sans-serif;
   --font-mono: var(--font-geist-mono), monospace;
+
+  /* Global */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -142,6 +475,7 @@
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
+  --color-divider: var(--divider);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
@@ -153,6 +487,16 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Header → use: bg-header-bg, text-header-fg, border-header-border */
+  --color-header-bg: var(--header-bg);
+  --color-header-fg: var(--header-fg);
+  --color-header-border: var(--header-border);
+  --color-header-primary: var(--header-primary);
+  --color-header-primary-fg: var(--header-primary-fg);
+  --color-header-muted: var(--header-muted);
+
+  /* Sidebar → use: bg-sidebar, text-sidebar-foreground, border-sidebar-border */
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -161,6 +505,113 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Feed → use: bg-feed-bg, text-feed-fg, border-feed-card-border */
+  --color-feed-bg: var(--feed-bg);
+  --color-feed-fg: var(--feed-fg);
+  --color-feed-border: var(--feed-border);
+  --color-feed-card-bg: var(--feed-card-bg);
+  --color-feed-card-fg: var(--feed-card-fg);
+  --color-feed-card-border: var(--feed-card-border);
+  --color-feed-primary: var(--feed-primary);
+  --color-feed-primary-fg: var(--feed-primary-fg);
+  --color-feed-muted: var(--feed-muted);
+  --color-feed-story-unseen: var(--feed-story-unseen);
+  --color-feed-story-seen: var(--feed-story-seen);
+
+  /* Leaderboard → use: bg-lb-bg, text-lb-fg, border-lb-card-border */
+  --color-lb-bg: var(--lb-bg);
+  --color-lb-fg: var(--lb-fg);
+  --color-lb-border: var(--lb-border);
+  --color-lb-card-bg: var(--lb-card-bg);
+  --color-lb-card-fg: var(--lb-card-fg);
+  --color-lb-card-border: var(--lb-card-border);
+  --color-lb-primary: var(--lb-primary);
+  --color-lb-primary-fg: var(--lb-primary-fg);
+  --color-lb-muted: var(--lb-muted);
+  --color-lb-gold: var(--lb-gold);
+  --color-lb-silver: var(--lb-silver);
+  --color-lb-bronze: var(--lb-bronze);
+
+  /* Dashboard → use: bg-dash-bg, text-dash-fg, border-dash-card-border */
+  --color-dash-bg: var(--dash-bg);
+  --color-dash-fg: var(--dash-fg);
+  --color-dash-border: var(--dash-border);
+  --color-dash-card-bg: var(--dash-card-bg);
+  --color-dash-card-fg: var(--dash-card-fg);
+  --color-dash-card-border: var(--dash-card-border);
+  --color-dash-primary: var(--dash-primary);
+  --color-dash-primary-fg: var(--dash-primary-fg);
+  --color-dash-muted: var(--dash-muted);
+
+  /* Tournament Detail → use: bg-detail-bg, text-detail-fg */
+  --color-detail-bg: var(--detail-bg);
+  --color-detail-fg: var(--detail-fg);
+  --color-detail-border: var(--detail-border);
+  --color-detail-card-bg: var(--detail-card-bg);
+  --color-detail-card-fg: var(--detail-card-fg);
+  --color-detail-card-border: var(--detail-card-border);
+  --color-detail-primary: var(--detail-primary);
+  --color-detail-primary-fg: var(--detail-primary-fg);
+  --color-detail-muted: var(--detail-muted);
+
+  /* Profile → use: bg-profile-bg, text-profile-fg */
+  --color-profile-bg: var(--profile-bg);
+  --color-profile-fg: var(--profile-fg);
+  --color-profile-border: var(--profile-border);
+  --color-profile-card-bg: var(--profile-card-bg);
+  --color-profile-card-fg: var(--profile-card-fg);
+  --color-profile-card-border: var(--profile-card-border);
+  --color-profile-primary: var(--profile-primary);
+  --color-profile-primary-fg: var(--profile-primary-fg);
+  --color-profile-muted: var(--profile-muted);
+
+  /* Messages → use: bg-msg-bg, bg-msg-bubble-sent, bg-msg-bubble-received */
+  --color-msg-bg: var(--msg-bg);
+  --color-msg-fg: var(--msg-fg);
+  --color-msg-border: var(--msg-border);
+  --color-msg-card-bg: var(--msg-card-bg);
+  --color-msg-card-fg: var(--msg-card-fg);
+  --color-msg-card-border: var(--msg-card-border);
+  --color-msg-primary: var(--msg-primary);
+  --color-msg-primary-fg: var(--msg-primary-fg);
+  --color-msg-muted: var(--msg-muted);
+  --color-msg-bubble-sent: var(--msg-bubble-sent);
+  --color-msg-bubble-sent-fg: var(--msg-bubble-sent-fg);
+  --color-msg-bubble-received: var(--msg-bubble-received);
+  --color-msg-bubble-received-fg: var(--msg-bubble-received-fg);
+
+  /* Settings → use: bg-settings-bg, text-settings-fg */
+  --color-settings-bg: var(--settings-bg);
+  --color-settings-fg: var(--settings-fg);
+  --color-settings-border: var(--settings-border);
+  --color-settings-card-bg: var(--settings-card-bg);
+  --color-settings-card-fg: var(--settings-card-fg);
+  --color-settings-card-border: var(--settings-card-border);
+  --color-settings-primary: var(--settings-primary);
+  --color-settings-primary-fg: var(--settings-primary-fg);
+  --color-settings-muted: var(--settings-muted);
+
+  /* Notifications → use: bg-notif-bg, text-notif-fg */
+  --color-notif-bg: var(--notif-bg);
+  --color-notif-fg: var(--notif-fg);
+  --color-notif-border: var(--notif-border);
+  --color-notif-card-bg: var(--notif-card-bg);
+  --color-notif-card-fg: var(--notif-card-fg);
+  --color-notif-card-border: var(--notif-card-border);
+  --color-notif-primary: var(--notif-primary);
+  --color-notif-muted: var(--notif-muted);
+
+  /* Create Tournament → use: bg-create-bg, text-create-fg */
+  --color-create-bg: var(--create-bg);
+  --color-create-fg: var(--create-fg);
+  --color-create-border: var(--create-border);
+  --color-create-card-bg: var(--create-card-bg);
+  --color-create-card-fg: var(--create-card-fg);
+  --color-create-card-border: var(--create-card-border);
+  --color-create-primary: var(--create-primary);
+  --color-create-primary-fg: var(--create-primary-fg);
+  --color-create-muted: var(--create-muted);
 }
 
 @layer base {
@@ -168,7 +619,7 @@
   body { @apply bg-background text-foreground; }
 }
 
-::selection { background: #88bdf2; color: #384959; }
+::selection { background: var(--primary); color: var(--primary-foreground); }
 
 .pixel-word {
   font-family: var(--font-geist-mono), monospace;
@@ -198,4 +649,120 @@
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* =========================================================================
+   SECTION THEME CLASSES
+   Apply these classes to a section wrapper so all components inside
+   (Cards, Buttons, Badges) automatically inherit the section's colors.
+   ========================================================================= */
+
+.theme-header {
+  --background: var(--header-bg);
+  --foreground: var(--header-fg);
+  --border: var(--header-border);
+}
+
+.theme-feed {
+  --background: var(--feed-bg);
+  --foreground: var(--feed-fg);
+  --border: var(--feed-border);
+  --card: var(--feed-card-bg);
+  --card-foreground: var(--feed-card-fg);
+  --primary: var(--feed-primary);
+  --primary-foreground: var(--feed-primary-fg);
+  --muted-foreground: var(--feed-muted);
+  --story-unseen: var(--feed-story-unseen);
+  --story-seen: var(--feed-story-seen);
+}
+
+.theme-lb {
+  --background: var(--lb-bg);
+  --foreground: var(--lb-fg);
+  --border: var(--lb-border);
+  --card: var(--lb-card-bg);
+  --card-foreground: var(--lb-card-fg);
+  --primary: var(--lb-primary);
+  --primary-foreground: var(--lb-primary-fg);
+  --muted-foreground: var(--lb-muted);
+  --gold: var(--lb-gold);
+  --silver: var(--lb-silver);
+  --bronze: var(--lb-bronze);
+}
+
+.theme-dash {
+  --background: var(--dash-bg);
+  --foreground: var(--dash-fg);
+  --border: var(--dash-border);
+  --card: var(--dash-card-bg);
+  --card-foreground: var(--dash-card-fg);
+  --primary: var(--dash-primary);
+  --primary-foreground: var(--dash-primary-fg);
+  --muted-foreground: var(--dash-muted);
+}
+
+.theme-profile {
+  --background: var(--profile-bg);
+  --foreground: var(--profile-fg);
+  --border: var(--profile-border);
+  --card: var(--profile-card-bg);
+  --card-foreground: var(--profile-card-fg);
+  --primary: var(--profile-primary);
+  --primary-foreground: var(--profile-primary-fg);
+  --muted-foreground: var(--profile-muted);
+}
+
+.theme-msg {
+  --background: var(--msg-bg);
+  --foreground: var(--msg-fg);
+  --border: var(--msg-border);
+  --card: var(--msg-card-bg);
+  --card-foreground: var(--msg-card-fg);
+  --primary: var(--msg-primary);
+  --primary-foreground: var(--msg-primary-fg);
+  --muted-foreground: var(--msg-muted);
+}
+
+.theme-settings {
+  --background: var(--settings-bg);
+  --foreground: var(--settings-fg);
+  --border: var(--settings-border);
+  --card: var(--settings-card-bg);
+  --card-foreground: var(--settings-card-fg);
+  --primary: var(--settings-primary);
+  --primary-foreground: var(--settings-primary-fg);
+  --muted-foreground: var(--settings-muted);
+}
+
+.theme-notif {
+  --background: var(--notif-bg);
+  --foreground: var(--notif-fg);
+  --border: var(--notif-border);
+  --card: var(--notif-card-bg);
+  --card-foreground: var(--notif-card-fg);
+  --primary: var(--notif-primary);
+  --primary-foreground: var(--notif-primary-fg);
+  --muted-foreground: var(--notif-muted);
+}
+
+.theme-create {
+  --background: var(--create-bg);
+  --foreground: var(--create-fg);
+  --border: var(--create-border);
+  --card: var(--create-card-bg);
+  --card-foreground: var(--create-card-fg);
+  --primary: var(--create-primary);
+  --primary-foreground: var(--create-primary-fg);
+  --muted-foreground: var(--create-muted);
+}
+
+.theme-detail {
+  --background: var(--detail-bg);
+  --foreground: var(--detail-fg);
+  --border: var(--detail-border);
+  --card: var(--detail-card-bg);
+  --card-foreground: var(--detail-card-fg);
+  --primary: var(--detail-primary);
+  --primary-foreground: var(--detail-primary-fg);
+  --muted-foreground: var(--detail-muted);
 }

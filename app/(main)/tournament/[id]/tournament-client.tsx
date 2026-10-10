@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +18,7 @@ import {
   CheckCircle,
   Bookmark,
   ChevronLeft,
+  ChevronRight,
   DollarSign,
   FileText,
   AlertCircle,
@@ -31,7 +33,7 @@ import type { Tournament, TournamentDetail, TournamentStatusValue } from '@/lib/
 import { TOURNAMENT_STATUS_CLASSES, TOURNAMENT_STATUS_LABELS } from '@/lib/constants'
 import { toast } from 'sonner'
 import { ShareButton } from '@/components/share-button'
-import { registerParticipant, toggleSaveTournament } from '@/lib/actions'
+import { registerParticipant, toggleSaveTournament, unregisterParticipant } from '@/lib/actions'
 import { useAuthModal } from '@/components/auth-modal'
 import { ParticipantSlots } from '@/components/participant-slots'
 
@@ -79,6 +81,9 @@ export default function TournamentClient({
   const currentUserId = currentUser?.id
   const canRegister = currentUser?.role === 'USER'
   const [saved, setSaved] = useState(isSaved)
+  const [posterIndex, setPosterIndex] = useState(0)
+  const posterUrls = [tournament.posterUrl, ...(tournament.galleryUrls ?? [])].filter(Boolean)
+  const activePoster = posterUrls[posterIndex] ?? ''
   const [registered, setRegistered] = useState(isUserRegistered)
   const [registering, setRegistering] = useState(false)
   const [teamName, setTeamName] = useState('')
@@ -137,8 +142,24 @@ export default function TournamentClient({
     router.refresh()
   }
 
+  const handleCancelRegistration = async () => {
+    setRegistering(true)
+    const result = await unregisterParticipant(tournament.id)
+    setRegistering(false)
+
+    if (!result.ok) {
+      toast.error(result.error)
+      return
+    }
+
+    setRegistered(false)
+    setCurrentParticipants((current) => Math.max(0, current - 1))
+    toast.success('Ro‘yxatdan o‘tish bekor qilindi')
+    router.refresh()
+  }
+
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-4 py-6 theme-detail bg-background text-foreground">
       {/* Back Button */}
       <Button variant="ghost" asChild className="mb-4 -ml-2">
         <Link href="/feed" className="gap-2">
@@ -152,10 +173,53 @@ export default function TournamentClient({
         <div className="lg:col-span-2 space-y-6">
           {/* Hero Banner */}
           <Card className="overflow-hidden">
-            <div className="relative h-48 md:h-64 bg-gradient-to-br from-primary/30 via-secondary to-accent/30">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <CategoryIcon className="h-24 w-24 text-primary/30" />
-              </div>
+            <div className="relative aspect-square md:aspect-video bg-gradient-to-br from-primary/30 via-secondary to-accent/30 group">
+                {activePoster ? (
+                  <img
+                    src={activePoster}
+                    alt={tournament.title}
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <CategoryIcon className="h-24 w-24 text-primary/30" />
+                  </div>
+                )}
+                
+                {/* Carousel Controls */}
+                {posterUrls.length > 1 && (
+                  <>
+                    <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8 rounded-full bg-background/80 hover:bg-background/90"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setPosterIndex((current) => (current - 1 + posterUrls.length) % posterUrls.length)
+                        }}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8 rounded-full bg-background/80 hover:bg-background/90"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setPosterIndex((current) => (current + 1) % posterUrls.length)
+                        }}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1.5 z-10">
+                      {posterUrls.map((url, index) => (
+                        <span key={url} className={cn('h-2 w-2 rounded-full transition-all', index === posterIndex ? 'bg-white scale-125' : 'bg-white/50')} />
+                      ))}
+                    </div>
+                  </>
+                )}
               <div className="absolute top-4 left-4 flex gap-2">
                 <Badge className={TOURNAMENT_STATUS_CLASSES[tournament.status as TournamentStatusValue]}>
                   {TOURNAMENT_STATUS_LABELS[tournament.status as TournamentStatusValue]}
@@ -389,6 +453,14 @@ export default function TournamentClient({
                   <p className="text-xs text-center text-muted-foreground">
                     Your registration status is: Pending Approval
                   </p>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleCancelRegistration}
+                    disabled={registering}
+                  >
+                    {registering ? 'Bekor qilinmoqda…' : 'Ro‘yxatdan o‘tishni bekor qilish'}
+                  </Button>
                 </div>
               ) : tournament.status === 'registration_open' ? (
                 <div className="space-y-3">
@@ -506,3 +578,4 @@ export default function TournamentClient({
     </div>
   )
 }
+

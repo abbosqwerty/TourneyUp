@@ -98,6 +98,7 @@ export const createTournamentSchema = z.object({
   prizePool: trimmed(60).optional().or(z.literal('')),
   entryFee: trimmed(60).optional().or(z.literal('')),
   posterMediaId: z.string().optional().or(z.literal('')),
+  galleryMediaIds: z.array(z.string()).max(4).optional(),
 })
 
 export const updateTournamentSchema = createTournamentSchema.extend({
@@ -164,9 +165,9 @@ export const channelPostSchema = z.object({
 })
 
 export const createStorySchema = z.object({
-  mediaId: z.string().min(1, 'Rasm yuklang'),
+  mediaId: z.string().min(1, 'Rasm yoki video yuklang'),
   caption: trimmed(200).optional().or(z.literal('')),
-  tournamentId: z.string().optional().or(z.literal('')),
+  tournamentId: z.string().min(1, 'Turnirni tanlang'),
 })
 
 /** Flatten a ZodError into `{ field: message }` for form rendering. */

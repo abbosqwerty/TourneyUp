@@ -13,6 +13,7 @@ export type StoryGroup = {
   stories: {
     id: string
     mediaUrl: string
+    mediaType: string
     caption: string | null
     createdAt: Date
     seen: boolean
@@ -31,6 +32,7 @@ export async function listActiveStories(viewerId?: string | null): Promise<Story
     select: {
       id: true,
       mediaId: true,
+      media: { select: { mimeType: true } },
       caption: true,
       createdAt: true,
       organization: { select: { id: true, name: true, slug: true, logoMediaId: true } },
@@ -61,6 +63,7 @@ export async function listActiveStories(viewerId?: string | null): Promise<Story
     group.stories.push({
       id: story.id,
       mediaUrl: `/api/media/${story.mediaId}`,
+      mediaType: story.media.mimeType,
       caption: story.caption,
       createdAt: story.createdAt,
       seen,

@@ -55,14 +55,12 @@ export default function FeedClient({
     }
   }
 
-  const featured = tournaments.filter((t) => t.featured)
-  const regular = tournaments.filter((t) => !t.featured)
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
   const rangeStart = totalCount === 0 ? 0 : (filters.page - 1) * pageSize + 1
   const rangeEnd = Math.min(filters.page * pageSize, totalCount)
 
   return (
-    <div className="container mx-auto max-w-7xl px-4 py-6">
+    <div className="container mx-auto max-w-7xl px-4 py-6 theme-feed bg-background text-foreground">
       <div className="mb-6">
         <SearchFilters filters={filters} />
       </div>
@@ -86,38 +84,19 @@ export default function FeedClient({
         <NoTournamentsFound />
       ) : (
         <div className="space-y-8">
-          {featured.length > 0 && (
-            <section>
-              <h2 className="mb-4 text-lg font-semibold">Tanlangan turnirlar</h2>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {featured.map((tournament) => (
-                  <TournamentCard
-                    key={tournament.id}
-                    tournament={tournament}
-                    variant="featured"
-                    onSave={() => toggleSave(tournament.id)}
-                    isSaved={isSaved(tournament.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {regular.length > 0 && (
-            <section>
-              {featured.length > 0 && <h2 className="mb-4 text-lg font-semibold">Barcha turnirlar</h2>}
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {regular.map((tournament) => (
-                  <TournamentCard
-                    key={tournament.id}
-                    tournament={tournament}
-                    onSave={() => toggleSave(tournament.id)}
-                    isSaved={isSaved(tournament.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+          <section>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {tournaments.map((tournament) => (
+                <TournamentCard
+                  key={tournament.id}
+                  tournament={tournament}
+                  variant="featured"
+                  onSave={() => toggleSave(tournament.id)}
+                  isSaved={isSaved(tournament.id)}
+                />
+              ))}
+            </div>
+          </section>
 
           <Pager
             page={filters.page}
@@ -136,3 +115,4 @@ export default function FeedClient({
     </div>
   )
 }
+

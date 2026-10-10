@@ -226,6 +226,7 @@ model Tournament {
   posterUrl        String           @default("")
   posterMediaId    String?
   posterMedia      MediaAsset?      @relation("TournamentPoster", fields: [posterMediaId], references: [id], onDelete: SetNull)
+  galleryMediaIdsJson String?       @db.Text
   organizerId      String
   organizer        User             @relation("OrganizedTournaments", fields: [organizerId], references: [id], onDelete: Cascade)
   organizationId   String?

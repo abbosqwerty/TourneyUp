@@ -24,7 +24,7 @@ export default async function SettingsPage() {
   if (!user) redirect('/login?next=%2Fsettings')
 
   return (
-    <div className="container mx-auto max-w-2xl space-y-6 px-4 py-6">
+    <div className="container mx-auto max-w-2xl space-y-6 px-4 py-6 theme-settings bg-background text-foreground">
       <div>
         <h1 className="text-2xl font-bold md:text-3xl">Sozlamalar</h1>
         <p className="text-sm text-muted-foreground">Akkaunt va ko‘rinish sozlamalari</p>
@@ -130,3 +130,4 @@ export default async function SettingsPage() {
     </div>
   )
 }
+

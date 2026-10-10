@@ -36,8 +36,6 @@ export default async function RankingsPage() {
 }
 
 async function load(userId: string | null) {
-  // Win counts come from the database, not from loading every match into
-  // memory and filtering in JS.
   const users = await db.user.findMany({
     where: { role: 'USER', globalRank: { gt: 0 } },
     orderBy: { globalRank: 'asc' },
@@ -50,7 +48,13 @@ async function load(userId: string | null) {
       university: true,
       globalRank: true,
       totalPoints: true,
-      // Wins are completed fixtures this user won — one aggregate, no row loading.
+      sportRanks: {
+        select: {
+          sport: true,
+          rank: true,
+          points: true,
+        },
+      },
       _count: { select: { wonMatches: true } },
     },
   })
@@ -69,6 +73,11 @@ async function load(userId: string | null) {
       },
       points: u.totalPoints,
       wins: u._count.wonMatches,
+      sportRanks: u.sportRanks.map((sr) => ({
+        sport: sr.sport,
+        rank: sr.rank,
+        points: sr.points,
+      })),
     })),
     myRank: me?.globalRank ?? 0,
     myPoints: me?.totalPoints ?? 0,

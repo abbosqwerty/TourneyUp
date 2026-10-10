@@ -101,6 +101,7 @@ export async function createTournament(input: unknown): Promise<ActionResult<{ t
         time: data.time,
         maxParticipants: data.maxParticipants,
         posterMediaId: data.posterMediaId || null,
+        galleryMediaIdsJson: JSON.stringify(data.galleryMediaIds ?? []),
         posterUrl: '',
         organizerId: user.id,
         organizationId: organization?.id ?? null,

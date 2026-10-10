@@ -3,12 +3,21 @@
 import { useCallback, useRef, useState } from 'react'
 import { ImageIcon, Loader2, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, formatBytes } from '@/lib/media'
+import {
+  ALLOWED_IMAGE_TYPES,
+  ALLOWED_VIDEO_TYPES,
+  MAX_STORY_VIDEO_BYTES,
+  MAX_UPLOAD_BYTES,
+  formatBytes,
+  isAllowedImageType,
+  isAllowedVideoType,
+} from '@/lib/media'
 import { cn } from '@/lib/utils'
 
 export type UploadedImage = {
   id: string
   url: string
+  mimeType: string
   width: number | null
   height: number | null
   byteSize: number
@@ -22,6 +31,8 @@ type Props = {
   className?: string
   /** Aspect ratio of the preview box, e.g. `aspect-[1200/630]`. */
   aspectClassName?: string
+  /** Enables MP4 and WebM uploads alongside images for vertical stories. */
+  allowVideo?: boolean
 }
 
 /**
@@ -35,6 +46,7 @@ export function ImageUploader({
   hint = `PNG, JPG, WebP — maksimal ${formatBytes(MAX_UPLOAD_BYTES)}`,
   className,
   aspectClassName = 'aspect-[1200/630]',
+  allowVideo = false,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -45,12 +57,15 @@ export function ImageUploader({
     async (file: File) => {
       setError(null)
 
-      if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
-        setError('Faqat PNG, JPG, WebP yoki GIF yuklash mumkin')
+      const isImage = isAllowedImageType(file.type)
+      const isVideo = allowVideo && isAllowedVideoType(file.type)
+      if (!isImage && !isVideo) {
+        setError(allowVideo ? 'Faqat rasm, MP4 yoki WebM video yuklash mumkin' : 'Faqat PNG, JPG, WebP yoki GIF yuklash mumkin')
         return
       }
-      if (file.size > MAX_UPLOAD_BYTES) {
-        setError(`Fayl juda katta (${formatBytes(file.size)}). Maksimal — ${formatBytes(MAX_UPLOAD_BYTES)}`)
+      const maxBytes = isVideo ? MAX_STORY_VIDEO_BYTES : MAX_UPLOAD_BYTES
+      if (file.size > maxBytes) {
+        setError(`Fayl juda katta (${formatBytes(file.size)}). Maksimal — ${formatBytes(maxBytes)}`)
         return
       }
 
@@ -80,7 +95,7 @@ export function ImageUploader({
       <input
         ref={inputRef}
         type="file"
-        accept={ALLOWED_IMAGE_TYPES.join(',')}
+        accept={(allowVideo ? [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES] : ALLOWED_IMAGE_TYPES).join(',')}
         className="sr-only"
         onChange={(event) => {
           const file = event.target.files?.[0]
@@ -92,7 +107,11 @@ export function ImageUploader({
       {value ? (
         <div className={cn('relative overflow-hidden rounded-lg border border-border bg-muted', aspectClassName)}>
           { }
-          <img src={value.url} alt="Yuklangan rasm" className="h-full w-full object-cover" />
+          {value.mimeType.startsWith('video/') ? (
+            <video src={value.url} className="h-full w-full object-cover" controls muted playsInline />
+          ) : (
+            <img src={value.url} alt="Yuklangan rasm" className="h-full w-full object-cover" />
+          )}
           <div className="absolute right-2 top-2 flex gap-2">
             <Button
               type="button"

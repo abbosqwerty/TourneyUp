@@ -71,7 +71,7 @@ export default async function DashboardPage() {
   ]
 
   return (
-    <div className="container mx-auto max-w-6xl space-y-6 px-4 py-6">
+    <div className="container mx-auto max-w-6xl space-y-6 px-4 py-6 theme-dash bg-background text-foreground">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16 border-2 border-primary">
@@ -117,7 +117,12 @@ export default async function DashboardPage() {
 
       <StatsGrid stats={stats} />
 
-      {organization ? <StoryComposer organizationName={organization.name} /> : null}
+      {organization ? (
+        <StoryComposer
+          organizationName={organization.name}
+          tournaments={tournaments.map((tournament) => ({ id: tournament.id, title: tournament.title }))}
+        />
+      ) : null}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-6 md:col-span-2">
@@ -392,3 +397,4 @@ async function load(userId: string, role: 'USER' | 'ORGANIZATION' | 'SUPER_ADMIN
     })),
   }
 }
+

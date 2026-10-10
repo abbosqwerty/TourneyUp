@@ -26,9 +26,11 @@ export function StoryViewer({
   const [storyIndex, setStoryIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const seenRef = useRef<Set<string>>(new Set())
+  const touchStartX = useRef<number | null>(null)
 
   const group = groups[groupIndex]
   const story = group?.stories[storyIndex]
+  const isVideo = story?.mediaType.startsWith('video/') ?? false
 
   const goNext = useCallback(() => {
     setProgress(0)
@@ -62,9 +64,9 @@ export function StoryViewer({
     })
   }, [groups])
 
-  // Auto-advance timer.
+  // Images advance after five seconds. Videos advance when playback ends.
   useEffect(() => {
-    if (!story) return
+    if (!story || isVideo) return
     const started = Date.now()
     const tick = setInterval(() => {
       const elapsed = Date.now() - started
@@ -73,7 +75,7 @@ export function StoryViewer({
     }, 50)
 
     return () => clearInterval(tick)
-  }, [story, goNext])
+  }, [story, goNext, isVideo])
 
   // Record the view once per story.
   useEffect(() => {
@@ -141,9 +143,37 @@ export function StoryViewer({
           </Button>
         </div>
 
-        <div className="relative flex-1 overflow-hidden rounded-xl bg-black">
-          { }
-          <img src={story.mediaUrl} alt={story.caption ?? 'Story'} className="h-full w-full object-contain" />
+        <div
+          className="relative flex-1 overflow-hidden rounded-xl bg-black"
+          onTouchStart={(event) => {
+            touchStartX.current = event.changedTouches[0]?.clientX ?? null
+          }}
+          onTouchEnd={(event) => {
+            const startX = touchStartX.current
+            const endX = event.changedTouches[0]?.clientX
+            touchStartX.current = null
+            if (startX === null || endX === undefined) return
+            if (endX - startX > 48) goPrev()
+            if (startX - endX > 48) goNext()
+          }}
+        >
+          {isVideo ? (
+            <video
+              key={story.id}
+              src={story.mediaUrl}
+              className="h-full w-full object-contain"
+              autoPlay
+              muted
+              playsInline
+              onTimeUpdate={(event) => {
+                const { currentTime, duration } = event.currentTarget
+                if (Number.isFinite(duration) && duration > 0) setProgress((currentTime / duration) * 100)
+              }}
+              onEnded={goNext}
+            />
+          ) : (
+            <img src={story.mediaUrl} alt={story.caption ?? 'Story'} className="h-full w-full object-contain" />
+          )}
 
           <button
             type="button"
@@ -164,20 +194,20 @@ export function StoryViewer({
           <div className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 text-white/40 sm:block">
             <ChevronRight className="h-6 w-6" aria-hidden />
           </div>
-        </div>
 
-        {story.caption || story.tournament ? (
-          <div className="mt-3 space-y-2">
-            {story.caption ? <p className="text-sm text-white">{story.caption}</p> : null}
-            {story.tournament ? (
-              <Button size="sm" variant="secondary" asChild className="w-full">
-                <Link href={`/tournament/${story.tournament.id}`} onClick={onClose}>
-                  {story.tournament.title}
-                </Link>
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
+          {story.caption || story.tournament ? (
+            <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-4 pb-4 pt-16">
+              {story.caption ? <p className="mb-3 text-sm text-white">{story.caption}</p> : null}
+              {story.tournament ? (
+                <Button size="sm" variant="secondary" asChild className="w-full">
+                  <Link href={`/tournament/${story.tournament.id}`} onClick={onClose}>
+                    {story.tournament.title} ga o‘tish
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   )
