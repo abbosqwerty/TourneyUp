@@ -20,8 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { deleteAccount } from '@/lib/auth-actions'
 import { useLanguage } from '@/lib/i18n/language-context'
-
-const CONFIRM_WORD = 'O‘CHIRISH'
+import { matchesConfirmWord } from '@/lib/confirm-word'
 
 export function DeleteAccountDialog() {
   const router = useRouter()
@@ -31,6 +30,7 @@ export function DeleteAccountDialog() {
   const [isPending, startTransition] = useTransition()
   const { dict } = useLanguage()
   const t = dict.account.delete_account
+  const confirmWord = t.confirm_word
 
   const submit = () => {
     startTransition(async () => {
@@ -77,7 +77,7 @@ export function DeleteAccountDialog() {
           <div className="space-y-2">
             <Label htmlFor="delete-confirm">
               <span>
-                {t.confirm_prefix} <span className="font-mono">{CONFIRM_WORD}</span>
+                {t.confirm_prefix} <span className="font-mono">{confirmWord}</span>
                 {t.confirm_suffix ? ` ${t.confirm_suffix}` : ''}
               </span>
             </Label>
@@ -97,7 +97,7 @@ export function DeleteAccountDialog() {
               event.preventDefault()
               submit()
             }}
-            disabled={isPending || confirm !== CONFIRM_WORD || password.length === 0}
+            disabled={isPending || !matchesConfirmWord(confirm, confirmWord) || password.length === 0}
             className="gap-2"
           >
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}

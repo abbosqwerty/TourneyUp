@@ -17,6 +17,7 @@ import { fail, succeedWith, type ActionResult } from './action-result'
 import { clientIp, guard, minutes, rateLimit } from './rate-limit'
 import { mediaUrl } from './media'
 import { getI18n } from './i18n/server'
+import { matchesConfirmWord } from './confirm-word'
 
 /** Where a role should land after signing in. */
 function landingFor(role: 'USER' | 'ORGANIZATION' | 'SUPER_ADMIN') {
@@ -261,6 +262,10 @@ export async function deleteAccount(input: unknown): Promise<ActionResult> {
 
   const parsed = deleteAccountSchema.safeParse(input)
   if (!parsed.success) return fail(t.confirm_failed, fieldErrors(parsed.error, dict))
+  const word = dict.account.delete_account.confirm_word
+  if (!matchesConfirmWord(parsed.data.confirm, word)) {
+    return fail(t.confirm_failed, { confirm: dict.errors.delete_confirm(word) })
+  }
 
   try {
     const record = await db.user.findUnique({

@@ -38,7 +38,8 @@ export const updateProfileSchema = z.object({
 
 export const deleteAccountSchema = z.object({
   password: z.string().min(1, 'password_required'),
-  confirm: z.literal('O‘CHIRISH', { errorMap: () => ({ message: 'delete_confirm' }) }),
+  /** The confirmation word is per language — checked by `matchesConfirmWord` in the action. */
+  confirm: z.string().max(40),
 })
 
 export const changePasswordSchema = z

@@ -40,7 +40,7 @@ export const errors = defineMessages({
     email_invalid: 'Email formati noto‘g‘ri',
     identifier_required: 'Email yoki username kiriting',
     password_required: 'Parolni kiriting',
-    delete_confirm: 'Tasdiqlash uchun O‘CHIRISH deb yozing',
+    delete_confirm: (word: string) => `Tasdiqlash uchun ${word} deb yozing`,
     current_password_required: 'Hozirgi parolni kiriting',
     passwords_mismatch: 'Parollar mos kelmadi',
 
@@ -118,7 +118,7 @@ export const errors = defineMessages({
     email_invalid: 'Неверный формат email',
     identifier_required: 'Введите email или имя пользователя',
     password_required: 'Введите пароль',
-    delete_confirm: 'Для подтверждения введите O‘CHIRISH',
+    delete_confirm: (word: string) => `Для подтверждения введите ${word}`,
     current_password_required: 'Введите текущий пароль',
     passwords_mismatch: 'Пароли не совпадают',
 
@@ -190,7 +190,7 @@ export const errors = defineMessages({
     email_invalid: 'Invalid email format',
     identifier_required: 'Enter your email or username',
     password_required: 'Enter your password',
-    delete_confirm: 'Type O‘CHIRISH to confirm',
+    delete_confirm: (word: string) => `Type ${word} to confirm`,
     current_password_required: 'Enter your current password',
     passwords_mismatch: 'Passwords do not match',
 
