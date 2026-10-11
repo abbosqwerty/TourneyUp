@@ -110,7 +110,7 @@ export default function RankingsClient({
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">{dict.rankings.your_rank}</p>
-                <p className="font-bold text-sm">{myActiveEntry.points.toLocaleString()} T</p>
+                <p className="font-bold text-sm">{myActiveEntry.points.toLocaleString()} {dict.account.rankings.pts(myActiveEntry.points)}</p>
               </div>
             </CardContent>
           </Card>

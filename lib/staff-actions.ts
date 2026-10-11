@@ -5,8 +5,9 @@ import { db } from './db'
 import { getCurrentUser, getTournamentAbility } from './session'
 import { assignStaffSchema, fieldErrors, revokeStaffSchema } from './schemas'
 import { fail, succeedWith, type ActionResult } from './action-result'
-import { notify } from './notifications'
-import { STAFF_ROLE_LABELS } from './staff-labels'
+import { notifyKey } from './notifications'
+import { REVOKE_REASON_BY_ORG } from './staff-labels'
+import { getI18n } from './i18n/server'
 import { syncTournamentChannel } from './channels'
 
 /**
@@ -17,25 +18,27 @@ import { syncTournamentChannel } from './channels'
 export async function assignTournamentStaff(
   input: unknown
 ): Promise<ActionResult<{ userName: string; role: string }>> {
+  const { dict } = await getI18n()
+  const t = dict.dashboard.staff_actions
   const actor = await getCurrentUser()
-  if (!actor) return fail('Avval tizimga kiring')
+  if (!actor) return fail(dict.errors.login_required)
 
   const parsed = assignStaffSchema.safeParse(input)
-  if (!parsed.success) return fail('Formada xatolar bor', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
 
   const { tournamentId, userQuery, role } = parsed.data
 
   const ability = await getTournamentAbility(actor.id, tournamentId)
-  if (!ability.canManageStaff) return fail('Xodim tayinlash huquqingiz yo‘q')
+  if (!ability.canManageStaff) return fail(t.no_assign_right)
 
   try {
     const tournament = await db.tournament.findUnique({
       where: { id: tournamentId },
       select: { status: true, organizerId: true, title: true },
     })
-    if (!tournament) return fail('Turnir topilmadi')
+    if (!tournament) return fail(t.tournament_not_found)
     if (tournament.status === 'completed' || tournament.status === 'cancelled') {
-      return fail('Yopilgan turnirga xodim tayinlab bo‘lmaydi')
+      return fail(t.tournament_closed)
     }
 
     const lookup = userQuery.trim().toLowerCase()
@@ -44,15 +47,13 @@ export async function assignTournamentStaff(
       select: { id: true, name: true, username: true, role: true },
     })
     if (!target) {
-      return fail('Bunday foydalanuvchi topilmadi', { userQuery: 'Username yoki email topilmadi' })
+      return fail(t.user_not_found, { userQuery: t.user_not_found_field })
     }
     if (target.role !== 'USER') {
-      return fail('Faqat oddiy foydalanuvchiga vaqtinchalik rol berish mumkin', {
-        userQuery: 'Bu akkaunt tashkilot yoki admin',
-      })
+      return fail(t.only_regular_user, { userQuery: t.account_is_org })
     }
     if (target.id === tournament.organizerId) {
-      return fail('Tashkilot egasiga alohida rol kerak emas', { userQuery: 'Bu turnir egasi' })
+      return fail(t.owner_needs_no_role, { userQuery: t.is_owner })
     }
 
     await db.tournamentStaff.upsert({
@@ -64,11 +65,11 @@ export async function assignTournamentStaff(
     // Staff join the tournament group with write access.
     await syncTournamentChannel(tournamentId)
 
-    await notify({
+    await notifyKey({
       userId: target.id,
       type: 'STAFF_ASSIGNED',
-      title: 'Sizga turnir roli berildi',
-      body: `“${tournament.title}” turnirida ${STAFF_ROLE_LABELS[role]} rolini oldingiz.`,
+      key: 'staff_assigned',
+      params: { tournament: tournament.title, role },
       link: '/staff',
     })
 
@@ -78,34 +79,36 @@ export async function assignTournamentStaff(
     return succeedWith({ userName: target.name, role })
   } catch (error) {
     console.error('assignTournamentStaff failed', error)
-    return fail('Xodim tayinlashda xatolik')
+    return fail(t.assign_failed)
   }
 }
 
 /** Take the grant away before the tournament ends. */
 export async function revokeTournamentStaff(input: unknown): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.dashboard.staff_actions
   const actor = await getCurrentUser()
-  if (!actor) return fail('Avval tizimga kiring')
+  if (!actor) return fail(dict.errors.login_required)
 
   const parsed = revokeStaffSchema.safeParse(input)
-  if (!parsed.success) return fail('Ma‘lumot noto‘g‘ri')
+  if (!parsed.success) return fail(t.invalid_data)
 
   try {
     const grant = await db.tournamentStaff.findUnique({
       where: { id: parsed.data.staffId },
       select: { id: true, tournamentId: true, userId: true, revokedAt: true },
     })
-    if (!grant) return fail('Tayinlov topilmadi')
-    if (grant.revokedAt) return fail('Bu ruxsat allaqachon olib tashlangan')
+    if (!grant) return fail(t.grant_not_found)
+    if (grant.revokedAt) return fail(t.already_revoked)
 
     const ability = await getTournamentAbility(actor.id, grant.tournamentId)
-    if (!ability.canManageStaff) return fail('Huquqingiz yo‘q')
+    if (!ability.canManageStaff) return fail(t.no_right)
 
     await db.tournamentStaff.update({
       where: { id: grant.id },
       data: {
         revokedAt: new Date(),
-        revokeReason: parsed.data.reason || 'Tashkilot tomonidan olib tashlandi',
+        revokeReason: parsed.data.reason || REVOKE_REASON_BY_ORG,
       },
     })
 
@@ -118,7 +121,7 @@ export async function revokeTournamentStaff(input: unknown): Promise<ActionResul
     return { ok: true }
   } catch (error) {
     console.error('revokeTournamentStaff failed', error)
-    return fail('Ruxsatni olib tashlashda xatolik')
+    return fail(t.revoke_failed)
   }
 }
 
@@ -127,11 +130,13 @@ export async function searchAssignableUsers(
   tournamentId: string,
   query: string
 ): Promise<ActionResult<{ id: string; name: string; username: string; email: string | null; avatar: string }[]>> {
+  const { dict } = await getI18n()
+  const t = dict.dashboard.staff_actions
   const actor = await getCurrentUser()
-  if (!actor) return fail('Avval tizimga kiring')
+  if (!actor) return fail(dict.errors.login_required)
 
   const ability = await getTournamentAbility(actor.id, tournamentId)
-  if (!ability.canManageStaff) return fail('Huquqingiz yo‘q')
+  if (!ability.canManageStaff) return fail(t.no_right)
 
   const q = query.trim()
   if (q.length < 2) return succeedWith([])
@@ -149,6 +154,6 @@ export async function searchAssignableUsers(
     return succeedWith(users)
   } catch (error) {
     console.error('searchAssignableUsers failed', error)
-    return fail('Qidiruvda xatolik')
+    return fail(t.search_failed)
   }
 }

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ImageUploader, type UploadedImage } from '@/components/image-uploader'
 import { createStory } from '@/lib/story-actions'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 /**
  * Organizations publish 24-hour stories that surface at the top of the feed.
@@ -24,6 +25,8 @@ export function StoryComposer({
   tournaments: { id: string; title: string }[]
 }) {
   const router = useRouter()
+  const { dict } = useLanguage()
+  const c = dict.tournament.composer
   const [isOpen, setIsOpen] = useState(false)
   const [image, setImage] = useState<UploadedImage | null>(null)
   const [caption, setCaption] = useState('')
@@ -39,15 +42,15 @@ export function StoryComposer({
               <Sparkles className="h-5 w-5 text-primary" aria-hidden />
             </span>
             <div>
-              <p className="text-sm font-semibold">Story qo‘shish</p>
+              <p className="text-sm font-semibold">{c.add_story}</p>
               <p className="text-xs text-muted-foreground">
-                24 soat ko‘rinadi · {organizationName} nomidan chiqadi
+                {c.visibility(organizationName)}
               </p>
             </div>
           </div>
           <Button size="sm" className="gap-2" onClick={() => setIsOpen(true)}>
             <Plus className="h-4 w-4" aria-hidden />
-            Yangi story
+            {c.new_story}
           </Button>
         </CardContent>
       </Card>
@@ -56,11 +59,11 @@ export function StoryComposer({
 
   const publish = () => {
     if (!image) {
-      toast.error('Avval rasm yoki video yuklang')
+      toast.error(c.upload_first)
       return
     }
     if (!tournamentId) {
-      toast.error('Story uchun turnirni tanlang')
+      toast.error(c.pick_tournament)
       return
     }
 
@@ -70,7 +73,7 @@ export function StoryComposer({
         toast.error(result.error)
         return
       }
-      toast.success('Story e‘lon qilindi')
+      toast.success(c.published)
       setImage(null)
       setCaption('')
       setTournamentId('')
@@ -82,21 +85,21 @@ export function StoryComposer({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Yangi story</CardTitle>
-        <CardDescription>9:16 rasm yoki qisqa video yuklang. Story 24 soatdan keyin o‘chadi.</CardDescription>
+        <CardTitle className="text-base">{c.new_story}</CardTitle>
+        <CardDescription>{c.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <ImageUploader
           value={image}
           onChange={setImage}
-          label="Story rasm yoki videosini yuklash"
-          hint="PNG, JPG, WebP, MP4 yoki WebM · video maksimal 25 MB"
+          label={c.upload_label}
+          hint={c.upload_hint}
           aspectClassName="aspect-[9/16] max-h-80 mx-auto"
           allowVideo
         />
 
         <div className="space-y-2">
-          <Label htmlFor="story-tournament">Turnirga bog‘lash</Label>
+          <Label htmlFor="story-tournament">{c.link_tournament}</Label>
           <select
             id="story-tournament"
             value={tournamentId}
@@ -104,24 +107,24 @@ export function StoryComposer({
             disabled={isPending}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="" disabled>Turnirni tanlang</option>
+            <option value="" disabled>{c.choose_tournament}</option>
             {tournaments.map((tournament) => (
               <option key={tournament.id} value={tournament.id}>
                 {tournament.title}
               </option>
             ))}
           </select>
-          <p className="text-xs text-muted-foreground">Tomoshabin storydan shu turnir sahifasiga to‘g‘ridan-to‘g‘ri o‘tadi.</p>
+          <p className="text-xs text-muted-foreground">{c.link_hint}</p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="story-caption">Izoh (ixtiyoriy)</Label>
+          <Label htmlFor="story-caption">{c.caption}</Label>
           <Input
             id="story-caption"
             value={caption}
             onChange={(event) => setCaption(event.target.value)}
             maxLength={200}
-            placeholder="Final o‘yin bugun soat 18:00 da!"
+            placeholder={c.caption_placeholder}
             disabled={isPending}
           />
         </div>
@@ -137,11 +140,11 @@ export function StoryComposer({
             }}
             disabled={isPending}
           >
-            Bekor qilish
+            {dict.common.cancel}
           </Button>
           <Button className="gap-2" onClick={publish} disabled={isPending || !image || !tournamentId}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            E‘lon qilish
+            {c.publish}
           </Button>
         </div>
       </CardContent>

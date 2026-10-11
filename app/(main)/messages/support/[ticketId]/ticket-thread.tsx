@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Headset, LifeBuoy, Loader2, Send, Trophy } from 'lucide-react'
 import { toast } from 'sonner'
-import type { TicketStatus } from '@prisma/client'
+import type { SupportCategory, TicketStatus } from '@prisma/client'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,12 +15,14 @@ import { AutoRefresh } from '@/components/auto-refresh'
 import { markTicketRead, replyToTicket, setTicketStatus } from '@/lib/support-actions'
 import type { TicketAccess } from '@/lib/support'
 import { cn } from '@/lib/utils'
+import { formatDateTime } from '@/lib/time'
+import { useLanguage } from '@/lib/i18n/language-context'
 
-const STATUS: Record<TicketStatus, { label: string; className: string }> = {
-  OPEN: { label: 'Ochiq', className: 'bg-primary text-primary-foreground' },
-  IN_PROGRESS: { label: 'Ko‘rib chiqilmoqda', className: 'bg-warning text-warning-foreground' },
-  RESOLVED: { label: 'Hal qilindi', className: 'bg-success text-success-foreground' },
-  CLOSED: { label: 'Yopilgan', className: 'bg-muted text-muted-foreground' },
+const STATUS: Record<TicketStatus, { className: string }> = {
+  OPEN: { className: 'bg-primary text-primary-foreground' },
+  IN_PROGRESS: { className: 'bg-warning text-warning-foreground' },
+  RESOLVED: { className: 'bg-success text-success-foreground' },
+  CLOSED: { className: 'bg-muted text-muted-foreground' },
 }
 
 type Message = {
@@ -41,7 +43,7 @@ export function TicketThread({
     id: string
     scope: 'PLATFORM' | 'TOURNAMENT'
     subject: string
-    category: string
+    category: SupportCategory
     status: TicketStatus
     createdAt: string
     requester: { id: string; name: string }
@@ -51,6 +53,8 @@ export function TicketThread({
   access: TicketAccess
   currentUserId: string
 }) {
+  const { dict, locale } = useLanguage()
+  const t = dict.chat.ticket
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [content, setContent] = useState('')
@@ -77,7 +81,7 @@ export function TicketThread({
     startTransition(async () => {
       const result = await setTicketStatus({ ticketId: ticket.id, status })
       if (!result.ok) return void toast.error(result.error)
-      toast.success('Status yangilandi')
+      toast.success(t.status_updated)
       router.refresh()
     })
 
@@ -88,40 +92,40 @@ export function TicketThread({
       <AutoRefresh />
       <header className="flex items-center gap-3 border-b border-border p-3 md:p-4">
         <Button variant="ghost" size="icon" asChild className="shrink-0 md:hidden">
-          <Link href="/messages" aria-label="Orqaga">
+          <Link href="/messages" aria-label={t.back}>
             <ChevronLeft className="h-5 w-5" />
           </Link>
         </Button>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="truncate font-bold">{ticket.subject}</h2>
-            <Badge className={cn('text-[10px]', STATUS[ticket.status].className)}>{STATUS[ticket.status].label}</Badge>
+            <Badge className={cn('text-[10px]', STATUS[ticket.status].className)}>{dict.chat.ticket_status[ticket.status]}</Badge>
           </div>
           <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <ScopeIcon className="h-3 w-3" aria-hidden />
-              {ticket.scope === 'TOURNAMENT' ? `Turnir supporti · ${ticket.tournament?.title ?? ''}` : 'TourneyUp yordami'}
+              {ticket.scope === 'TOURNAMENT' ? t.tournament_support(ticket.tournament?.title ?? '') : t.platform}
             </span>
-            <span>{ticket.category}</span>
-            {access.isStaff && !access.isRequester ? <span>Murojaatchi: {ticket.requester.name}</span> : null}
+            <span>{dict.chat.ticket_category[ticket.category]}</span>
+            {access.isStaff && !access.isRequester ? <span>{t.requester(ticket.requester.name)}</span> : null}
           </p>
         </div>
         {access.isStaff && !access.isRequester ? (
           <Select value={ticket.status} onValueChange={(v) => changeStatus(v as TicketStatus)} disabled={isPending}>
-            <SelectTrigger size="sm" className="w-40" aria-label="Murojaat statusi">
+            <SelectTrigger size="sm" className="w-40" aria-label={t.status_label}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {(Object.keys(STATUS) as TicketStatus[]).map((s) => (
                 <SelectItem key={s} value={s}>
-                  {STATUS[s].label}
+                  {dict.chat.ticket_status[s]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         ) : access.isRequester && ticket.status !== 'CLOSED' ? (
           <Button size="sm" variant="ghost" disabled={isPending} onClick={() => changeStatus('CLOSED')}>
-            Yopish
+            {t.close}
           </Button>
         ) : null}
       </header>
@@ -150,14 +154,14 @@ export function TicketThread({
                     {m.isStaff ? (
                       <span className="flex items-center gap-1 rounded bg-primary/15 px-1.5 py-px text-[10px] font-medium text-primary">
                         <Headset className="h-2.5 w-2.5" aria-hidden />
-                        Support
+                        {t.support_badge}
                       </span>
                     ) : null}
                   </p>
                 ) : null}
                 <p className="whitespace-pre-wrap break-words text-sm">{m.content}</p>
                 <p className={cn('mt-0.5 text-right text-[10px]', mine ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
-                  {new Date(m.createdAt).toLocaleString('uz-UZ', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  {formatDateTime(m.createdAt, locale)}
                 </p>
               </div>
             </div>
@@ -171,12 +175,12 @@ export function TicketThread({
           <Textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder={access.isStaff && !access.isRequester ? 'Javob yozing…' : 'Xabar yozing…'}
+            placeholder={access.isStaff && !access.isRequester ? t.placeholder_staff : t.placeholder_user}
             rows={1}
             maxLength={4000}
             disabled={isPending}
             className="max-h-40 min-h-[44px] resize-none"
-            aria-label="Xabar matni"
+            aria-label={t.message_label}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault()
@@ -184,16 +188,16 @@ export function TicketThread({
               }
             }}
           />
-          <Button size="icon" aria-label="Yuborish" disabled={isPending || !content.trim()} onClick={send}>
+          <Button size="icon" aria-label={t.send} disabled={isPending || !content.trim()} onClick={send}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
       ) : (
         <p className="border-t border-border p-3 text-center text-xs text-muted-foreground">
-          Murojaat yopilgan.{' '}
+          {t.closed}{' '}
           {access.isRequester ? (
             <Link href="/messages/support/new" className="font-medium text-primary hover:underline">
-              Yangi murojaat ochish
+              {t.open_new}
             </Link>
           ) : null}
         </p>

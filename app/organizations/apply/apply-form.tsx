@@ -10,12 +10,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { submitOrganizationApplication } from '@/lib/org-actions'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export function ApplyForm() {
   const [isPending, startTransition] = useTransition()
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const { dict } = useLanguage()
+  const t = dict.account.apply
 
   if (submitted) {
     return (
@@ -23,14 +26,13 @@ export function ApplyForm() {
         <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
           <CheckCircle2 className="h-12 w-12 text-primary" aria-hidden />
           <div className="space-y-1">
-            <p className="text-lg font-semibold">Ariza qabul qilindi</p>
+            <p className="text-lg font-semibold">{t.received_title}</p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Super admin arizangizni ko‘rib chiqadi. Tasdiqlangandan keyin akkaunt ma’lumotlari siz
-              ko‘rsatgan emailga yuboriladi.
+              {t.received_desc}
             </p>
           </div>
           <Button asChild variant="outline">
-            <Link href="/">Bosh sahifaga qaytish</Link>
+            <Link href="/">{t.back_home}</Link>
           </Button>
         </CardContent>
       </Card>
@@ -63,7 +65,7 @@ export function ApplyForm() {
         return
       }
 
-      toast.success('Ariza yuborildi')
+      toast.success(t.sent_toast)
       setSubmitted(true)
     })
   }
@@ -74,12 +76,12 @@ export function ApplyForm() {
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="orgName">Tashkilot nomi</Label>
+              <Label htmlFor="orgName">{t.org_name}</Label>
               <Input id="orgName" name="orgName" placeholder="TUIT Athletics Club" disabled={isPending} required />
               {errors.orgName ? <p className="text-xs text-destructive">{errors.orgName}</p> : null}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="contactName">Mas’ul shaxs</Label>
+              <Label htmlFor="contactName">{t.contact_name}</Label>
               <Input id="contactName" name="contactName" placeholder="Abbos Qurbonov" disabled={isPending} required />
               {errors.contactName ? <p className="text-xs text-destructive">{errors.contactName}</p> : null}
             </div>
@@ -87,7 +89,7 @@ export function ApplyForm() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="email">Rasmiy email</Label>
+              <Label htmlFor="email">{t.email}</Label>
               <Input
                 id="email"
                 name="email"
@@ -99,29 +101,29 @@ export function ApplyForm() {
               {errors.email ? <p className="text-xs text-destructive">{errors.email}</p> : null}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Telefon (ixtiyoriy)</Label>
+              <Label htmlFor="phone">{t.phone}</Label>
               <Input id="phone" name="phone" placeholder="+998 90 123 45 67" disabled={isPending} />
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="website">Veb-sayt (ixtiyoriy)</Label>
+              <Label htmlFor="website">{t.website}</Label>
               <Input id="website" name="website" placeholder="https://tuit.uz" disabled={isPending} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="location">Shahar</Label>
-              <Input id="location" name="location" placeholder="Tashkent, Uzbekistan" disabled={isPending} />
+              <Label htmlFor="location">{t.city}</Label>
+              <Input id="location" name="location" placeholder={t.location_placeholder} disabled={isPending} />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Tashkilot haqida</Label>
+            <Label htmlFor="description">{t.about}</Label>
             <Textarea
               id="description"
               name="description"
               rows={5}
-              placeholder="Qanday turnirlar o‘tkazasiz, yiliga qancha tadbir, kimlar ishtirok etadi…"
+              placeholder={t.about_placeholder}
               disabled={isPending}
               required
             />
@@ -139,7 +141,7 @@ export function ApplyForm() {
 
           <Button type="submit" className="w-full gap-2" disabled={isPending}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            {isPending ? 'Yuborilmoqda…' : 'Arizani yuborish'}
+            {isPending ? t.sending : t.submit}
           </Button>
         </form>
       </CardContent>

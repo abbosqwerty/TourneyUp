@@ -8,12 +8,6 @@ export const MAX_OWNED_TEAMS = 10
 export const MAX_TEAM_MEMBERS = 50
 export const INVITE_TTL_DAYS = 7
 
-export const TEAM_ROLE_LABELS: Record<TeamRole, string> = {
-  OWNER: 'Egasi',
-  CAPTAIN: 'Kapitan',
-  MEMBER: 'A’zo',
-}
-
 export type TeamAbility = {
   role: TeamRole | null
   isMember: boolean

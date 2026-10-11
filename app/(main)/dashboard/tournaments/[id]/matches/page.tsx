@@ -4,7 +4,7 @@ import { ChevronLeft } from 'lucide-react'
 import { db } from '@/lib/db'
 import { getCurrentUser, getTournamentAbility } from '@/lib/session'
 import { listMatches } from '@/lib/matches'
-import { FORMAT_LABELS } from '@/lib/competition/config'
+import { getI18n } from '@/lib/i18n/server'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MatchesClient } from './matches-client'
@@ -13,7 +13,10 @@ import { getCompetitionView } from '@/lib/competition/view'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Turnir o‘yinlari', robots: { index: false } }
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.dashboard.matches.meta_title, robots: { index: false } }
+}
 
 export default async function TournamentMatchesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -33,6 +36,9 @@ export default async function TournamentMatchesPage({ params }: { params: Promis
     },
   })
   if (!tournament) notFound()
+  const { dict } = await getI18n()
+  const d = dict.dashboard
+  const t = d.matches
 
   // Owner, ADMIN and ORGANIZER confirm results.
   const ability = await getTournamentAbility(user.id, id)
@@ -41,14 +47,14 @@ export default async function TournamentMatchesPage({ params }: { params: Promis
       <div className="container mx-auto max-w-3xl px-4 py-6">
         <Card>
           <CardHeader>
-            <CardTitle>Ruxsat yo‘q</CardTitle>
+            <CardTitle>{d.no_access}</CardTitle>
             <CardDescription>
-              Natijalarni tashkilot egasi yoki ADMIN/ORGANIZER roliga ega xodim kiritadi.
+              {t.no_access_desc}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" asChild>
-              <Link href={`/tournament/${id}`}>Turnirga qaytish</Link>
+              <Link href={`/tournament/${id}`}>{d.back_to_tournament}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -68,7 +74,7 @@ export default async function TournamentMatchesPage({ params }: { params: Promis
       <Button variant="ghost" asChild className="-ml-2">
         <Link href="/dashboard" className="gap-2">
           <ChevronLeft className="h-4 w-4" aria-hidden />
-          Panelga qaytish
+          {d.back_to_panel}
         </Link>
       </Button>
 
@@ -76,19 +82,20 @@ export default async function TournamentMatchesPage({ params }: { params: Promis
         <div>
           <h1 className="text-2xl font-bold md:text-3xl">{tournament.title}</h1>
           <p className="text-sm text-muted-foreground">
-            {tournament.sport} · {FORMAT_LABELS[tournament.format]} · natijalarni kiritish
+            {tournament.sport} · {dict.create.formats[tournament.format].label} · {t.entering_results}
           </p>
         </div>
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/results/${id}`}>Musobaqa sahifasi</Link>
+          <Link href={`/results/${id}`}>{t.competition_page}</Link>
         </Button>
       </div>
 
       {!tournament.drawGeneratedAt ? (
         <Card className="border-warning/40 bg-warning/5">
           <CardContent className="p-4 text-sm">
-            O‘yinlar turnir boshlanganda avtomatik yaratiladi. Panelda turnir statusini <b>“Davom etmoqda”</b>ga
-            o‘tkazing — tasdiqlangan ishtirokchilar bilan qur’a tashlanadi.
+            {t.not_drawn_before}
+            <b>“{dict.status.ongoing}”</b>
+            {t.not_drawn_after}
           </CardContent>
         </Card>
       ) : board?.leaderboard ? (

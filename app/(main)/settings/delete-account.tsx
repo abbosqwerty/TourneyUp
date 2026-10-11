@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { deleteAccount } from '@/lib/auth-actions'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 const CONFIRM_WORD = 'O‘CHIRISH'
 
@@ -28,6 +29,8 @@ export function DeleteAccountDialog() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [isPending, startTransition] = useTransition()
+  const { dict } = useLanguage()
+  const t = dict.account.delete_account
 
   const submit = () => {
     startTransition(async () => {
@@ -36,7 +39,7 @@ export function DeleteAccountDialog() {
         toast.error(result.error)
         return
       }
-      toast.success('Akkaunt o‘chirildi')
+      toast.success(t.deleted)
       setOpen(false)
       router.replace('/')
       router.refresh()
@@ -48,21 +51,20 @@ export function DeleteAccountDialog() {
       <AlertDialogTrigger asChild>
         <Button variant="destructive" className="gap-2">
           <Trash2 className="h-4 w-4" aria-hidden />
-          Akkauntni o‘chirish
+          {t.button}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Akkauntni butunlay o‘chirish</AlertDialogTitle>
+          <AlertDialogTitle>{t.title}</AlertDialogTitle>
           <AlertDialogDescription>
-            Profilingiz, turnir ro‘yxatlaringiz, saqlanganlar, kanal obunalari va stories
-            qaytarib bo‘lmaydigan darajada o‘chadi. Bu amalni bekor qilish mumkin emas.
+            {t.description}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="delete-password">Parolingiz</Label>
+            <Label htmlFor="delete-password">{t.password}</Label>
             <Input
               id="delete-password"
               type="password"
@@ -74,7 +76,10 @@ export function DeleteAccountDialog() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="delete-confirm">
-              Tasdiqlash uchun <span className="font-mono">{CONFIRM_WORD}</span> deb yozing
+              <span>
+                {t.confirm_prefix} <span className="font-mono">{CONFIRM_WORD}</span>
+                {t.confirm_suffix ? ` ${t.confirm_suffix}` : ''}
+              </span>
             </Label>
             <Input
               id="delete-confirm"
@@ -86,7 +91,7 @@ export function DeleteAccountDialog() {
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Bekor qilish</AlertDialogCancel>
+          <AlertDialogCancel disabled={isPending}>{dict.common.cancel}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(event) => {
               event.preventDefault()
@@ -96,7 +101,7 @@ export function DeleteAccountDialog() {
             className="gap-2"
           >
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-            O‘chirish
+            {t.confirm_button}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

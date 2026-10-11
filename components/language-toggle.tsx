@@ -10,8 +10,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
 interface LanguageToggleProps {
   className?: string;
@@ -26,13 +24,7 @@ export function LanguageToggle({
   size = 'sm',
   showLabel = false,
 }: LanguageToggleProps) {
-  const { locale, setLocale } = useLanguage();
-  const router = useRouter();
-
-  // Refresh the current page whenever the locale changes so all client components re‑render
-  useEffect(() => {
-    router.refresh();
-  }, [locale]);
+  const { locale, setLocale, dict } = useLanguage();
 
   const current = LOCALES.find((l) => l.code === locale) ?? LOCALES[0];
 
@@ -43,7 +35,7 @@ export function LanguageToggle({
           variant={variant}
           size={size}
           className={className}
-          aria-label="Tilni tanlash / Выбрать язык / Select language"
+          aria-label={dict.chrome.language.select}
         >
           <span className="flex items-center gap-1.5 font-medium">
             <span className="text-base leading-none">{current.flag}</span>

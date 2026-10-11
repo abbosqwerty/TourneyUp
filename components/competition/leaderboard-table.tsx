@@ -1,3 +1,5 @@
+'use client'
+
 import { Medal } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -5,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { formatScore, formatTime, type ScoreKind } from '@/lib/competition/leaderboard'
 import type { LeaderboardView } from '@/lib/competition/view'
 import { Movement } from './standings-table'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 const MEDAL = ['', 'text-yellow-500', 'text-slate-400', 'text-amber-700']
 
@@ -23,6 +26,8 @@ export function LeaderboardTable({
   kind: ScoreKind
   caption?: string
 }) {
+  const { dict } = useLanguage()
+  const t = dict.competition
   const leaderTotal = rows[0] && rows[0].recorded > rows[0].dnf ? rows[0].total : null
   // Gap to the leader only makes sense for times over the same rounds.
   const showGap = kind === 'time' && leaderTotal !== null
@@ -35,16 +40,16 @@ export function LeaderboardTable({
           <TableHeader>
             <TableRow>
               <TableHead className="w-16">#</TableHead>
-              <TableHead>Ishtirokchi</TableHead>
+              <TableHead>{t.standings.entrant}</TableHead>
               {rounds > 1
                 ? Array.from({ length: rounds }, (_, i) => (
-                    <TableHead key={i} className="hidden text-center md:table-cell" title={`${i + 1}-bosqich`}>
-                      B{i + 1}
+                    <TableHead key={i} className="hidden text-center md:table-cell" title={t.rounds.leaderboard_round(i + 1)}>
+                      {t.rounds.leaderboard_round_short(i + 1)}
                     </TableHead>
                   ))
                 : null}
-              <TableHead className="text-right">{kind === 'time' ? 'Vaqt' : 'Ochko'}</TableHead>
-              {showGap ? <TableHead className="hidden text-right sm:table-cell">Farq</TableHead> : null}
+              <TableHead className="text-right">{kind === 'time' ? t.leaderboard.time : t.leaderboard.points}</TableHead>
+              {showGap ? <TableHead className="hidden text-right sm:table-cell">{t.leaderboard.gap}</TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -56,7 +61,7 @@ export function LeaderboardTable({
                   <TableCell className="font-medium">
                     <span className="inline-flex items-center gap-1">
                       {row.rank <= 3 && finished ? (
-                        <Medal className={cn('h-4 w-4', MEDAL[row.rank])} aria-label={`${row.rank}-o‘rin`} />
+                        <Medal className={cn('h-4 w-4', MEDAL[row.rank])} aria-label={t.leaderboard.place(row.rank)} />
                       ) : (
                         <span className="w-5 tabular-nums">{row.rank}</span>
                       )}

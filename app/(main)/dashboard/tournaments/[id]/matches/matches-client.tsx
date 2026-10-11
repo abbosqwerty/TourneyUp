@@ -10,18 +10,16 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { MatchCard, MATCH_STATUS_CLASSES, MATCH_STATUS_LABELS, sideName } from '@/components/competition/match-card'
+import { MatchCard, MATCH_STATUS_CLASSES, sideName } from '@/components/competition/match-card'
+import { stageLabel } from '@/lib/competition/labels'
 import { ScheduleControl } from '@/app/(main)/results/[id]/schedule-control'
 import type { MatchView } from '@/lib/matches'
 import { recordMatchResult, setMatchStatus } from '@/lib/match-actions'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 type Filter = 'todo' | 'waiting' | 'done'
 
-const FILTER_LABELS: Record<Filter, string> = {
-  todo: 'Natija kutilmoqda',
-  waiting: 'Raqib aniqlanmagan',
-  done: 'Yakunlangan',
-}
+const FILTERS: Filter[] = ['todo', 'waiting', 'done']
 
 /**
  * Result entry. Matches come from the draw; the organizer only confirms
@@ -30,6 +28,8 @@ const FILTER_LABELS: Record<Filter, string> = {
  */
 export function MatchesClient({ matches, isClosed }: { matches: MatchView[]; isClosed: boolean }) {
   const [filter, setFilter] = useState<Filter>('todo')
+  const { dict } = useLanguage()
+  const t = dict.dashboard.matches
 
   const buckets = useMemo(() => {
     const ready = (m: MatchView) => m.home.participantId && m.away.participantId
@@ -44,8 +44,8 @@ export function MatchesClient({ matches, isClosed }: { matches: MatchView[]; isC
 
   return (
     <div className="space-y-4">
-      <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-secondary/40 p-1" aria-label="O‘yinlar filtri">
-        {(Object.keys(FILTER_LABELS) as Filter[]).map((key) => (
+      <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-secondary/40 p-1" aria-label={t.filter_aria}>
+        {FILTERS.map((key) => (
           <Button
             key={key}
             size="sm"
@@ -54,7 +54,7 @@ export function MatchesClient({ matches, isClosed }: { matches: MatchView[]; isC
             onClick={() => setFilter(key)}
             aria-pressed={key === filter}
           >
-            {FILTER_LABELS[key]}
+            {t.filters[key]}
             <span className="ml-1 text-xs opacity-70">{buckets[key].length}</span>
           </Button>
         ))}
@@ -64,10 +64,10 @@ export function MatchesClient({ matches, isClosed }: { matches: MatchView[]; isC
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
             {filter === 'todo'
-              ? 'Hozir natija kiritiladigan o‘yin yo‘q.'
+              ? t.empty_todo
               : filter === 'waiting'
-                ? 'Barcha o‘yinlarda ikkala tomon aniq.'
-                : 'Hali yakunlangan o‘yin yo‘q.'}
+                ? t.empty_waiting
+                : t.empty_done}
           </CardContent>
         </Card>
       ) : (
@@ -85,6 +85,8 @@ export function MatchesClient({ matches, isClosed }: { matches: MatchView[]; isC
 
 function MatchEditor({ match, disabled }: { match: MatchView; disabled: boolean }) {
   const router = useRouter()
+  const { dict } = useLanguage()
+  const t = dict.dashboard.matches
   const [isPending, startTransition] = useTransition()
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [forfeit, setForfeit] = useState<'' | 'HOME' | 'AWAY'>('')
@@ -113,7 +115,7 @@ function MatchEditor({ match, disabled }: { match: MatchView; disabled: boolean 
         toast.error(result.error)
         return
       }
-      toast.success(finalized ? 'Natija tuzatildi — to‘r va ballar qayta hisoblandi' : 'Natija tasdiqlandi')
+      toast.success(finalized ? t.toast_corrected : t.toast_confirmed)
       setCorrecting(false)
       router.refresh()
     })
@@ -130,17 +132,17 @@ function MatchEditor({ match, disabled }: { match: MatchView; disabled: boolean 
     <Card>
       <CardContent className="space-y-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-medium">{match.stage}</p>
-          <div className="flex items-center gap-2">
+          <p className="text-sm font-medium">{stageLabel(dict, match.stage)}</p>
+          <div className="flex flex-wrap items-center gap-2">
             <Badge className={MATCH_STATUS_CLASSES[match.status]}>
-              {match.resultType === 'FORFEIT' ? 'Texnik natija' : MATCH_STATUS_LABELS[match.status]}
+              {match.resultType === 'FORFEIT' ? t.forfeit : dict.competition.match.status[match.status]}
             </Badge>
             {!finalized && ready && !disabled ? (
               <>
                 <ScheduleControl matchId={match.id} scheduledAt={match.scheduledAt} />
                 <Button variant="ghost" size="sm" className="gap-1" onClick={goLive} disabled={isPending}>
                   <Radio className="h-4 w-4" aria-hidden />
-                  {match.status === 'live' ? 'Jonli emas' : 'Jonli'}
+                  {match.status === 'live' ? t.not_live : t.live}
                 </Button>
               </>
             ) : null}
@@ -150,13 +152,13 @@ function MatchEditor({ match, disabled }: { match: MatchView; disabled: boolean 
         <MatchCard match={match} />
 
         {!ready ? (
-          <p className="text-xs text-muted-foreground">Oldingi o‘yinlar yakunlanganda raqib avtomatik aniqlanadi.</p>
+          <p className="text-xs text-muted-foreground">{t.opponent_pending}</p>
         ) : null}
 
         {finalized && !correcting && !disabled ? (
           <Button variant="outline" size="sm" className="gap-1" onClick={() => setCorrecting(true)}>
             <History className="h-4 w-4" aria-hidden />
-            Natijani tuzatish
+            {t.correct_result}
           </Button>
         ) : null}
 
@@ -165,7 +167,7 @@ function MatchEditor({ match, disabled }: { match: MatchView; disabled: boolean 
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
                 <Label htmlFor={`home-${match.id}`} className="text-xs">
-                  {sideName(match, match.home)}
+                  {sideName(match, match.home, dict)}
                 </Label>
                 <Input
                   id={`home-${match.id}`}
@@ -181,7 +183,7 @@ function MatchEditor({ match, disabled }: { match: MatchView; disabled: boolean 
               </div>
               <div className="space-y-1">
                 <Label htmlFor={`away-${match.id}`} className="text-xs">
-                  {sideName(match, match.away)}
+                  {sideName(match, match.away, dict)}
                 </Label>
                 <Input
                   id={`away-${match.id}`}
@@ -196,28 +198,28 @@ function MatchEditor({ match, disabled }: { match: MatchView; disabled: boolean 
                 />
               </div>
               <div className="min-w-44 flex-1 space-y-1">
-                <Label className="text-xs">Kelmagan tomon</Label>
+                <Label className="text-xs">{t.absent_side}</Label>
                 <Select value={forfeit || 'none'} onValueChange={(v) => setForfeit(v === 'none' ? '' : (v as 'HOME' | 'AWAY'))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Ikkalasi o‘ynadi</SelectItem>
-                    <SelectItem value="HOME">{sideName(match, match.home)} kelmadi</SelectItem>
-                    <SelectItem value="AWAY">{sideName(match, match.away)} kelmadi</SelectItem>
+                    <SelectItem value="none">{t.both_played}</SelectItem>
+                    <SelectItem value="HOME">{t.side_absent(sideName(match, match.home, dict))}</SelectItem>
+                    <SelectItem value="AWAY">{t.side_absent(sideName(match, match.away, dict))}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             {forfeit ? (
               <p className="text-xs text-muted-foreground">
-                Kelmagan tomon bu o‘yinda qatnashmagan hisoblanadi; raqibi texnik g‘alaba bilan o‘tadi.
+                {t.forfeit_hint}
               </p>
             ) : null}
 
             <div className="space-y-1">
               <Label htmlFor={`notes-${match.id}`} className="text-xs">
-                Izoh (ixtiyoriy)
+                {t.notes_optional}
               </Label>
               <Input id={`notes-${match.id}`} name="notes" maxLength={500} defaultValue={match.notes ?? ''} disabled={isPending} />
             </div>
@@ -225,7 +227,7 @@ function MatchEditor({ match, disabled }: { match: MatchView; disabled: boolean 
             {finalized ? (
               <div className="space-y-1">
                 <Label htmlFor={`reason-${match.id}`} className="text-xs">
-                  Tuzatish sababi (majburiy, tarixda saqlanadi)
+                  {t.reason_required}
                 </Label>
                 <Input id={`reason-${match.id}`} name="reason" maxLength={500} required disabled={isPending} />
               </div>
@@ -234,12 +236,12 @@ function MatchEditor({ match, disabled }: { match: MatchView; disabled: boolean 
             <div className="flex justify-end gap-2">
               {correcting ? (
                 <Button type="button" variant="ghost" size="sm" onClick={() => setCorrecting(false)} disabled={isPending}>
-                  Bekor qilish
+                  {t.cancel}
                 </Button>
               ) : null}
               <Button type="submit" size="sm" className="gap-2" disabled={isPending}>
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-                {finalized ? 'Tuzatishni saqlash' : 'Natijani tasdiqlash'}
+                {finalized ? t.save_correction : t.confirm_result}
               </Button>
             </div>
           </form>

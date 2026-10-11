@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 /**
  * Page links for a server-paginated list. Each page is a real URL, so it can
@@ -20,13 +21,15 @@ export function Pager({
   hrefFor: (page: number) => string
   className?: string
 }) {
+  const { dict } = useLanguage()
   if (pageCount <= 1) return null
+  const t = dict.chrome.pager
 
   const pages = windowAround(page, pageCount)
 
   return (
-    <nav aria-label="Sahifalar" className={cn('flex items-center justify-center gap-1', className)}>
-      <Button variant="ghost" size="icon" asChild={page > 1} disabled={page === 1} aria-label="Oldingi sahifa">
+    <nav aria-label={t.nav} className={cn('flex items-center justify-center gap-1', className)}>
+      <Button variant="ghost" size="icon" asChild={page > 1} disabled={page === 1} aria-label={t.prev}>
         {page > 1 ? (
           <Link href={hrefFor(page - 1)} scroll>
             <ChevronLeft className="h-4 w-4" aria-hidden />
@@ -49,7 +52,7 @@ export function Pager({
             asChild
             aria-current={entry === page ? 'page' : undefined}
           >
-            <Link href={hrefFor(entry)} scroll aria-label={`${entry}-sahifa`}>
+            <Link href={hrefFor(entry)} scroll aria-label={t.page(entry)}>
               {entry}
             </Link>
           </Button>
@@ -61,7 +64,7 @@ export function Pager({
         size="icon"
         asChild={page < pageCount}
         disabled={page === pageCount}
-        aria-label="Keyingi sahifa"
+        aria-label={t.next}
       >
         {page < pageCount ? (
           <Link href={hrefFor(page + 1)} scroll>

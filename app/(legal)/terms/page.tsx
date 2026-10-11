@@ -1,99 +1,73 @@
 import type { Metadata } from 'next'
+import { formatDateLong } from '@/lib/time'
+import { getI18n } from '@/lib/i18n/server'
 
-export const metadata: Metadata = {
-  title: 'Foydalanish shartlari',
-  description: 'TourneyUp platformasidan foydalanish qoidalari va mas‘uliyat chegaralari.',
+export async function generateMetadata(): Promise<Metadata> {
+  const { dict } = await getI18n()
+  return {
+    title: dict.legal.terms.meta_title,
+    description: dict.legal.terms.meta_description,
+  }
 }
 
 const UPDATED = '2026-10-09'
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const { dict, locale } = await getI18n()
+  const t = dict.legal.terms
+
   return (
     <>
       <header className="space-y-2">
-        <h1 className="text-3xl font-bold">Foydalanish shartlari</h1>
+        <h1 className="text-3xl font-bold">{t.title}</h1>
         <p className="text-sm">
-          Oxirgi yangilanish:{' '}
+          {dict.legal.updated}{' '}
           <time dateTime={UPDATED}>
-            {new Date(UPDATED).toLocaleDateString('uz-UZ', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            })}
+            {formatDateLong(UPDATED, locale)}
           </time>
         </p>
       </header>
 
-      <p>
-        TourneyUp‘dan foydalanish orqali quyidagi shartlarga rozilik bildirasiz. Rozi bo‘lmasangiz,
-        platformadan foydalanmang.
-      </p>
+      <p>{t.intro}</p>
 
-      <h2>Akkaunt</h2>
+      <h2>{t.account_title}</h2>
       <ul>
-        <li>Bitta shaxs uchun bitta akkaunt. Ma‘lumotlar haqiqiy bo‘lishi kerak.</li>
-        <li>Parolingiz xavfsizligi sizning javobgarligingizda.</li>
-        <li>
-          Tashkilot akkaunti o‘z-o‘zidan ochilmaydi: ariza yuboriladi va administrator tasdiqlaydi.
-        </li>
+        <li>{t.account.one}</li>
+        <li>{t.account.password}</li>
+        <li>{t.account.organization}</li>
       </ul>
 
-      <h2>Turnirlar</h2>
+      <h2>{t.tournaments_title}</h2>
       <ul>
-        <li>
-          Turnirni e‘lon qilgan tashkilot uning mazmuni, qoidalari, mukofot jamg‘armasi va
-          o‘tkazilishi uchun javobgar. TourneyUp turnirni o‘tkazuvchi tomon emas.
-        </li>
-        <li>
-          Ro‘yxatdan o‘tish arizasi tashkilotchi tomonidan tasdiqlanadi yoki rad etiladi. Rad etish
-          sababini tashkilotchi belgilaydi.
-        </li>
-        <li>
-          To‘lov, mukofot va ishtirok shartlari bo‘yicha kelishmovchilik tashkilotchi va ishtirokchi
-          o‘rtasida hal qilinadi.
-        </li>
+        <li>{t.tournaments.responsibility}</li>
+        <li>{t.tournaments.approval}</li>
+        <li>{t.tournaments.disputes}</li>
       </ul>
 
-      <h2>Taqiqlangan xatti-harakatlar</h2>
+      <h2>{t.prohibited_title}</h2>
       <ul>
-        <li>Boshqa shaxs nomidan ro‘yxatdan o‘tish yoki uning nomidan xabar yozish.</li>
-        <li>Haqoratli, kamsituvchi, zo‘ravonlikka undovchi yoki qonunga xilof kontent joylash.</li>
-        <li>Platformani avtomatlashtirilgan vositalar bilan ortiqcha yuklash yoki himoyani chetlab o‘tish.</li>
-        <li>Mualliflik huquqi buzilgan rasm yoki matn yuklash.</li>
+        <li>{t.prohibited.impersonation}</li>
+        <li>{t.prohibited.abusive}</li>
+        <li>{t.prohibited.automation}</li>
+        <li>{t.prohibited.copyright}</li>
       </ul>
-      <p>
-        Qoidabuzarlik aniqlanganda akkaunt to‘xtatilishi yoki o‘chirilishi mumkin.
-      </p>
+      <p>{t.enforcement}</p>
 
-      <h2>Kontent huquqlari</h2>
-      <p>
-        Yuklagan kontentingiz sizga tegishli. Uni platformada ko‘rsatish, o‘lchamini o‘zgartirish va
-        tarqatish uchun TourneyUp‘ga cheklangan, bepul litsenziya berasiz. Akkauntni o‘chirganda
-        kontentingiz ham o‘chadi.
-      </p>
+      <h2>{t.content_title}</h2>
+      <p>{t.content}</p>
 
-      <h2>Mas‘uliyat chegarasi</h2>
-      <p>
-        Platforma «borligi holatida» taqdim etiladi. Uzluksiz ishlash, xatosiz bo‘lish yoki
-        turnirlarning haqiqiyligi kafolatlanmaydi. Platformadan foydalanish natijasida kelib
-        chiqqan bilvosita zararlar uchun javobgarlik qabul qilinmaydi.
-      </p>
+      <h2>{t.liability_title}</h2>
+      <p>{t.liability}</p>
 
-      <h2>Shartlarning o‘zgarishi</h2>
-      <p>
-        Shartlar o‘zgarsa, yangilanish sanasi yuqorida yangilanadi. Muhim o‘zgarishlar haqida
-        platformada bildirishnoma beriladi.
-      </p>
+      <h2>{t.changes_title}</h2>
+      <p>{t.changes}</p>
 
-      <h2>Bog‘lanish</h2>
+      <h2>{t.contact_title}</h2>
       <p>
         <a className="underline" href="mailto:support@tourneyup.uz">support@tourneyup.uz</a>
       </p>
 
-      <p className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs">
-        Eslatma: bu matn ishchi varianti. Yuridik kuchga ega hujjat sifatida ishlatishdan oldin
-        huquqshunos bilan tekshirib chiqing.
-      </p>
+      <p className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs">{t.note}</p>
     </>
   )
 }

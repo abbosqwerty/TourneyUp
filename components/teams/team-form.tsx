@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ImageUploader, type UploadedImage } from '@/components/image-uploader'
-import { CATEGORY_LABELS, SPORT_NAMES } from '@/lib/constants'
+import { SPORT_NAMES } from '@/lib/constants'
+import { useLanguage } from '@/lib/i18n/language-context'
 type FormResult =
   | { ok: true; data?: unknown }
   | { ok: false; error: string; fieldErrors?: Record<string, string> }
@@ -34,6 +35,8 @@ export function TeamForm({
   onSubmit: (values: Record<string, string>) => Promise<FormResult>
   onDone: (result: FormResult) => void
 }) {
+  const { dict } = useLanguage()
+  const t = dict.team.form
   const [isPending, startTransition] = useTransition()
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [sport, setSport] = useState(initial?.sport ?? '')
@@ -64,13 +67,13 @@ export function TeamForm({
   return (
     <form onSubmit={submit} className="space-y-4" noValidate>
       <div className="space-y-2">
-        <Label htmlFor="team-name">Jamoa nomi</Label>
+        <Label htmlFor="team-name">{t.name}</Label>
         <Input
           id="team-name"
           name="name"
           maxLength={50}
           defaultValue={initial?.name}
-          placeholder="Masalan: TUIT Tigers"
+          placeholder={t.name_placeholder}
           aria-invalid={Boolean(errors.name)}
           disabled={isPending}
         />
@@ -79,10 +82,10 @@ export function TeamForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="team-sport">O‘yin / sport</Label>
+          <Label htmlFor="team-sport">{t.sport}</Label>
           <Select value={sport} onValueChange={setSport} disabled={isPending}>
             <SelectTrigger id="team-sport" aria-invalid={Boolean(errors.sport)}>
-              <SelectValue placeholder="Tanlang" />
+              <SelectValue placeholder={t.choose} />
             </SelectTrigger>
             <SelectContent>
               {SPORT_NAMES.map((name) => (
@@ -95,13 +98,13 @@ export function TeamForm({
           {errors.sport ? <p className="text-xs text-destructive">{errors.sport}</p> : null}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="team-category">Kategoriya</Label>
+          <Label htmlFor="team-category">{t.category}</Label>
           <Select value={category} onValueChange={setCategory} disabled={isPending}>
             <SelectTrigger id="team-category">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+              {Object.entries(dict.competition.categories).map(([value, label]) => (
                 <SelectItem key={value} value={value}>
                   {label}
                 </SelectItem>
@@ -112,16 +115,16 @@ export function TeamForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="team-description">Qisqa tavsif (ixtiyoriy)</Label>
+        <Label htmlFor="team-description">{t.description}</Label>
         <Textarea id="team-description" name="description" rows={3} maxLength={500} defaultValue={initial?.description} disabled={isPending} />
       </div>
 
       <div className="space-y-2">
-        <Label>Logo (ixtiyoriy)</Label>
+        <Label>{t.logo}</Label>
         {initial?.logoUrl && !logo ? (
           <img src={initial.logoUrl} alt="" className="h-16 w-16 rounded-lg object-cover" />
         ) : null}
-        <ImageUploader value={logo} onChange={setLogo} aspectClassName="aspect-square max-w-40" label="Logo yuklash" />
+        <ImageUploader value={logo} onChange={setLogo} aspectClassName="aspect-square max-w-40" label={t.upload_logo} />
       </div>
 
       <div className="flex justify-end">

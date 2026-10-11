@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input'
 import { resetOrganizationPassword, setOrganizationStatus } from '@/lib/org-actions'
 import type { ProvisionedCredentials } from '@/lib/org-types'
 import { CredentialsDialog } from '../applications/applications-client'
+import { formatDate, formatDateTime } from '@/lib/time'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 type Organization = {
   id: string
@@ -34,6 +36,8 @@ type Organization = {
 
 export function OrganizationsClient({ organizations }: { organizations: Organization[] }) {
   const router = useRouter()
+  const { dict, locale } = useLanguage()
+  const t = dict.admin.organizations
   const [query, setQuery] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -60,7 +64,7 @@ export function OrganizationsClient({ organizations }: { organizations: Organiza
         toast.error(result.error)
         return
       }
-      toast.success(next === 'ACTIVE' ? 'Tashkilot faollashtirildi' : 'Tashkilot to‘xtatildi')
+      toast.success(next === 'ACTIVE' ? t.activated : t.suspended_toast)
       router.refresh()
     })
   }
@@ -83,9 +87,9 @@ export function OrganizationsClient({ organizations }: { organizations: Organiza
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold md:text-3xl">Tashkilotlar</h1>
+          <h1 className="text-2xl font-bold md:text-3xl">{t.title}</h1>
           <p className="text-sm text-muted-foreground">
-            Akkauntni to‘xtatish darhol barcha seansni yopadi. Parolni tiklash yangi parol beradi.
+            {t.subtitle}
           </p>
         </div>
         <div className="relative w-full sm:w-64">
@@ -93,9 +97,9 @@ export function OrganizationsClient({ organizations }: { organizations: Organiza
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Nom, username yoki email"
+            placeholder={t.search_placeholder}
             className="pl-9"
-            aria-label="Tashkilotlarni qidirish"
+            aria-label={t.search_label}
           />
         </div>
       </div>
@@ -103,7 +107,7 @@ export function OrganizationsClient({ organizations }: { organizations: Organiza
       {visible.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Tashkilot topilmadi.
+            {t.empty}
           </CardContent>
         </Card>
       ) : (
@@ -124,7 +128,7 @@ export function OrganizationsClient({ organizations }: { organizations: Organiza
                     variant={organization.status === 'ACTIVE' ? 'secondary' : 'destructive'}
                     className="shrink-0"
                   >
-                    {organization.status === 'ACTIVE' ? 'Faol' : 'To‘xtatilgan'}
+                    {organization.status === 'ACTIVE' ? dict.admin.active : dict.admin.suspended}
                   </Badge>
                 </CardHeader>
 
@@ -132,19 +136,19 @@ export function OrganizationsClient({ organizations }: { organizations: Organiza
                   <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Trophy className="h-3.5 w-3.5" aria-hidden />
-                      {organization._count.tournaments} turnir
+                      {dict.admin.tournaments_count(organization._count.tournaments)}
                     </span>
                     <span>
-                      Qo‘shilgan: {new Date(organization.createdAt).toLocaleDateString('uz-UZ')}
+                      {t.joined} {formatDate(organization.createdAt, locale)}
                     </span>
                     <span>
-                      Oxirgi kirish:{' '}
+                      {t.last_login}{' '}
                       {organization.owner.lastLoginAt
-                        ? new Date(organization.owner.lastLoginAt).toLocaleString('uz-UZ')
-                        : 'hali kirmagan'}
+                        ? formatDateTime(organization.owner.lastLoginAt, locale)
+                        : t.never_logged_in}
                     </span>
                     {organization.owner.mustChangePassword ? (
-                      <span className="font-medium text-foreground">Parolni almashtirishi kerak</span>
+                      <span className="font-medium text-foreground">{t.must_change_password}</span>
                     ) : null}
                   </div>
 
@@ -163,7 +167,7 @@ export function OrganizationsClient({ organizations }: { organizations: Organiza
                       ) : (
                         <Play className="h-4 w-4" aria-hidden />
                       )}
-                      {organization.status === 'ACTIVE' ? 'To‘xtatish' : 'Faollashtirish'}
+                      {organization.status === 'ACTIVE' ? t.suspend : t.activate}
                     </Button>
 
                     <Button
@@ -174,7 +178,7 @@ export function OrganizationsClient({ organizations }: { organizations: Organiza
                       onClick={() => resetPassword(organization)}
                     >
                       <KeyRound className="h-4 w-4" aria-hidden />
-                      Parolni tiklash
+                      {t.reset_password}
                     </Button>
                   </div>
                 </CardContent>

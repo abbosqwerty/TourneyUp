@@ -5,11 +5,13 @@ import { ChevronLeft, Clock, Medal, Settings2, Trophy, Users } from 'lucide-reac
 import { db } from '@/lib/db'
 import { getCurrentUser, getTournamentAbility } from '@/lib/session'
 import { getCompetitionView, type CompetitionView } from '@/lib/competition/view'
-import { FORMAT_LABELS } from '@/lib/competition/config'
 import { TOURNAMENT_TABS, type TournamentTab } from '@/lib/competition/list'
-import { TOURNAMENT_STATUS_CLASSES, TOURNAMENT_STATUS_LABELS } from '@/lib/constants'
+import { groupLabel } from '@/lib/competition/labels'
+import { TOURNAMENT_STATUS_CLASSES } from '@/lib/constants'
+import { getI18n } from '@/lib/i18n/server'
 import { formatDateTime } from '@/lib/time'
 import type { MatchView } from '@/lib/matches'
+import type { Locale } from '@/lib/i18n/types'
 import { DbErrorCard } from '@/components/db-error-card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -29,8 +31,9 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { id } = await params
+  const { dict } = await getI18n()
   const tournament = await db.tournament.findUnique({ where: { id }, select: { title: true } }).catch(() => null)
-  return { title: tournament ? `${tournament.title} — Musobaqa` : 'Musobaqa' }
+  return { title: tournament ? dict.competition.detail.meta_title(tournament.title) : dict.competition.list.title }
 }
 
 export default async function TournamentCompetitionPage({
@@ -42,6 +45,8 @@ export default async function TournamentCompetitionPage({
 }) {
   const { id } = await params
   const query = await searchParams
+  const { dict, locale } = await getI18n()
+  const t = dict.competition
   const rawTab = Array.isArray(query.tab) ? query.tab[0] : query.tab
   const tab: TournamentTab = rawTab && rawTab in TOURNAMENT_TABS ? (rawTab as TournamentTab) : 'overview'
 
@@ -70,9 +75,8 @@ export default async function TournamentCompetitionPage({
   } catch (error) {
     console.error('competition page failed', error)
   }
-  if (!view) return <DbErrorCard message="Musobaqa ma’lumotlarini yuklab bo‘lmadi." />
+  if (!view) return <DbErrorCard message={t.detail.load_failed} />
 
-  const unit = tournament.participantType === 'TEAM' ? 'jamoa' : 'ishtirokchi'
   const isOpen = tournament.status !== 'completed' && tournament.status !== 'cancelled'
 
   return (
@@ -80,7 +84,7 @@ export default async function TournamentCompetitionPage({
       <Button variant="ghost" asChild className="-ml-2">
         <Link href="/results" className="gap-2">
           <ChevronLeft className="h-4 w-4" aria-hidden />
-          Barcha musobaqalar
+          {t.detail.back}
         </Link>
       </Button>
 
@@ -89,30 +93,30 @@ export default async function TournamentCompetitionPage({
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold md:text-3xl">{tournament.title}</h1>
             <Badge className={TOURNAMENT_STATUS_CLASSES[tournament.status]}>
-              {TOURNAMENT_STATUS_LABELS[tournament.status]}
+              {dict.status[tournament.status]}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {[tournament.sport, FORMAT_LABELS[view.format], tournament.organization?.name ?? tournament.organizer.name]
+            {[tournament.sport, t.formats[view.format], tournament.organization?.name ?? tournament.organizer.name]
               .filter(Boolean)
               .join(' · ')}
           </p>
           {view.drawn ? (
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <Users className="h-3.5 w-3.5" aria-hidden />
-              {view.entrantCount} {unit}
+              {tournament.participantType === 'TEAM' ? t.list.teams(view.entrantCount) : t.list.players(view.entrantCount)}
             </p>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/tournament/${id}`}>Turnir sahifasi</Link>
+            <Link href={`/tournament/${id}`}>{t.detail.tournament_page}</Link>
           </Button>
           {canScore && view.drawn ? (
             <Button size="sm" asChild className="gap-2">
               <Link href={`/dashboard/tournaments/${id}/matches`}>
                 <Settings2 className="h-4 w-4" aria-hidden />
-                Natijalarni boshqarish
+                {t.detail.manage_results}
               </Link>
             </Button>
           ) : null}
@@ -123,7 +127,7 @@ export default async function TournamentCompetitionPage({
         <NotStarted status={tournament.status} legacy={view.legacyMatches} />
       ) : (
         <>
-          <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-secondary/40 p-1" aria-label="Musobaqa bo‘limlari">
+          <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-secondary/40 p-1" aria-label={t.detail.sections_aria}>
             {(Object.keys(TOURNAMENT_TABS) as TournamentTab[]).map((key) => (
               <Button key={key} asChild size="sm" variant={key === tab ? 'default' : 'ghost'} className="flex-1 whitespace-nowrap">
                 <Link
@@ -131,7 +135,7 @@ export default async function TournamentCompetitionPage({
                   aria-current={key === tab ? 'page' : undefined}
                   scroll={false}
                 >
-                  {TOURNAMENT_TABS[key]}
+                  {t.detail[`tab_${key}`]}
                 </Link>
               </Button>
             ))}
@@ -145,11 +149,11 @@ export default async function TournamentCompetitionPage({
             view.leaderboard ? (
               <Empty icon={Clock}>
                 {view.leaderboard.doneRounds < view.leaderboard.rounds
-                  ? `${view.leaderboard.rounds} bosqichdan ${view.leaderboard.doneRounds} tasi yakunlandi. Keyingi bosqich natijalari kiritilishi bilan jadval yangilanadi.`
-                  : 'Barcha bosqichlar yakunlandi.'}
+                  ? t.detail.rounds_done(view.leaderboard.rounds, view.leaderboard.doneRounds)
+                  : t.detail.all_rounds_done}
               </Empty>
             ) : (
-              <Schedule matches={view.matches} canScore={canScore && isOpen} />
+              <Schedule matches={view.matches} canScore={canScore && isOpen} locale={locale} />
             )
           ) : null}
         </>
@@ -169,22 +173,16 @@ function Empty({ icon: Icon = Trophy, children }: { icon?: typeof Trophy; childr
   )
 }
 
-function NotStarted({ status, legacy }: { status: string; legacy: MatchView[] }) {
-  const message: Record<string, string> = {
-    upcoming: 'Turnir hali e’lon qilinmoqda. Ro‘yxatdan o‘tish ochilgach, qatnashchilar shu yerda ko‘rinadi.',
-    registration_open:
-      'Ro‘yxatdan o‘tish davom etmoqda. Tashkilotchi turnirni boshlaganda qur’a avtomatik tashlanadi va o‘yinlar shu yerda paydo bo‘ladi.',
-    ongoing: 'Turnir boshlangan, lekin to‘r hali tuzilmagan.',
-    completed: 'Bu turnir musobaqa tizimidan oldin o‘tkazilgan — to‘r saqlanmagan.',
-    cancelled: 'Turnir bekor qilingan.',
-  }
+async function NotStarted({ status, legacy }: { status: string; legacy: MatchView[] }) {
+  const { dict } = await getI18n()
+  const message: Record<string, string> = dict.competition.detail.not_started
 
   return (
     <div className="space-y-4">
       <Empty icon={Clock}>{message[status] ?? message.registration_open}</Empty>
       {legacy.length > 0 ? (
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Kiritilgan o‘yinlar</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{dict.competition.detail.entered_matches}</h2>
           <ul className="divide-y divide-border rounded-lg border border-border">
             {legacy.map((m) => (
               <li key={m.id}>
@@ -198,7 +196,8 @@ function NotStarted({ status, legacy }: { status: string; legacy: MatchView[] })
   )
 }
 
-function Podium({ podium }: { podium: NonNullable<CompetitionView['podium']> }) {
+async function Podium({ podium }: { podium: NonNullable<CompetitionView['podium']> }) {
+  const { dict } = await getI18n()
   const top = podium.filter((p) => p.placement <= 3 && p.participated)
   if (top.length === 0) return null
   const medal = ['', 'text-yellow-500', 'text-slate-400', 'text-amber-700']
@@ -207,7 +206,7 @@ function Podium({ podium }: { podium: NonNullable<CompetitionView['podium']> }) 
       <CardContent className="space-y-3 p-4">
         <p className="flex items-center gap-2 text-sm font-semibold">
           <Medal className="h-4 w-4 text-primary" aria-hidden />
-          Yakuniy natijalar
+          {dict.competition.detail.final_results}
         </p>
         <ol className="grid gap-2 sm:grid-cols-3">
           {top.map((p) => (
@@ -223,7 +222,9 @@ function Podium({ podium }: { podium: NonNullable<CompetitionView['podium']> }) 
   )
 }
 
-function Overview({ view }: { view: CompetitionView }) {
+async function Overview({ view }: { view: CompetitionView }) {
+  const { dict } = await getI18n()
+  const t = dict.competition.detail
   const { format, matches } = view
   return (
     <div className="space-y-8">
@@ -231,7 +232,7 @@ function Overview({ view }: { view: CompetitionView }) {
 
       {format === 'SINGLE_ELIMINATION' ? (
         <>
-          <BracketView matches={matches} bracket="MAIN" title="To‘r" />
+          <BracketView matches={matches} bracket="MAIN" title={t.bracket} />
           <BracketView matches={matches} bracket="THIRD_PLACE" />
         </>
       ) : null}
@@ -244,13 +245,13 @@ function Overview({ view }: { view: CompetitionView }) {
         </>
       ) : null}
 
-      {format === 'ROUND_ROBIN' && view.standings ? <StandingsTable rows={view.standings} caption="Turnir jadvali" /> : null}
+      {format === 'ROUND_ROBIN' && view.standings ? <StandingsTable rows={view.standings} caption={t.table} /> : null}
 
       {format === 'GROUPS_KNOCKOUT' ? (
         <>
           <div className="grid gap-4 lg:grid-cols-2">
             {view.groups.map((group) => (
-              <StandingsTable key={group.name} rows={group.rows} caption={group.name} qualify={view.config.advancePerGroup} />
+              <StandingsTable key={group.name} rows={group.rows} caption={groupLabel(dict, group.name)} qualify={view.config.advancePerGroup} />
             ))}
           </div>
           {matches.some((m) => m.bracket === 'MAIN') ? (
@@ -260,7 +261,7 @@ function Overview({ view }: { view: CompetitionView }) {
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Pley-off to‘ri barcha guruh o‘yinlari yakunlanganda avtomatik tuziladi.
+              {t.playoff_pending}
             </p>
           )}
         </>
@@ -268,7 +269,7 @@ function Overview({ view }: { view: CompetitionView }) {
 
       {format === 'SWISS' ? (
         <>
-          {view.standings ? <StandingsTable rows={view.standings} caption="Turnir jadvali" buchholz /> : null}
+          {view.standings ? <StandingsTable rows={view.standings} caption={t.table} buchholz /> : null}
           <SwissRounds matches={matches} />
         </>
       ) : null}
@@ -280,13 +281,10 @@ function Overview({ view }: { view: CompetitionView }) {
             rows={view.leaderboard.rows}
             rounds={view.leaderboard.rounds}
             kind={view.config.scoreKind}
-            caption={view.config.scoreKind === 'time' ? 'Reyting — eng tez vaqt' : 'Reyting — umumiy ochko'}
+            caption={view.config.scoreKind === 'time' ? t.leaderboard_time : t.leaderboard_points}
           />
           <p className="text-xs text-muted-foreground">
-            {view.config.scoreKind === 'time'
-              ? 'Har bosqich vaqti qo‘shib boriladi; kam vaqt — yuqori o‘rin. DNF — masofani yakunlamagan.'
-              : 'Har bosqich ochkolari qo‘shib boriladi; teng bo‘lsa eng yaxshi bosqich natijasi hal qiladi.'}{' '}
-            ↑↓ — oldingi bosqichga nisbatan o‘rin o‘zgarishi.
+            {view.config.scoreKind === 'time' ? t.note_time : t.note_points} {t.note_move}
           </p>
         </div>
       ) : null}
@@ -294,8 +292,9 @@ function Overview({ view }: { view: CompetitionView }) {
   )
 }
 
-function RoundProgress({ done, total }: { done: number; total: number }) {
+async function RoundProgress({ done, total }: { done: number; total: number }) {
   if (total <= 1) return null
+  const { dict } = await getI18n()
   return (
     <div className="flex items-center gap-3">
       <div className="flex flex-1 gap-1" aria-hidden>
@@ -304,21 +303,22 @@ function RoundProgress({ done, total }: { done: number; total: number }) {
         ))}
       </div>
       <span className="shrink-0 text-xs text-muted-foreground">
-        {done}/{total} bosqich
+        {dict.competition.detail.round_progress(done, total)}
       </span>
     </div>
   )
 }
 
 /** Per-round results of a LEADERBOARD tournament, latest round first. */
-function LeaderboardRounds({ view }: { view: CompetitionView }) {
+async function LeaderboardRounds({ view }: { view: CompetitionView }) {
+  const { dict } = await getI18n()
   const board = view.leaderboard!
   const kind = view.config.scoreKind
   const rounds = Array.from({ length: board.rounds }, (_, i) => i + 1)
     .filter((r) => board.rows.some((row) => row.rounds[r - 1] !== null))
     .reverse()
 
-  if (rounds.length === 0) return <Empty>Hali natija kiritilmagan.</Empty>
+  if (rounds.length === 0) return <Empty>{dict.competition.detail.no_results}</Empty>
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -333,7 +333,7 @@ function LeaderboardRounds({ view }: { view: CompetitionView }) {
           })
         return (
           <section key={round} className="overflow-hidden rounded-lg border border-border">
-            <p className="border-b border-border bg-secondary/40 px-3 py-2 text-sm font-semibold">{round}-bosqich</p>
+            <p className="border-b border-border bg-secondary/40 px-3 py-2 text-sm font-semibold">{dict.competition.rounds.leaderboard_round(round)}</p>
             <ol className="divide-y divide-border">
               {results.map(({ row, cell }, i) => (
                 <li key={row.entrant} className="flex items-center gap-3 px-3 py-2 text-sm">
@@ -352,13 +352,14 @@ function LeaderboardRounds({ view }: { view: CompetitionView }) {
   )
 }
 
-function SwissRounds({ matches }: { matches: MatchView[] }) {
+async function SwissRounds({ matches }: { matches: MatchView[] }) {
+  const { dict } = await getI18n()
   const rounds = [...new Set(matches.map((m) => m.round))].sort((a, b) => b - a)
   return (
     <div className="space-y-4">
       {rounds.map((round) => (
         <section key={round} className="space-y-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{round}-tur</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{dict.competition.rounds.round(round)}</h3>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {matches
               .filter((m) => m.round === round)
@@ -372,12 +373,13 @@ function SwissRounds({ matches }: { matches: MatchView[] }) {
   )
 }
 
-function History({ matches }: { matches: MatchView[] }) {
+async function History({ matches }: { matches: MatchView[] }) {
+  const { dict } = await getI18n()
   const played = matches
     .filter((m) => m.finalizedAt && !m.isBye)
     .sort((a, b) => (b.finalizedAt ?? '').localeCompare(a.finalizedAt ?? ''))
 
-  if (played.length === 0) return <Empty>Hali yakunlangan o‘yin yo‘q.</Empty>
+  if (played.length === 0) return <Empty>{dict.competition.detail.no_finished}</Empty>
 
   return (
     <ul className="divide-y divide-border rounded-lg border border-border">
@@ -390,14 +392,15 @@ function History({ matches }: { matches: MatchView[] }) {
   )
 }
 
-function Schedule({ matches, canScore }: { matches: MatchView[]; canScore: boolean }) {
+async function Schedule({ matches, canScore, locale }: { matches: MatchView[]; canScore: boolean; locale: Locale }) {
+  const { dict } = await getI18n()
   const upcoming = matches.filter((m) => !m.finalizedAt && !m.isBye && m.status !== 'cancelled')
   const timed = upcoming
     .filter((m) => m.scheduledAt)
     .sort((a, b) => (a.scheduledAt ?? '').localeCompare(b.scheduledAt ?? ''))
   const untimed = upcoming.filter((m) => !m.scheduledAt)
 
-  if (upcoming.length === 0) return <Empty>Kutilayotgan o‘yin yo‘q.</Empty>
+  if (upcoming.length === 0) return <Empty>{dict.competition.detail.no_upcoming}</Empty>
 
   const row = (m: MatchView) => (
     <li key={m.id}>
@@ -410,14 +413,14 @@ function Schedule({ matches, canScore }: { matches: MatchView[]; canScore: boole
       {timed.length > 0 ? (
         <section className="space-y-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Rejalashtirilgan · keyingisi {formatDateTime(timed[0].scheduledAt)}
+            {dict.competition.detail.scheduled_next(formatDateTime(timed[0].scheduledAt, locale))}
           </h2>
           <ul className="divide-y divide-border rounded-lg border border-border">{timed.map(row)}</ul>
         </section>
       ) : null}
       {untimed.length > 0 ? (
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Vaqti belgilanmagan</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{dict.competition.detail.unscheduled}</h2>
           <ul className="divide-y divide-border rounded-lg border border-dashed border-border">{untimed.map(row)}</ul>
         </section>
       ) : null}

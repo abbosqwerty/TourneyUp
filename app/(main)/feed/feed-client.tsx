@@ -11,6 +11,7 @@ import { filtersToQuery, hasActiveFilters, type TournamentFilters } from '@/lib/
 import { NoTournamentsFound } from '@/components/empty-state'
 import { toggleSaveTournament } from '@/lib/actions'
 import { useAuthModal } from '@/components/auth-modal'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export default function FeedClient({
   filters,
@@ -30,6 +31,8 @@ export default function FeedClient({
   currentUserId?: string
 }) {
   const { openLoginModal } = useAuthModal()
+  const { dict } = useLanguage()
+  const t = dict.tournament
   // Optimistic overrides layered over the server's list: a new page of props
   // wins for every card the user has not touched, with no sync effect.
   const [overrides, setOverrides] = useState<Record<string, boolean>>({})
@@ -38,8 +41,8 @@ export default function FeedClient({
   const toggleSave = async (id: string) => {
     if (!currentUserId) {
       openLoginModal({
-        title: 'Saqlash uchun kiring',
-        description: 'Turnirlarni saqlangan ro‘yxatga qo‘shish uchun akkauntingizga kiring.',
+        title: t.save_login.title,
+        description: t.save_login.description,
       })
       return
     }
@@ -67,7 +70,7 @@ export default function FeedClient({
 
       {highlights.length > 0 ? (
         <section className="mb-8">
-          <h2 className="mb-4 text-center text-base font-semibold text-foreground">Eng qizg‘inlari</h2>
+          <h2 className="mb-4 text-center text-base font-semibold text-foreground">{dict.feed.featured}</h2>
           <FeaturedStoriesRow stories={highlights} />
         </section>
       ) : null}
@@ -75,8 +78,8 @@ export default function FeedClient({
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {totalCount === 0
-            ? 'Turnir topilmadi'
-            : `${totalCount} ta turnirdan ${rangeStart}–${rangeEnd} ko‘rsatilmoqda`}
+            ? t.feed.none_found
+            : t.feed.showing(totalCount, rangeStart, rangeEnd)}
         </p>
       </div>
 
@@ -109,7 +112,7 @@ export default function FeedClient({
 
       {tournaments.length === 0 && hasActiveFilters(filters) ? (
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          Filtrlarni kengaytirib ko‘ring.
+          {t.feed.widen_filters}
         </p>
       ) : null}
     </div>

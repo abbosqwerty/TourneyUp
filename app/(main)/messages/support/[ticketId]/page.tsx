@@ -1,12 +1,16 @@
 import { notFound, redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
-import { getTicketAccess, SUPPORT_CATEGORY_LABELS } from '@/lib/support'
+import { getTicketAccess } from '@/lib/support'
+import { getI18n } from '@/lib/i18n/server'
 import { TicketThread } from './ticket-thread'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Murojaat', robots: { index: false } }
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.chat.meta.ticket, robots: { index: false } }
+}
 
 export default async function TicketPage({ params }: { params: Promise<{ ticketId: string }> }) {
   const { ticketId } = await params
@@ -42,7 +46,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketI
         id: ticket.id,
         scope: ticket.scope,
         subject: ticket.subject,
-        category: SUPPORT_CATEGORY_LABELS[ticket.category],
+        category: ticket.category,
         status: ticket.status,
         createdAt: ticket.createdAt.toISOString(),
         requester: ticket.user,

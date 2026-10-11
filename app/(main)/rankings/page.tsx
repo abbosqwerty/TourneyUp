@@ -4,13 +4,17 @@ import { getCurrentUser } from '@/lib/session'
 import { sportCategories } from '@/lib/constants'
 import { getLeaderboard, leaderboardSports, LEADERBOARD_PERIODS, type LeaderboardPeriod } from '@/lib/points/leaderboard'
 import { DbErrorCard } from '@/components/db-error-card'
+import { getI18n } from '@/lib/i18n/server'
 import RankingsClient from './rankings-client'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Reyting',
-  description: 'TourneyUp reytingi — turnirlarda to‘plangan Tourney Points (T).',
+export async function generateMetadata(): Promise<Metadata> {
+  const { dict } = await getI18n()
+  return {
+    title: dict.account.rankings.meta_title,
+    description: dict.account.rankings.meta_description,
+  }
 }
 
 const PAGE_SIZE = 100
@@ -37,7 +41,10 @@ export default async function RankingsPage({ searchParams }: { searchParams: Sea
     console.error('rankings page failed', error)
   }
 
-  if (!data) return <DbErrorCard message="Reytingni yuklab bo‘lmadi. Keyinroq qayta urinib ko‘ring." />
+  if (!data) {
+    const { dict } = await getI18n()
+    return <DbErrorCard message={dict.account.rankings.load_error} />
+  }
 
   return (
     <RankingsClient

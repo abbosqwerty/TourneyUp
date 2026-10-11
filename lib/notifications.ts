@@ -1,5 +1,8 @@
 import type { NotificationType } from '@prisma/client'
 import { db } from './db'
+import { encodeNotification, type NotificationKey, type NotificationParams } from './stored-text'
+
+export { encodeNotification as notificationText }
 
 export type NotificationView = {
   id: string
@@ -62,6 +65,29 @@ export async function notifyMany(
   }
 }
 
+/**
+ * Preferred form: the text is stored as a template key + params and rendered
+ * in each reader's language (see `lib/stored-text.ts`). The plain-text
+ * `notify`/`notifyMany` above still work and show their text as written.
+ */
+export async function notifyKey<K extends NotificationKey>(input: {
+  userId: string
+  type: NotificationType
+  key: K
+  params: NotificationParams<K>
+  link?: string | null
+}): Promise<void> {
+  await notify({ userId: input.userId, type: input.type, link: input.link, ...encodeNotification(input.key, input.params) })
+}
+
+export async function notifyManyKey<K extends NotificationKey>(
+  userIds: string[],
+  payload: { type: NotificationType; key: K; params: NotificationParams<K>; link?: string | null }
+): Promise<void> {
+  await notifyMany(userIds, { type: payload.type, link: payload.link, ...encodeNotification(payload.key, payload.params) })
+}
+
+/** Rows as stored; render title/body with `renderNotification` from `lib/stored-text`. */
 export async function listNotifications(userId: string, limit = NOTIFICATION_PAGE_SIZE) {
   const rows = await db.notification.findMany({
     where: { userId },

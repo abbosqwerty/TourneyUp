@@ -1,17 +1,21 @@
+'use client'
+
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import type { StandingView } from '@/lib/competition/view'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
 
 /** Places gained or lost since the previous round. */
 export function Movement({ move }: { move: number | null }) {
+  const t = useLanguage().dict.competition.standings
   if (move === null) return null
   if (move === 0) {
     return (
-      <span className="inline-block w-6 text-center text-xs text-muted-foreground" title="O‘rni o‘zgarmadi">
+      <span className="inline-block w-6 text-center text-xs text-muted-foreground" title={t.unchanged}>
         –
       </span>
     )
@@ -23,7 +27,7 @@ export function Movement({ move }: { move: number | null }) {
         'inline-flex w-6 items-center justify-center text-[11px] font-semibold tabular-nums',
         up ? 'text-success' : 'text-destructive'
       )}
-      title={up ? `${move} pog‘ona ko‘tarildi` : `${-move} pog‘ona tushdi`}
+      title={up ? t.moved_up(move) : t.moved_down(-move)}
     >
       {up ? <ChevronUp className="h-3 w-3" aria-hidden /> : <ChevronDown className="h-3 w-3" aria-hidden />}
       {Math.abs(move)}
@@ -46,6 +50,7 @@ export function StandingsTable({
   buchholz?: boolean
   caption?: string
 }) {
+  const t = useLanguage().dict.competition.standings
   return (
     <div className="overflow-hidden rounded-lg border border-border">
       {caption ? <p className="border-b border-border bg-secondary/40 px-3 py-2 text-sm font-semibold">{caption}</p> : null}
@@ -54,14 +59,14 @@ export function StandingsTable({
           <TableHeader>
             <TableRow>
               <TableHead className="w-16">#</TableHead>
-              <TableHead>Ishtirokchi</TableHead>
-              <TableHead className="text-center" title="O‘yinlar">O‘</TableHead>
-              <TableHead className="text-center" title="G‘alaba">G‘</TableHead>
-              <TableHead className="text-center" title="Durang">D</TableHead>
-              <TableHead className="text-center" title="Mag‘lubiyat">M</TableHead>
-              <TableHead className="hidden text-center sm:table-cell" title="Hisob farqi">+/−</TableHead>
-              {buchholz ? <TableHead className="hidden text-center sm:table-cell" title="Buchholz">Bh</TableHead> : null}
-              <TableHead className="text-center">Ochko</TableHead>
+              <TableHead>{t.entrant}</TableHead>
+              <TableHead className="text-center" title={t.played}>{t.played_short}</TableHead>
+              <TableHead className="text-center" title={t.wins}>{t.wins_short}</TableHead>
+              <TableHead className="text-center" title={t.draws}>{t.draws_short}</TableHead>
+              <TableHead className="text-center" title={t.losses}>{t.losses_short}</TableHead>
+              <TableHead className="hidden text-center sm:table-cell" title={t.diff}>+/−</TableHead>
+              {buchholz ? <TableHead className="hidden text-center sm:table-cell" title={t.buchholz}>{t.buchholz_short}</TableHead> : null}
+              <TableHead className="text-center">{t.points}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

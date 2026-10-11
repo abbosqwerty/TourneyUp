@@ -6,8 +6,10 @@ import { Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { markAllNotificationsRead } from '@/lib/notification-actions'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export function MarkAllReadButton() {
+  const { dict } = useLanguage()
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -29,7 +31,7 @@ export function MarkAllReadButton() {
       }
     >
       <Check className="h-4 w-4" aria-hidden />
-      Hammasini o‘qildi
+      {dict.notify.mark_all}
     </Button>
   )
 }

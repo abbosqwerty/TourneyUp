@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
+    "db:seed:extra": "node prisma/seed-extra.js",
     "postinstall": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest"

@@ -1,7 +1,7 @@
 import { db } from '../db'
-import { notifyMany } from '../notifications'
+import { notificationText, notifyMany } from '../notifications'
 import { closeTournamentAccess } from '../staff'
-import { postSystemMessage } from '../channels'
+import { postSystemNotice } from '../channels'
 import { closeTournamentSupport } from '../support'
 import { awardTournamentPoints } from '../points/award'
 
@@ -18,7 +18,7 @@ export async function onTournamentResultsChanged(
 ) {
   if (change.justCompleted) {
     const channel = await db.channel.findUnique({ where: { tournamentId }, select: { id: true } })
-    await postSystemMessage(channel?.id, change.actorId, 'Turnir yakunlandi — yakuniy natijalar va Tourney Points e’lon qilindi.')
+    await postSystemNotice(channel?.id, change.actorId, 'tournament_finished')
     await closeTournamentAccess(tournamentId, change.actorId)
     await closeTournamentSupport(tournamentId)
     await awardAndAnnounce(tournamentId, 'FINALIZED', change.actorId)
@@ -63,8 +63,10 @@ async function awardAndAnnounce(
     for (const [points, userIds] of byPoints) {
       await notifyMany(userIds, {
         type: 'POINTS_AWARDED',
-        title: reason === 'FINALIZED' ? `+${points} T` : `Ballar yangilandi: ${points} T`,
-        body: `“${tournament?.title ?? 'Turnir'}” yakunlari bo‘yicha Tourney Points.`,
+        ...notificationText(reason === 'FINALIZED' ? 'points_awarded' : 'points_updated', {
+          points,
+          tournament: tournament?.title ?? '',
+        }),
         link: '/rankings',
       })
     }

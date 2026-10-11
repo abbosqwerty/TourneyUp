@@ -16,16 +16,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { setTournamentStatus } from '@/lib/actions'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 type Status = 'upcoming' | 'registration_open' | 'ongoing' | 'completed' | 'cancelled'
 
-const OPTIONS: { value: Status; label: string }[] = [
-  { value: 'upcoming', label: 'Kutilmoqda' },
-  { value: 'registration_open', label: 'Ro‘yxat ochiq' },
-  { value: 'ongoing', label: 'Davom etmoqda' },
-  { value: 'completed', label: 'Yakunlangan' },
-  { value: 'cancelled', label: 'Bekor qilingan' },
-]
+const OPTIONS: Status[] = ['upcoming', 'registration_open', 'ongoing', 'completed', 'cancelled']
 
 const CLOSING: Status[] = ['completed', 'cancelled']
 const CONFIRM: Status[] = ['ongoing', ...CLOSING]
@@ -37,11 +32,11 @@ const CONFIRM: Status[] = ['ongoing', ...CLOSING]
  */
 function allowedOptions(current: Status, drawn: boolean) {
   return OPTIONS.filter((option) => {
-    if (option.value === current) return true
+    if (option === current) return true
     if (current === 'cancelled') return false
-    if (current === 'completed') return option.value === 'cancelled'
-    if (drawn) return option.value === 'cancelled'
-    return option.value !== 'completed'
+    if (current === 'completed') return option === 'cancelled'
+    if (drawn) return option === 'cancelled'
+    return option !== 'completed'
   })
 }
 
@@ -59,6 +54,8 @@ export function TournamentStatusSelect({
   drawn?: boolean
 }) {
   const router = useRouter()
+  const { dict } = useLanguage()
+  const t = dict.dashboard.status_select
   const [isPending, startTransition] = useTransition()
   const [current, setCurrent] = useState<Status>(status)
   const [confirming, setConfirming] = useState<Status | null>(null)
@@ -76,10 +73,10 @@ export function TournamentStatusSelect({
       }
       toast.success(
         next === 'ongoing'
-          ? 'Turnir boshlandi — qur’a tashlandi'
+          ? t.toast_started
           : CLOSING.includes(next)
-            ? 'Turnir yopildi — vaqtinchalik ruxsatlar olib tashlandi'
-            : 'Status yangilandi'
+            ? t.toast_closed
+            : t.toast_updated
       )
       router.refresh()
     })
@@ -100,14 +97,14 @@ export function TournamentStatusSelect({
           apply(next)
         }}
       >
-        <SelectTrigger size="sm" className="w-[170px]" aria-label="Turnir statusi">
+        <SelectTrigger size="sm" className="w-[170px]" aria-label={t.aria}>
           {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {allowedOptions(current, drawn).map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
+            <SelectItem key={option} value={option}>
+              {dict.status[option]}
             </SelectItem>
           ))}
         </SelectContent>
@@ -118,21 +115,21 @@ export function TournamentStatusSelect({
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirming === 'ongoing'
-                ? 'Turnirni boshlash'
+                ? t.title_start
                 : confirming === 'cancelled'
-                  ? 'Turnirni bekor qilish'
-                  : 'Turnirni yakunlash'}
+                  ? t.title_cancel
+                  : t.title_complete}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirming === 'ongoing'
-                ? 'Ro‘yxatdan o‘tish yopiladi va tasdiqlangan (to‘lovi qabul qilingan) ishtirokchilar bilan qur’a avtomatik tashlanadi. Shundan keyin ishtirokchilar tarkibi va format o‘zgarmaydi.'
+                ? t.desc_start
                 : confirming === 'cancelled'
-                  ? 'Barcha vaqtinchalik rollar olib tashlanadi, turnir kanali arxivlanadi va bu turnir bergan Tourney Points qaytarib olinadi.'
-                  : 'Bu amal barcha vaqtinchalik rollarni (admin, organizer, support) olib tashlaydi va turnir kanalini arxivlaydi.'}
+                  ? t.desc_cancel
+                  : t.desc_complete}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Bekor qilish</AlertDialogCancel>
+            <AlertDialogCancel>{dict.common.cancel}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 const next = confirming
@@ -140,7 +137,7 @@ export function TournamentStatusSelect({
                 if (next) apply(next)
               }}
             >
-              Davom etish
+              {t.continue}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

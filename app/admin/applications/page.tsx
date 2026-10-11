@@ -1,10 +1,14 @@
 import { db } from '@/lib/db'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ApplicationsClient } from './applications-client'
+import { getI18n } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Tashkilot arizalari', robots: { index: false } }
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.admin.applications.meta_title, robots: { index: false } }
+}
 
 export default async function ApplicationsPage() {
   let applications: Awaited<ReturnType<typeof load>> = []
@@ -18,11 +22,12 @@ export default async function ApplicationsPage() {
   }
 
   if (failed) {
+    const { dict } = await getI18n()
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Arizalarni olib bo‘lmadi</CardTitle>
-          <CardDescription>Baza bilan aloqa yo‘q. Keyinroq qayta urinib ko‘ring.</CardDescription>
+          <CardTitle>{dict.admin.applications.load_failed}</CardTitle>
+          <CardDescription>{dict.admin.db_unavailable}</CardDescription>
         </CardHeader>
       </Card>
     )

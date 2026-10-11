@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { formatScore, parseTime, type ScoreKind } from '@/lib/competition/leaderboard'
 import { recordLeaderboardResults } from '@/lib/match-actions'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export type LeaderboardEditorRow = {
   participantId: string
@@ -42,6 +43,8 @@ export function LeaderboardClient({
   isClosed: boolean
 }) {
   const router = useRouter()
+  const { dict } = useLanguage()
+  const t = dict.dashboard.leaderboard
   const [isPending, startTransition] = useTransition()
 
   const firstOpen = Array.from({ length: rounds }, (_, i) => i).find((i) => rows.some((r) => r.rounds[i] === null))
@@ -87,7 +90,7 @@ export function LeaderboardClient({
 
   const save = () => {
     if (invalid.length > 0) {
-      toast.error(`Noto‘g‘ri qiymat: ${invalid.map((r) => r.label).join(', ')}`)
+      toast.error(t.invalid_value(invalid.map((r) => r.label).join(', ')))
       return
     }
     startTransition(async () => {
@@ -105,7 +108,7 @@ export function LeaderboardClient({
         toast.error(result.error)
         return
       }
-      toast.success(`${round}-bosqich saqlandi — reyting yangilandi`)
+      toast.success(t.round_saved(round))
       setReason('')
       router.refresh()
     })
@@ -113,7 +116,7 @@ export function LeaderboardClient({
 
   return (
     <div className="space-y-4">
-      <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-secondary/40 p-1" aria-label="Bosqichlar">
+      <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-secondary/40 p-1" aria-label={t.rounds_aria}>
         {Array.from({ length: rounds }, (_, i) => i + 1).map((r) => {
           const done = rows.every((row) => row.rounds[r - 1] !== null)
           return (
@@ -125,7 +128,7 @@ export function LeaderboardClient({
               onClick={() => setRound(r)}
               aria-pressed={r === round}
             >
-              {r}-bosqich
+              {t.round_n(r)}
               {done ? <span className="ml-1 text-xs opacity-70">✓</span> : null}
             </Button>
           )
@@ -136,9 +139,11 @@ export function LeaderboardClient({
         <CardContent className="space-y-3 p-4">
           <p className="text-sm text-muted-foreground">
             {kind === 'time'
-              ? 'Vaqtni “soat:daqiqa:soniya.yuzdan” ko‘rinishida kiriting, masalan 2:31:07.50 yoki 58.32.'
-              : 'Har bir ishtirokchi shu bosqichda olgan ochkoni kiriting.'}{' '}
-            Masofani yakunlamagan / kelmaganlarga <b>DNF</b> belgilang. Bo‘sh qoldirilganlar keyin kiritiladi.
+              ? t.time_hint
+              : t.points_hint}{' '}
+            {t.dnf_before}
+            <b>DNF</b>
+            {t.dnf_after}
           </p>
 
           <ul className="divide-y divide-border rounded-lg border border-border">
@@ -154,7 +159,7 @@ export function LeaderboardClient({
                     disabled={d.dnf || isClosed || isPending}
                     inputMode={kind === 'time' ? 'text' : 'numeric'}
                     placeholder={kind === 'time' ? '0:00.00' : '0'}
-                    aria-label={`${r.label} — ${kind === 'time' ? 'vaqt' : 'ochko'}`}
+                    aria-label={`${r.label} — ${kind === 'time' ? t.value_time : t.value_points}`}
                     aria-invalid={bad}
                     className={cn('w-32 text-right tabular-nums', bad && 'border-destructive')}
                   />
@@ -173,23 +178,23 @@ export function LeaderboardClient({
 
           {finalized ? (
             <div className="space-y-1">
-              <Label htmlFor="lb-reason">Tuzatish sababi</Label>
+              <Label htmlFor="lb-reason">{t.reason}</Label>
               <Input
                 id="lb-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Turnir yakunlangan — o‘zgartirish sababini yozing"
+                placeholder={t.reason_placeholder}
               />
             </div>
           ) : null}
 
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs text-muted-foreground">
-              {filled}/{rows.length} kiritildi
+              {t.filled(filled, rows.length)}
             </span>
             <Button onClick={save} disabled={isClosed || isPending} className="gap-2">
               {isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-              {round}-bosqichni saqlash
+              {t.save_round(round)}
             </Button>
           </div>
         </CardContent>

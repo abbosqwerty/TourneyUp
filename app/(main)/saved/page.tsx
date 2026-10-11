@@ -5,13 +5,17 @@ import { getCurrentUser } from '@/lib/session'
 import { safeParseJsonArray } from '@/lib/json'
 import { tournamentPoster } from '@/lib/media'
 import { DbErrorCard } from '@/components/db-error-card'
+import { getI18n } from '@/lib/i18n/server'
 import SavedClient from './saved-client'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Saqlangan turnirlar',
-  robots: { index: false },
+export async function generateMetadata(): Promise<Metadata> {
+  const { dict } = await getI18n()
+  return {
+    title: dict.account.saved.meta_title,
+    robots: { index: false },
+  }
 }
 
 export default async function SavedPage() {
@@ -26,7 +30,8 @@ export default async function SavedPage() {
   }
 
   if (!tournaments) {
-    return <DbErrorCard message="Saqlangan turnirlarni yuklab bo‘lmadi. Keyinroq qayta urinib ko‘ring." />
+    const { dict } = await getI18n()
+    return <DbErrorCard message={dict.account.saved.load_error} />
   }
 
   return <SavedClient initialTournaments={tournaments} />

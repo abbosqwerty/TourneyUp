@@ -1,3 +1,6 @@
+'use client'
+
+import { useLanguage } from '@/lib/i18n/language-context'
 import { Card, CardContent } from '@/components/ui/card'
 
 /**
@@ -6,16 +9,18 @@ import { Card, CardContent } from '@/components/ui/card'
  * render this instead of taking the whole route down.
  */
 export function DbErrorCard({
-  message = 'Ma‘lumotlarni yuklab bo‘lmadi. Keyinroq qayta urinib ko‘ring.',
+  message,
   bare = false,
 }: {
+  /** Defaults to a generic "could not load" line in the visitor's language. */
   message?: string
   /** Skip the page container — for pages that already sit inside one. */
   bare?: boolean
 }) {
+  const { dict } = useLanguage()
   const card = (
     <Card>
-      <CardContent className="py-12 text-center text-sm text-muted-foreground">{message}</CardContent>
+      <CardContent className="py-12 text-center text-sm text-muted-foreground">{message ?? dict.chrome.db_error}</CardContent>
     </Card>
   )
 

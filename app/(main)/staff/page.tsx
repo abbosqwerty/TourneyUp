@@ -3,22 +3,19 @@ import { redirect } from 'next/navigation'
 import { Calendar, LifeBuoy, MessageSquare, ShieldCheck, Trophy, Users } from 'lucide-react'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
-import { STAFF_ROLE_DESCRIPTIONS, STAFF_ROLE_LABELS } from '@/lib/staff-labels'
+import { revokeReasonLabel } from '@/lib/staff-labels'
+import { getI18n } from '@/lib/i18n/server'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatDate } from '@/lib/time'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Mening rollarim', robots: { index: false } }
-
-const STATUS_LABELS = {
-  upcoming: 'Kutilmoqda',
-  registration_open: 'Ro‘yxat ochiq',
-  ongoing: 'Davom etmoqda',
-  completed: 'Yakunlangan',
-  cancelled: 'Bekor qilingan',
-} as const
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.dashboard.my_roles.meta_title, robots: { index: false } }
+}
 
 /**
  * Panel for users holding a temporary tournament role. What they can open
@@ -28,6 +25,9 @@ const STATUS_LABELS = {
 export default async function StaffPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login?next=%2Fstaff')
+  const { dict, locale } = await getI18n()
+  const d = dict.dashboard
+  const t = d.my_roles
 
   let grants: Awaited<ReturnType<typeof load>> = { active: [], past: [] }
   try {
@@ -38,8 +38,8 @@ export default async function StaffPage() {
       <div className="container mx-auto max-w-4xl px-4 py-6">
         <Card>
           <CardHeader>
-            <CardTitle>Ma‘lumotni olib bo‘lmadi</CardTitle>
-            <CardDescription>Baza bilan aloqa yo‘q. Keyinroq qayta urinib ko‘ring.</CardDescription>
+            <CardTitle>{d.data_failed_title}</CardTitle>
+            <CardDescription>{d.db_unavailable}</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -49,10 +49,9 @@ export default async function StaffPage() {
   return (
     <div className="container mx-auto max-w-4xl space-y-6 px-4 py-6">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Mening rollarim</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">{t.title}</h1>
         <p className="text-sm text-muted-foreground">
-          Tashkilotlar sizga bergan vaqtinchalik ruxsatlar. Turnir yakunlanganda ruxsat avtomatik
-          tugaydi.
+          {t.subtitle}
         </p>
       </div>
 
@@ -60,10 +59,9 @@ export default async function StaffPage() {
         <Card>
           <CardContent className="space-y-2 py-12 text-center">
             <ShieldCheck className="mx-auto h-10 w-10 text-muted-foreground/50" aria-hidden />
-            <p className="text-sm font-medium">Faol rol yo‘q</p>
+            <p className="text-sm font-medium">{t.no_active}</p>
             <p className="text-sm text-muted-foreground">
-              Tashkilot sizni turnirga admin, organizer yoki support sifatida tayinlasa, bu yerda
-              ko‘rinadi.
+              {t.no_active_desc}
             </p>
           </CardContent>
         </Card>
@@ -85,64 +83,64 @@ export default async function StaffPage() {
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3.5 w-3.5" aria-hidden />
-                        {grant.tournament.date}
+                        {formatDate(grant.tournament.date, locale)}
                       </span>
-                      <span>{STATUS_LABELS[grant.tournament.status]}</span>
+                      <span>{dict.status[grant.tournament.status]}</span>
                     </CardDescription>
                   </div>
                   <Badge className="shrink-0 gap-1">
                     <ShieldCheck className="h-3 w-3" aria-hidden />
-                    {STAFF_ROLE_LABELS[grant.role]}
+                    {d.roles[grant.role]}
                   </Badge>
                 </CardHeader>
 
                 <CardContent className="space-y-3">
                   <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-                    {STAFF_ROLE_DESCRIPTIONS[grant.role]}
+                    {d.role_descriptions[grant.role]}
                   </p>
 
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" asChild>
-                      <Link href={`/tournament/${grant.tournament.id}`}>Turnir sahifasi</Link>
+                      <Link href={`/tournament/${grant.tournament.id}`}>{t.tournament_page}</Link>
                     </Button>
                     {canManageParticipants ? (
                       <Button size="sm" variant="outline" className="gap-2" asChild>
                         <Link href="/dashboard/participants">
                           <Users className="h-4 w-4" aria-hidden />
-                          Ishtirokchilar
+                          {t.participants}
                         </Link>
                       </Button>
                     ) : null}
                     {canManageStaff ? (
                       <Button size="sm" variant="outline" asChild>
-                        <Link href={`/dashboard/tournaments/${grant.tournament.id}/staff`}>Xodimlar</Link>
+                        <Link href={`/dashboard/tournaments/${grant.tournament.id}/staff`}>{t.staff}</Link>
                       </Button>
                     ) : null}
                     {grant.tournament.channelId ? (
                       <Button size="sm" variant="outline" className="gap-2" asChild>
                         <Link href={`/messages/${grant.tournament.channelId}`}>
                           <MessageSquare className="h-4 w-4" aria-hidden />
-                          Guruh
+                          {t.group}
                         </Link>
                       </Button>
                     ) : null}
                     {grant.role !== 'SUPPORT' ? (
                       <Button size="sm" variant="outline" asChild>
-                        <Link href={`/dashboard/tournaments/${grant.tournament.id}/matches`}>Natijalar</Link>
+                        <Link href={`/dashboard/tournaments/${grant.tournament.id}/matches`}>{t.results}</Link>
                       </Button>
                     ) : null}
                     {/* Tournament support desk — the queue lives under Messages → Yordam. */}
                     <Button size="sm" variant="outline" className="gap-2" asChild>
                       <Link href="/messages">
                         <LifeBuoy className="h-4 w-4" aria-hidden />
-                        Murojaatlar
+                        {t.tickets}
                       </Link>
                     </Button>
                   </div>
 
                   <p className="text-xs text-muted-foreground">
-                    {new Date(grant.grantedAt).toLocaleDateString('uz-UZ')} dan beri
-                    {grant.grantedByName ? ` · ${grant.grantedByName} tayinlagan` : ''}
+                    {d.since(formatDate(grant.grantedAt, locale))}
+                    {grant.grantedByName ? ` · ${d.assigned_by(grant.grantedByName)}` : ''}
                   </p>
                 </CardContent>
               </Card>
@@ -154,8 +152,8 @@ export default async function StaffPage() {
       {grants.past.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Tugagan rollar</CardTitle>
-            <CardDescription>Bu turnirlar uchun ruxsatingiz endi yo‘q</CardDescription>
+            <CardTitle className="text-base">{t.ended_title}</CardTitle>
+            <CardDescription>{t.ended_desc}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {grants.past.map((grant) => (
@@ -166,13 +164,13 @@ export default async function StaffPage() {
                 <div className="min-w-0">
                   <p className="truncate font-medium">{grant.tournament.title}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {STAFF_ROLE_LABELS[grant.role]}
-                    {grant.revokedAt ? ` · ${new Date(grant.revokedAt).toLocaleDateString('uz-UZ')}` : ''}
-                    {grant.revokeReason ? ` · ${grant.revokeReason}` : ''}
+                    {d.roles[grant.role]}
+                    {grant.revokedAt ? ` · ${formatDate(grant.revokedAt, locale)}` : ''}
+                    {grant.revokeReason ? ` · ${revokeReasonLabel(grant.revokeReason, dict)}` : ''}
                   </p>
                 </div>
                 <Button size="sm" variant="ghost" asChild>
-                  <Link href={`/tournament/${grant.tournament.id}`}>Ko‘rish</Link>
+                  <Link href={`/tournament/${grant.tournament.id}`}>{t.view}</Link>
                 </Button>
               </div>
             ))}

@@ -1,5 +1,8 @@
+'use client'
+
 import Link from 'next/link'
 import { LogoIcon } from '@/components/logo-icon'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 /**
  * Shared frame for /login, /register and /organizations/apply.
@@ -18,6 +21,8 @@ export function AuthShell({
   footer?: React.ReactNode
   wide?: boolean
 }) {
+  const { dict } = useLanguage()
+
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background p-4">
       <div className="pointer-events-none absolute left-[-20%] top-[-20%] h-[60%] w-[60%] rounded-full bg-primary/10 blur-[120px]" />
@@ -28,7 +33,7 @@ export function AuthShell({
           <Link
             href="/"
             className="flex h-12 w-12 items-center justify-center rounded-xl transition-transform hover:scale-105"
-            aria-label="Bosh sahifaga qaytish"
+            aria-label={dict.account.shell.home_aria}
           >
             <LogoIcon className="h-12 w-12" />
           </Link>

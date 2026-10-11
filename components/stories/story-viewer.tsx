@@ -6,6 +6,8 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { markStorySeen } from '@/lib/story-actions'
 import type { StoryGroupProps } from './stories-bar'
+import { useLanguage } from '@/lib/i18n/language-context'
+import { formatTime } from '@/lib/time'
 
 const STORY_DURATION_MS = 5000
 
@@ -23,6 +25,8 @@ export function StoryViewer({
   onClose: () => void
 }) {
   const [groupIndex, setGroupIndex] = useState(startIndex)
+  const { dict } = useLanguage()
+  const v = dict.tournament.viewer
   const [storyIndex, setStoryIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const seenRef = useRef<Set<string>>(new Set())
@@ -101,7 +105,7 @@ export function StoryViewer({
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={`${group.organizationName} storylari`}
+      aria-label={v.dialog_label(group.organizationName)}
     >
       <div className="relative flex h-full w-full max-w-sm flex-col">
         <div className="mb-2 flex gap-1">
@@ -129,14 +133,14 @@ export function StoryViewer({
             )}
             <span className="truncate text-sm font-semibold text-white">{group.organizationName}</span>
             <span className="shrink-0 text-xs text-white/60">
-              {new Date(story.createdAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+              {formatTime(story.createdAt)}
             </span>
           </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            aria-label="Yopish"
+            aria-label={dict.common.close}
             className="text-white hover:bg-white/10 hover:text-white"
           >
             <X className="h-5 w-5" />
@@ -172,19 +176,19 @@ export function StoryViewer({
               onEnded={goNext}
             />
           ) : (
-            <img src={story.mediaUrl} alt={story.caption ?? 'Story'} className="h-full w-full object-contain" />
+            <img src={story.mediaUrl} alt={story.caption ?? v.story_alt} className="h-full w-full object-contain" />
           )}
 
           <button
             type="button"
             onClick={goPrev}
-            aria-label="Oldingi story"
+            aria-label={v.prev}
             className="absolute inset-y-0 left-0 w-1/3 cursor-pointer focus-visible:outline-none"
           />
           <button
             type="button"
             onClick={goNext}
-            aria-label="Keyingi story"
+            aria-label={v.next}
             className="absolute inset-y-0 right-0 w-1/3 cursor-pointer focus-visible:outline-none"
           />
 
@@ -201,7 +205,7 @@ export function StoryViewer({
               {story.tournament ? (
                 <Button size="sm" variant="secondary" asChild className="w-full">
                   <Link href={`/tournament/${story.tournament.id}`} onClick={onClose}>
-                    {story.tournament.title} ga o‘tish
+                    <span className="truncate">{v.go_to(story.tournament.title)}</span>
                   </Link>
                 </Button>
               ) : null}

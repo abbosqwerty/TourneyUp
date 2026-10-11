@@ -1,4 +1,5 @@
 import { db } from './db'
+import { REVOKE_REASON_CLOSED } from './staff-labels'
 
 export { STAFF_ROLE_DESCRIPTIONS, STAFF_ROLE_LABELS } from './staff-labels'
 
@@ -18,7 +19,7 @@ export async function closeTournamentAccess(tournamentId: string, actorId?: stri
 
   await db.tournamentStaff.updateMany({
     where: { tournamentId, revokedAt: null },
-    data: { revokedAt: now, revokeReason: 'Turnir yopildi — vaqtinchalik ruxsat avtomatik olib tashlandi' },
+    data: { revokedAt: now, revokeReason: REVOKE_REASON_CLOSED },
   })
 
   // Staff lose their posting rights in the channel too; subscribers keep

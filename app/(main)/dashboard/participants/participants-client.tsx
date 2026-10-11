@@ -36,6 +36,8 @@ import { toast } from 'sonner'
 import { setParticipantSeed, updateParticipantStatus } from '@/lib/actions'
 import { useRouter } from 'next/navigation'
 import { NoParticipants } from '@/components/empty-state'
+import { useLanguage } from '@/lib/i18n/language-context'
+import { formatDateLong, formatDayMonth } from '@/lib/time'
 
 const statusColors = {
   pending: 'bg-warning/20 text-warning border-warning/30',
@@ -94,6 +96,8 @@ export default function ParticipantsClient({
   const [participants, setParticipants] = useState(allParticipants)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+  const { dict, locale } = useLanguage()
+  const t = dict.dashboard.participants
 
   const canManage = manageableTournamentIds.includes(selectedTournament)
   const tournamentParticipants = participants.filter(p => p.tournamentId === selectedTournament)
@@ -118,7 +122,7 @@ export default function ParticipantsClient({
 
   const handleStatusUpdate = (participantId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
     if (!canManage) {
-      toast.error('Sizning rolingiz faqat ko‘rish huquqini beradi')
+      toast.error(t.read_only)
       return
     }
 
@@ -142,7 +146,7 @@ export default function ParticipantsClient({
    */
   const handleApproveAll = () => {
     if (!canManage) {
-      toast.error('Sizning rolingiz faqat ko‘rish huquqini beradi')
+      toast.error(t.read_only)
       return
     }
 
@@ -160,7 +164,7 @@ export default function ParticipantsClient({
         approved += 1
       }
 
-      if (approved > 0) toast.success(`${approved} ishtirokchi tasdiqlandi`)
+      if (approved > 0) toast.success(t.approved_toast(approved))
       router.refresh()
     })
   }
@@ -170,14 +174,14 @@ export default function ParticipantsClient({
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Participant Management</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">{t.title}</h1>
           <p className="text-muted-foreground">
-            Review and manage tournament registrations
+            {t.subtitle}
           </p>
         </div>
         <Select value={selectedTournament} onValueChange={setSelectedTournament}>
           <SelectTrigger className="w-full md:w-72">
-            <SelectValue placeholder="Select tournament" />
+            <SelectValue placeholder={t.select_tournament} />
           </SelectTrigger>
           <SelectContent>
             {tournaments.map((t) => (
@@ -189,7 +193,7 @@ export default function ParticipantsClient({
         </Select>
       </div>
 
-      <div className="grid lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-3 space-y-6">
           {/* Filters */}
@@ -197,7 +201,7 @@ export default function ParticipantsClient({
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, email, or team..."
+                placeholder={t.search_placeholder}
                 className="pl-10"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -206,13 +210,13 @@ export default function ParticipantsClient({
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-44">
                 <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter status" />
+                <SelectValue placeholder={t.filter_status} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="all">{t.all_statuses}</SelectItem>
+                <SelectItem value="pending">{t.statuses.pending}</SelectItem>
+                <SelectItem value="approved">{t.statuses.approved}</SelectItem>
+                <SelectItem value="rejected">{t.statuses.rejected}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -227,12 +231,12 @@ export default function ParticipantsClient({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Participant</TableHead>
-                        <TableHead className="hidden md:table-cell">Team</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="hidden sm:table-cell">Payment</TableHead>
-                        <TableHead className="hidden lg:table-cell">Registered</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>{t.col_participant}</TableHead>
+                        <TableHead className="hidden md:table-cell">{t.col_team}</TableHead>
+                        <TableHead>{t.col_status}</TableHead>
+                        <TableHead className="hidden sm:table-cell">{t.col_payment}</TableHead>
+                        <TableHead className="hidden lg:table-cell">{t.col_registered}</TableHead>
+                        <TableHead className="text-right">{t.col_actions}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -241,7 +245,7 @@ export default function ParticipantsClient({
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <Avatar className="h-9 w-9">
-                                <AvatarImage src={participant.avatar} alt={`${participant.name} avatari`} />
+                                <AvatarImage src={participant.avatar} alt={dict.dashboard.avatar_alt(participant.name)} />
                                 <AvatarFallback>{participant.name.slice(0, 2)}</AvatarFallback>
                               </Avatar>
                               <div>
@@ -254,13 +258,13 @@ export default function ParticipantsClient({
                             <p>{participant.teamName || '-'}</p>
                             {participant.roster.length > 0 ? (
                               <p className="max-w-56 truncate text-xs text-muted-foreground" title={participant.roster.join(', ')}>
-                                Tarkib: {participant.roster.join(', ')}
+                                {t.roster(participant.roster.join(', '))}
                               </p>
                             ) : null}
                             {manageableTournamentIds.includes(participant.tournamentId) && !participant.drawn && participant.status === 'approved' ? (
                               <SeedInput participantId={participant.id} seed={participant.seed} />
                             ) : participant.seed ? (
-                              <p className="text-xs text-muted-foreground">Seed #{participant.seed}</p>
+                              <p className="text-xs text-muted-foreground">{t.seed_n(participant.seed)}</p>
                             ) : null}
                           </TableCell>
                           <TableCell>
@@ -268,19 +272,16 @@ export default function ParticipantsClient({
                               {participant.status === 'pending' && <Clock className="h-3 w-3 mr-1" />}
                               {participant.status === 'approved' && <CheckCircle className="h-3 w-3 mr-1" />}
                               {participant.status === 'rejected' && <XCircle className="h-3 w-3 mr-1" />}
-                              {participant.status}
+                              {t.statuses[participant.status]}
                             </Badge>
                           </TableCell>
                           <TableCell className="hidden sm:table-cell">
                             <Badge variant="outline" className={paymentColors[participant.paymentStatus]}>
-                              {participant.paymentStatus}
+                              {t.payment[participant.paymentStatus]}
                             </Badge>
                           </TableCell>
                           <TableCell className="hidden lg:table-cell text-muted-foreground">
-                            {new Date(participant.registeredAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric'
-                            })}
+                            {formatDayMonth(participant.registeredAt, locale)}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
@@ -289,7 +290,7 @@ export default function ParticipantsClient({
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    aria-label={`${participant.name} ni tasdiqlash`}
+                                    aria-label={t.approve_aria(participant.name)}
                                     className="h-8 w-8 p-0 text-success hover:bg-success/10 hover:text-success"
                                     onClick={() => handleStatusUpdate(participant.id, 'approved')}
                                     disabled={isPending}
@@ -299,7 +300,7 @@ export default function ParticipantsClient({
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    aria-label={`${participant.name} ni rad etish`}
+                                    aria-label={t.reject_aria(participant.name)}
                                     className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
                                     onClick={() => handleStatusUpdate(participant.id, 'rejected')}
                                     disabled={isPending}
@@ -312,7 +313,7 @@ export default function ParticipantsClient({
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  aria-label={`${participant.name} statusini kutilmoqdaga qaytarish`}
+                                  aria-label={t.reset_aria(participant.name)}
                                   className="h-8 w-8 p-0 text-muted-foreground"
                                   onClick={() => handleStatusUpdate(participant.id, 'pending')}
                                   disabled={isPending}
@@ -321,7 +322,7 @@ export default function ParticipantsClient({
                                 </Button>
                               ) : null}
                               <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild>
-                                <a href={`mailto:${participant.email}`} aria-label={`${participant.name} ga email yozish`}>
+                                <a href={`mailto:${participant.email}`} aria-label={t.email_aria(participant.name)}>
                                   <Mail className="h-4 w-4" />
                                 </a>
                               </Button>
@@ -343,7 +344,7 @@ export default function ParticipantsClient({
           {tournament && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Tournament Summary</CardTitle>
+                <CardTitle className="text-base">{t.summary}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-3">
@@ -358,15 +359,11 @@ export default function ParticipantsClient({
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    {new Date(tournament.date).toLocaleDateString('en-US', {
-                      month: 'long',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
+                    {formatDateLong(tournament.date, locale)}
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Users className="h-4 w-4" />
-                    {tournamentParticipants.length}/{tournament.maxParticipants} registered
+                    {t.registered(tournamentParticipants.length, tournament.maxParticipants)}
                   </div>
                 </div>
               </CardContent>
@@ -376,13 +373,13 @@ export default function ParticipantsClient({
           {/* Status Overview */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Status Overview</CardTitle>
+              <CardTitle className="text-base">{t.status_overview}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-warning" />
-                  <span className="text-sm">Pending</span>
+                  <span className="text-sm">{t.statuses.pending}</span>
                 </div>
                 <Badge variant="outline" className={statusColors.pending}>
                   {pendingCount}
@@ -391,7 +388,7 @@ export default function ParticipantsClient({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-success" />
-                  <span className="text-sm">Approved</span>
+                  <span className="text-sm">{t.statuses.approved}</span>
                 </div>
                 <Badge variant="outline" className={statusColors.approved}>
                   {approvedCount}
@@ -400,7 +397,7 @@ export default function ParticipantsClient({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <XCircle className="h-4 w-4 text-destructive" />
-                  <span className="text-sm">Rejected</span>
+                  <span className="text-sm">{t.statuses.rejected}</span>
                 </div>
                 <Badge variant="outline" className={statusColors.rejected}>
                   {rejectedCount}
@@ -412,22 +409,22 @@ export default function ParticipantsClient({
           {/* Quick Actions */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Quick Actions</CardTitle>
+              <CardTitle className="text-base">{t.quick_actions}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <Button
                 variant="outline"
-                className="w-full justify-start gap-2"
+                className="h-auto min-h-8 w-full justify-start gap-2 whitespace-normal py-1.5 text-left"
                 size="sm"
                 onClick={handleApproveAll}
                 disabled={isPending || pendingCount === 0 || !canManage}
               >
                 <CheckCircle className="h-4 w-4" />
-                Barcha kutilayotganni tasdiqlash ({pendingCount})
+                {t.approve_all(pendingCount)}
               </Button>
               <Button
                 variant="outline"
-                className="w-full justify-start gap-2"
+                className="h-auto min-h-8 w-full justify-start gap-2 whitespace-normal py-1.5 text-left"
                 size="sm"
                 disabled={tournamentParticipants.length === 0}
                 asChild
@@ -435,10 +432,10 @@ export default function ParticipantsClient({
                 <a
                   href={`mailto:?bcc=${encodeURIComponent(
                     tournamentParticipants.map(p => p.email).join(',')
-                  )}&subject=${encodeURIComponent(tournament?.title ?? 'Turnir')}`}
+                  )}&subject=${encodeURIComponent(tournament?.title ?? t.mail_subject_fallback)}`}
                 >
                   <Mail className="h-4 w-4" />
-                  Hammaga email yozish
+                  {t.email_all}
                 </a>
               </Button>
             </CardContent>
@@ -454,6 +451,7 @@ function SeedInput({ participantId, seed }: { participantId: string; seed: numbe
   const router = useRouter()
   const [value, setValue] = useState(seed ? String(seed) : '')
   const [saving, startSaving] = useTransition()
+  const { dict } = useLanguage()
 
   const save = () => {
     if (value === (seed ? String(seed) : '')) return
@@ -470,7 +468,7 @@ function SeedInput({ participantId, seed }: { participantId: string; seed: numbe
 
   return (
     <label className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-      Seed
+      {dict.dashboard.participants.seed}
       <Input
         type="number"
         min={1}
@@ -479,7 +477,7 @@ function SeedInput({ participantId, seed }: { participantId: string; seed: numbe
         onBlur={save}
         disabled={saving}
         className="h-7 w-16 px-2 text-xs"
-        aria-label="Seed raqami"
+        aria-label={dict.dashboard.participants.seed_aria}
         placeholder="—"
       />
     </label>

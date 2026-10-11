@@ -6,15 +6,21 @@ import { getCurrentUser } from '@/lib/session'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { DbErrorCard } from '@/components/db-error-card'
+import { getI18n } from '@/lib/i18n/server'
 import { ProfileForm, type ProfileFormValues } from './profile-form'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Profilni tahrirlash', robots: { index: false } }
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.account.edit_profile.meta_title, robots: { index: false } }
+}
 
 export default async function EditProfilePage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login?next=%2Fsettings%2Fprofile')
+  const { dict } = await getI18n()
+  const t = dict.account.edit_profile
 
   let initial: ProfileFormValues | null = null
   try {
@@ -36,27 +42,27 @@ export default async function EditProfilePage() {
     console.error('edit profile page failed', error)
   }
 
-  if (!initial) return <DbErrorCard message="Profil ma‘lumotlarini yuklab bo‘lmadi." />
+  if (!initial) return <DbErrorCard message={t.load_error} />
 
   return (
     <div className="container mx-auto max-w-2xl space-y-6 px-4 py-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild aria-label="Sozlamalarga qaytish">
+        <Button variant="ghost" size="icon" asChild aria-label={t.back_aria}>
           <Link href="/settings">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">Profilni tahrirlash</h1>
-          <p className="text-sm text-muted-foreground">Ism, username, bio va avatar</p>
+          <h1 className="text-2xl font-bold">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Ma‘lumotlar</CardTitle>
+          <CardTitle className="text-base">{t.details}</CardTitle>
           <CardDescription>
-            Rol, reyting va tasdiqlash belgisi platforma tomonidan boshqariladi
+            {t.details_desc}
           </CardDescription>
         </CardHeader>
         <CardContent>

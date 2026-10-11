@@ -26,26 +26,16 @@ import { ALL_LOCATIONS, locationOptions, sportCategories } from '@/lib/constants
 import {
   filtersToQuery,
   hasActiveFilters,
+  dateRanges,
+  locationFilterLabel,
+  sportFilterLabel,
   type DateRange,
   type TournamentFilters,
 } from '@/lib/tournament-filters'
+import { useLanguage } from '@/lib/i18n/language-context'
+import type { TournamentStatusValue } from '@/lib/types'
 
-const statusOptions = [
-  { value: 'all', label: 'Barcha statuslar' },
-  { value: 'registration_open', label: 'Ro‘yxat ochiq' },
-  { value: 'upcoming', label: 'Kutilmoqda' },
-  { value: 'ongoing', label: 'Jonli' },
-  { value: 'completed', label: 'Yakunlangan' },
-  { value: 'cancelled', label: 'Bekor qilingan' },
-]
-
-const dateRangeOptions: { value: DateRange; label: string }[] = [
-  { value: 'all', label: 'Istalgan vaqt' },
-  { value: 'today', label: 'Bugun' },
-  { value: 'this_week', label: 'Bu hafta' },
-  { value: 'this_month', label: 'Bu oy' },
-  { value: 'next_month', label: 'Keyingi oy' },
-]
+const statusValues = ['all', 'registration_open', 'upcoming', 'ongoing', 'completed', 'cancelled'] as const
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -57,6 +47,13 @@ const SEARCH_DEBOUNCE_MS = 300
 export function SearchFilters({ filters }: { filters: TournamentFilters }) {
   const router = useRouter()
   const pathname = usePathname()
+  const { dict } = useLanguage()
+  const f = dict.tournament.filters
+  const statusOptions = statusValues.map((value) => ({
+    value,
+    label: value === 'all' ? f.all_statuses : dict.status[value as TournamentStatusValue],
+  }))
+  const dateRangeOptions = dateRanges.map((value) => ({ value, label: f.dates[value] }))
   const [isPending, startTransition] = useTransition()
   const [searchQuery, setSearchQuery] = useState(filters.q)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -113,8 +110,8 @@ export function SearchFilters({ filters }: { filters: TournamentFilters }) {
           />
           <Input
             type="search"
-            aria-label="Turnirlarni qidirish"
-            placeholder="Turnir, sport yoki tashkilotchi..."
+            aria-label={f.search_label}
+            placeholder={dict.feed.search_placeholder}
             className="pl-10"
             value={searchQuery}
             onChange={(event) => onType(event.target.value)}
@@ -129,35 +126,35 @@ export function SearchFilters({ filters }: { filters: TournamentFilters }) {
 
         <div className="hidden gap-2 md:flex">
           <Select value={filters.sport} onValueChange={(v) => push({ sport: v })}>
-            <SelectTrigger className="w-40" aria-label="Sport turi">
-              <SelectValue placeholder="Sport" />
+            <SelectTrigger className="w-40" aria-label={f.sport_type}>
+              <SelectValue placeholder={f.sport} />
             </SelectTrigger>
             <SelectContent>
               {sportCategories.map((category) => (
                 <SelectItem key={category.id} value={category.id}>
-                  {category.name}
+                  {sportFilterLabel(dict, category.id)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           <Select value={filters.location} onValueChange={(v) => push({ location: v })}>
-            <SelectTrigger className="w-44" aria-label="Joylashuv">
+            <SelectTrigger className="w-44" aria-label={f.location}>
               <MapPin className="mr-2 h-4 w-4" aria-hidden />
-              <SelectValue placeholder="Joylashuv" />
+              <SelectValue placeholder={f.location} />
             </SelectTrigger>
             <SelectContent>
               {locationOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                  {locationFilterLabel(dict, option.value)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           <Select value={filters.status} onValueChange={(v) => push({ status: v })}>
-            <SelectTrigger className="w-44" aria-label="Status">
-              <SelectValue placeholder="Status" />
+            <SelectTrigger className="w-44" aria-label={f.status}>
+              <SelectValue placeholder={f.status} />
             </SelectTrigger>
             <SelectContent>
               {statusOptions.map((option) => (
@@ -171,7 +168,7 @@ export function SearchFilters({ filters }: { filters: TournamentFilters }) {
 
         <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="relative md:hidden" aria-label="Filtrlar">
+            <Button variant="outline" size="icon" className="relative md:hidden" aria-label={f.filters}>
               <SlidersHorizontal className="h-4 w-4" aria-hidden />
               {activeCount > 0 && (
                 <Badge className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center p-0 text-xs">
@@ -182,22 +179,22 @@ export function SearchFilters({ filters }: { filters: TournamentFilters }) {
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[80vh] overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>Filtrlar</SheetTitle>
-              <SheetDescription>Sport, joylashuv, status va sana bo‘yicha torayting.</SheetDescription>
+              <SheetTitle>{f.filters}</SheetTitle>
+              <SheetDescription>{f.sheet_description}</SheetDescription>
             </SheetHeader>
             <div className="mt-6 space-y-6 px-4 pb-8">
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="filter-sport">
-                  Sport
+                  {f.sport}
                 </label>
                 <Select value={filters.sport} onValueChange={(v) => push({ sport: v })}>
                   <SelectTrigger id="filter-sport">
-                    <SelectValue placeholder="Sport turini tanlang" />
+                    <SelectValue placeholder={f.choose_sport} />
                   </SelectTrigger>
                   <SelectContent>
                     {sportCategories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
-                        {category.name}
+                        {sportFilterLabel(dict, category.id)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -206,16 +203,16 @@ export function SearchFilters({ filters }: { filters: TournamentFilters }) {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="filter-location">
-                  Joylashuv
+                  {f.location}
                 </label>
                 <Select value={filters.location} onValueChange={(v) => push({ location: v })}>
                   <SelectTrigger id="filter-location">
-                    <SelectValue placeholder="Joyni tanlang" />
+                    <SelectValue placeholder={f.choose_location} />
                   </SelectTrigger>
                   <SelectContent>
                     {locationOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                        {locationFilterLabel(dict, option.value)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -224,11 +221,11 @@ export function SearchFilters({ filters }: { filters: TournamentFilters }) {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="filter-status">
-                  Status
+                  {f.status}
                 </label>
                 <Select value={filters.status} onValueChange={(v) => push({ status: v })}>
                   <SelectTrigger id="filter-status">
-                    <SelectValue placeholder="Statusni tanlang" />
+                    <SelectValue placeholder={f.choose_status} />
                   </SelectTrigger>
                   <SelectContent>
                     {statusOptions.map((option) => (
@@ -242,14 +239,14 @@ export function SearchFilters({ filters }: { filters: TournamentFilters }) {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="filter-date">
-                  Sana
+                  {f.date}
                 </label>
                 <Select
                   value={filters.dateRange}
                   onValueChange={(v) => push({ dateRange: v as DateRange })}
                 >
                   <SelectTrigger id="filter-date">
-                    <SelectValue placeholder="Sana oralig‘i" />
+                    <SelectValue placeholder={f.date_range} />
                   </SelectTrigger>
                   <SelectContent>
                     {dateRangeOptions.map((option) => (
@@ -263,10 +260,10 @@ export function SearchFilters({ filters }: { filters: TournamentFilters }) {
 
               <div className="flex gap-2 pt-4">
                 <Button variant="outline" className="flex-1" onClick={clearFilters}>
-                  Tozalash
+                  {f.clear}
                 </Button>
                 <Button className="flex-1" onClick={() => setIsFilterOpen(false)}>
-                  Qo‘llash
+                  {f.apply}
                 </Button>
               </div>
             </div>
@@ -276,17 +273,17 @@ export function SearchFilters({ filters }: { filters: TournamentFilters }) {
 
       {hasActiveFilters(filters) && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted-foreground">Faol filtrlar:</span>
+          <span className="text-sm text-muted-foreground">{f.active}</span>
           {filters.q ? <FilterChip label={`“${filters.q}”`} onClear={() => { typedRef.current = false; setSearchQuery(''); push({ q: '' }) }} /> : null}
           {filters.sport !== 'all' ? (
             <FilterChip
-              label={sportCategories.find((c) => c.id === filters.sport)?.name ?? filters.sport}
+              label={sportFilterLabel(dict, filters.sport)}
               onClear={() => push({ sport: 'all' })}
             />
           ) : null}
           {filters.location !== ALL_LOCATIONS ? (
             <FilterChip
-              label={locationOptions.find((o) => o.value === filters.location)?.label ?? filters.location}
+              label={locationFilterLabel(dict, filters.location)}
               onClear={() => push({ location: ALL_LOCATIONS })}
             />
           ) : null}
@@ -303,7 +300,7 @@ export function SearchFilters({ filters }: { filters: TournamentFilters }) {
             />
           ) : null}
           <Button variant="ghost" size="sm" className="text-xs" onClick={clearFilters}>
-            Hammasini tozalash
+            {f.clear_all}
           </Button>
         </div>
       )}
@@ -312,13 +309,14 @@ export function SearchFilters({ filters }: { filters: TournamentFilters }) {
 }
 
 function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  const { dict } = useLanguage()
   return (
     <Badge variant="secondary" className="gap-1 pr-1">
       {label}
       <button
         type="button"
         onClick={onClear}
-        aria-label={`${label} filtrini olib tashlash`}
+        aria-label={dict.tournament.filters.remove(label)}
         className="rounded-sm p-0.5 hover:bg-background/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <X className="h-3 w-3" aria-hidden />
@@ -335,6 +333,7 @@ export function SportCategoryTabs({
   selected: string
   onSelect: (id: string) => void
 }) {
+  const { dict } = useLanguage()
   return (
     <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-2">
       {sportCategories.map((category) => (
@@ -345,7 +344,7 @@ export function SportCategoryTabs({
           className={cn('flex-shrink-0', selected === category.id && 'glow-primary')}
           onClick={() => onSelect(category.id)}
         >
-          {category.name}
+          {sportFilterLabel(dict, category.id)}
         </Button>
       ))}
     </div>

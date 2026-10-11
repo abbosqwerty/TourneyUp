@@ -5,10 +5,15 @@ import { RecalculatePointsButton } from './recalculate-points'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatDate } from '@/lib/time'
+import { getI18n } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Super admin', robots: { index: false } }
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.admin.overview.meta_title, robots: { index: false } }
+}
 
 async function loadOverview() {
   const [pendingApplications, organizations, suspended, users, tournaments, openTournaments, recentApplications, recentOrganizations] =
@@ -52,6 +57,8 @@ async function loadOverview() {
 }
 
 export default async function AdminOverviewPage() {
+  const { dict, locale } = await getI18n()
+  const t = dict.admin.overview
   let data: Awaited<ReturnType<typeof loadOverview>> | null = null
   try {
     data = await loadOverview()
@@ -63,26 +70,26 @@ export default async function AdminOverviewPage() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Ma‘lumotni olib bo‘lmadi</CardTitle>
-          <CardDescription>Baza bilan aloqa yo‘q. Keyinroq qayta urinib ko‘ring.</CardDescription>
+          <CardTitle>{t.load_failed}</CardTitle>
+          <CardDescription>{dict.admin.db_unavailable}</CardDescription>
         </CardHeader>
       </Card>
     )
   }
 
   const stats = [
-    { label: 'Kutilayotgan arizalar', value: data.pendingApplications, icon: FileClock, href: '/admin/applications' },
-    { label: 'Tashkilotlar', value: data.organizations, icon: Building2, href: '/admin/organizations' },
-    { label: 'Foydalanuvchilar', value: data.users, icon: Users, href: '/admin/users' },
-    { label: 'Turnirlar', value: data.tournaments, icon: Trophy, href: '/admin/tournaments' },
+    { label: t.stat_pending, value: data.pendingApplications, icon: FileClock, href: '/admin/applications' },
+    { label: t.stat_organizations, value: data.organizations, icon: Building2, href: '/admin/organizations' },
+    { label: t.stat_users, value: data.users, icon: Users, href: '/admin/users' },
+    { label: t.stat_tournaments, value: data.tournaments, icon: Trophy, href: '/admin/tournaments' },
   ]
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Platforma boshqaruvi</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">{t.title}</h1>
         <p className="text-sm text-muted-foreground">
-          Tashkilot arizalarini ko‘rib chiqing, akkauntlarni boshqaring va turnirlarni kuzatib boring.
+          {t.subtitle}
         </p>
       </div>
 
@@ -108,10 +115,10 @@ export default async function AdminOverviewPage() {
         <Card className="border-destructive/40 bg-destructive/5">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
             <p className="text-sm">
-              <strong>{data.suspended}</strong> ta tashkilot to‘xtatilgan holatda.
+              <strong>{data.suspended}</strong> {t.suspended_notice(data.suspended)}
             </p>
             <Button asChild size="sm" variant="outline">
-              <Link href="/admin/organizations">Ko‘rish</Link>
+              <Link href="/admin/organizations">{t.view}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -121,16 +128,16 @@ export default async function AdminOverviewPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-2">
             <div>
-              <CardTitle className="text-base">Yangi arizalar</CardTitle>
-              <CardDescription>Ko‘rib chiqilishi kutilayotgan tashkilotlar</CardDescription>
+              <CardTitle className="text-base">{t.new_applications}</CardTitle>
+              <CardDescription>{t.new_applications_desc}</CardDescription>
             </div>
             <Button asChild size="sm" variant="outline">
-              <Link href="/admin/applications">Hammasi</Link>
+              <Link href="/admin/applications">{dict.admin.all}</Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
             {data.recentApplications.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">Yangi ariza yo‘q</p>
+              <p className="py-6 text-center text-sm text-muted-foreground">{t.no_new_applications}</p>
             ) : (
               data.recentApplications.map((application) => (
                 <div
@@ -144,7 +151,7 @@ export default async function AdminOverviewPage() {
                     </p>
                   </div>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    {application.createdAt.toLocaleDateString('uz-UZ')}
+                    {formatDate(application.createdAt, locale)}
                   </span>
                 </div>
               ))
@@ -155,16 +162,16 @@ export default async function AdminOverviewPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-2">
             <div>
-              <CardTitle className="text-base">Oxirgi tashkilotlar</CardTitle>
-              <CardDescription>Platformadagi faol akkauntlar</CardDescription>
+              <CardTitle className="text-base">{t.recent_organizations}</CardTitle>
+              <CardDescription>{t.recent_organizations_desc}</CardDescription>
             </div>
             <Button asChild size="sm" variant="outline">
-              <Link href="/admin/organizations">Hammasi</Link>
+              <Link href="/admin/organizations">{dict.admin.all}</Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
             {data.recentOrganizations.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">Hali tashkilot yo‘q</p>
+              <p className="py-6 text-center text-sm text-muted-foreground">{t.no_organizations}</p>
             ) : (
               data.recentOrganizations.map((organization) => (
                 <div
@@ -174,16 +181,16 @@ export default async function AdminOverviewPage() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{organization.name}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      @{organization.owner.username} · {organization._count.tournaments} turnir
+                      @{organization.owner.username} · {dict.admin.tournaments_count(organization._count.tournaments)}
                     </p>
                   </div>
                   <Badge variant={organization.status === 'ACTIVE' ? 'secondary' : 'destructive'} className="shrink-0">
                     {organization.status === 'ACTIVE' ? (
                       <>
-                        <UserCheck className="mr-1 h-3 w-3" aria-hidden /> Faol
+                        <UserCheck className="mr-1 h-3 w-3" aria-hidden /> {dict.admin.active}
                       </>
                     ) : (
-                      'To‘xtatilgan'
+                      dict.admin.suspended
                     )}
                   </Badge>
                 </div>
@@ -195,10 +202,9 @@ export default async function AdminOverviewPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Tourney Points</CardTitle>
+          <CardTitle className="text-base">{t.points_title}</CardTitle>
           <CardDescription>
-            Ballar turnir natijalaridan avtomatik hisoblanadi. Ball jadvali o‘zgartirilgandan keyin butun reytingni
-            qayta hisoblash uchun ishlating — har bir o‘zgarish audit tarixiga yoziladi.
+            {t.points_desc}
           </CardDescription>
         </CardHeader>
         <CardContent>

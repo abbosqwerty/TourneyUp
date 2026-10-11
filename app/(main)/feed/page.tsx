@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { tournamentPoster } from '@/lib/media'
+import { todayIso } from '@/lib/time'
+import type { Prisma } from '@prisma/client'
 import {
   FEED_PAGE_SIZE,
   buildTournamentWhere,
@@ -9,14 +11,18 @@ import {
   type TournamentFilters,
 } from '@/lib/tournament-filters'
 import type { Tournament, TournamentCategory, TournamentStatusValue } from '@/lib/types'
+import { getI18n } from '@/lib/i18n/server'
 import { DbErrorCard } from '@/components/db-error-card'
 import FeedClient from './feed-client'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Turnirlar',
-  description: 'Universitet va shahar turnirlarini kashf qiling, ro‘yxatdan o‘ting va kuzatib boring.',
+export async function generateMetadata(): Promise<Metadata> {
+  const { dict } = await getI18n()
+  return {
+    title: dict.tournament.feed.meta_title,
+    description: dict.tournament.feed.meta_description,
+  }
 }
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
@@ -33,7 +39,8 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
   }
 
   if (!data) {
-    return <DbErrorCard message="Turnirlarni yuklab bo‘lmadi. Baza bilan aloqa yo‘q — keyinroq qayta urinib ko‘ring." />
+    const { dict } = await getI18n()
+    return <DbErrorCard message={dict.tournament.feed.load_error} />
   }
 
   return (
@@ -57,8 +64,27 @@ const cardInclude = {
   _count: { select: { participants: true } },
 } as const
 
+/**
+ * Finished tournaments drop out of the feed: completed/cancelled ones, and any
+ * whose last day (end date, or start date for one-day events) is already past
+ * in Tashkent even if the organizer never flipped the status.
+ */
+function notFinished(): Prisma.TournamentWhereInput {
+  const today = todayIso()
+  return {
+    status: { notIn: ['completed', 'cancelled'] },
+    OR: [
+      { endDate: { gte: today } },
+      { AND: [{ OR: [{ endDate: null }, { endDate: '' }] }, { date: { gte: today } }] },
+    ],
+  }
+}
+
 async function load(userId: string | null, filters: TournamentFilters) {
-  const where = buildTournamentWhere(filters)
+  // Asking for completed/cancelled explicitly is how people browse history.
+  const showsHistory = filters.status === 'completed' || filters.status === 'cancelled'
+  const filtered = buildTournamentWhere(filters)
+  const where: Prisma.TournamentWhereInput = showsHistory ? filtered : { AND: [filtered, notFinished()] }
 
   // Filtering and paging both happen in SQL: the browser never receives more
   // than one page, and `_count` replaces a count query per tournament.
@@ -72,7 +98,7 @@ async function load(userId: string | null, filters: TournamentFilters) {
     }),
     db.tournament.count({ where }),
     db.tournament.findMany({
-      where: { status: { in: ['ongoing', 'registration_open'] } },
+      where: { AND: [{ status: { in: ['ongoing', 'registration_open'] } }, notFinished()] },
       include: {
         ...cardInclude,
         stories: {

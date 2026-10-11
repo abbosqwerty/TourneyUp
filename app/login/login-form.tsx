@@ -17,6 +17,8 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
+  const { dict } = useLanguage()
+  const t = dict.account.login
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -40,9 +42,9 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
       }
 
       if (result.data.mustChangePassword) {
-        toast.info('Xavfsizlik uchun parolni almashtiring')
+        toast.info(t.change_password_notice)
       } else {
-        toast.success('Xush kelibsiz!')
+        toast.success(t.welcome)
       }
 
       // `next` only ever carries a same-site path from the middleware.
@@ -51,8 +53,6 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
       window.location.href = target
     })
   }
-
-  const { dict } = useLanguage()
 
   return (
     <Card className="border-border bg-card/80 shadow-lg backdrop-blur-md">
@@ -64,7 +64,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
               id="identifier"
               name="identifier"
               autoComplete="username"
-              placeholder="abbosq yoki abbosazizmurodovich@gmail.com"
+              placeholder={t.identifier_placeholder}
               aria-invalid={Boolean(errors.identifier)}
               disabled={isPending}
               required
@@ -90,7 +90,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-                aria-label={showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish'}
+                aria-label={showPassword ? t.hide_password : t.show_password}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -134,13 +134,13 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
                     toast.error(res.error)
                     return
                   }
-                  toast.success('Xush kelibsiz!')
+                  toast.success(t.welcome)
                   window.location.href = res.data.redirectTo
                 })
               }}
               className="justify-start text-xs font-medium"
             >
-              🎮 Demo O‘yinchi (demouser1)
+              🎮 {t.demo_player} (demouser1)
             </Button>
             <Button
               type="button"
@@ -157,13 +157,13 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
                     toast.error(res.error)
                     return
                   }
-                  toast.success('Xush kelibsiz!')
+                  toast.success(t.welcome)
                   window.location.href = res.data.redirectTo
                 })
               }}
               className="justify-start text-xs font-medium"
             >
-              👤 Abbos (O‘yinchi — abbosq)
+              👤 Abbos ({t.role_player} — abbosq)
             </Button>
             <Button
               type="button"
@@ -180,13 +180,13 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
                     toast.error(res.error)
                     return
                   }
-                  toast.success('Xush kelibsiz!')
+                  toast.success(t.welcome)
                   window.location.href = res.data.redirectTo
                 })
               }}
               className="justify-start text-xs font-medium"
             >
-              🏢 Tashkent Sports (Tashkilotchi)
+              🏢 Tashkent Sports ({t.role_organizer})
             </Button>
           </div>
         </div>

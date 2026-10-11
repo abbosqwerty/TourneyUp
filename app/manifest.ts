@@ -1,10 +1,13 @@
 import type { MetadataRoute } from 'next'
+import { getI18n } from '@/lib/i18n/server'
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const { dict, locale } = await getI18n()
   return {
+    lang: locale,
     name: 'TourneyUp',
     short_name: 'TourneyUp',
-    description: 'Turnirlarni kashf qiling, ro‘yxatdan o‘ting va kanallar orqali kuzatib boring.',
+    description: dict.chrome.meta.share_description,
     start_url: '/feed',
     display: 'standalone',
     background_color: '#ffffe3',

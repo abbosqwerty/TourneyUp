@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { 
   Trophy, 
@@ -26,6 +25,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ParticipantSlots } from '@/components/participant-slots'
+import { displayFee } from '@/components/tournament-card'
+import { useLanguage } from '@/lib/i18n/language-context'
+import { formatDayMonth } from '@/lib/time'
 
 export interface StoryData {
   id: string
@@ -53,28 +55,24 @@ export interface StoryData {
 const typeConfig = {
   live: {
     icon: Radio,
-    label: 'LIVE',
     gradientRing: 'from-destructive via-accent to-primary',
     badgeClass: 'bg-destructive text-destructive-foreground',
     storyTheme: 'from-destructive/20 via-card to-background',
   },
   upcoming: {
     icon: Calendar,
-    label: 'SOON',
     gradientRing: 'from-secondary via-accent to-primary',
     badgeClass: 'bg-secondary text-secondary-foreground border border-border',
     storyTheme: 'from-secondary/40 via-card to-background',
   },
   featured: {
     icon: Sparkles,
-    label: 'FEATURED',
     gradientRing: 'from-accent via-primary to-foreground',
     badgeClass: 'bg-foreground text-background font-bold',
     storyTheme: 'from-accent/30 via-card to-background',
   },
   registration: {
     icon: Trophy,
-    label: 'OPEN',
     gradientRing: 'from-primary via-accent to-ring',
     badgeClass: 'bg-primary text-primary-foreground font-bold',
     storyTheme: 'from-primary/20 via-card to-background',
@@ -115,7 +113,8 @@ interface StoryViewerProps {
 }
 
 function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProps) {
-  const router = useRouter()
+  const { dict, locale } = useLanguage()
+  const h = dict.tournament.highlight
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [progress, setProgress] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
@@ -202,7 +201,7 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
             goToPrev()
           }}
           className="hidden md:flex absolute left-8 top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-full bg-secondary/80 hover:bg-secondary text-foreground items-center justify-center transition-all hover:scale-110 border border-border"
-          aria-label="Previous story"
+          aria-label={h.prev}
         >
           <ChevronLeft className="h-7 w-7" />
         </button>
@@ -216,7 +215,7 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
             goToNext()
           }}
           className="hidden md:flex absolute right-8 top-1/2 -translate-y-1/2 z-50 h-12 w-12 rounded-full bg-secondary/80 hover:bg-secondary text-foreground items-center justify-center transition-all hover:scale-110 border border-border"
-          aria-label="Next story"
+          aria-label={h.next}
         >
           <ChevronRight className="h-7 w-7" />
         </button>
@@ -307,12 +306,12 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-bold leading-tight text-foreground">
-                    {currentStory.organizerName || 'TourneyUp Host'}
+                    {currentStory.organizerName || h.host_fallback}
                   </span>
                   <CheckCircle className="h-3.5 w-3.5 text-primary" />
                 </div>
                 <span className="text-[10px] text-muted-foreground font-medium">
-                  {currentStory.sport || 'Tournament Highlight'}
+                  {currentStory.sport || h.sport_fallback}
                 </span>
               </div>
             </div>
@@ -325,7 +324,7 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
                   setIsPaused(!isPaused)
                 }}
                 className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-                aria-label={isPaused ? 'Play' : 'Pause'}
+                aria-label={isPaused ? h.play : h.pause}
               >
                 {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
               </button>
@@ -337,7 +336,7 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
                   onClose()
                 }}
                 className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-                aria-label="Close"
+                aria-label={dict.common.close}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -394,9 +393,9 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
               <div className="p-2.5 rounded-xl bg-secondary/50 backdrop-blur-md border border-border flex items-center gap-2.5">
                 <Trophy className="h-5 w-5 text-primary shrink-0" />
                 <div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-semibold">Prize</span>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-semibold">{h.prize}</span>
                   <span className="text-xs font-bold text-foreground line-clamp-1">
-                    {currentStory.prizePool || 'Trophy & Glory'}
+                    {currentStory.prizePool ? displayFee(currentStory.prizePool, dict.tournament.card.free) : h.prize_fallback}
                   </span>
                 </div>
               </div>
@@ -405,9 +404,9 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
               <div className="p-2.5 rounded-xl bg-secondary/50 backdrop-blur-md border border-border flex items-center gap-2.5">
                 <Calendar className="h-5 w-5 text-primary shrink-0" />
                 <div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-semibold">Date</span>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-semibold">{h.date}</span>
                   <span className="text-xs font-bold text-foreground line-clamp-1">
-                    {currentStory.date ? new Date(currentStory.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Soon'}
+                    {currentStory.date ? formatDayMonth(currentStory.date, locale) : h.date_fallback}
                   </span>
                 </div>
               </div>
@@ -416,9 +415,9 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
               <div className="p-2.5 rounded-xl bg-secondary/50 backdrop-blur-md border border-border flex items-center gap-2.5 col-span-2">
                 <MapPin className="h-5 w-5 text-primary shrink-0" />
                 <div className="min-w-0">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-semibold">Venue</span>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-semibold">{h.venue}</span>
                   <span className="text-xs font-bold text-foreground line-clamp-1">
-                    {currentStory.location || 'Online Arena'}
+                    {currentStory.location || h.venue_fallback}
                   </span>
                 </div>
               </div>
@@ -452,7 +451,7 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
             className="w-full rounded-2xl h-12 border border-white/30 bg-white/15 backdrop-blur-xl hover:bg-white/25 text-white font-bold text-sm shadow-lg transition-all hover:scale-[1.01] flex items-center justify-center gap-2"
           >
             <Link href={`/tournament/${currentStory.tournamentId}`}>
-              <span>View Tournament & Join</span>
+              <span className="truncate">{h.cta}</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

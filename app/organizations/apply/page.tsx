@@ -1,25 +1,31 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { AuthShell } from '@/components/auth/auth-shell'
+import { getI18n } from '@/lib/i18n/server'
 import { ApplyForm } from './apply-form'
 
-export const metadata: Metadata = {
-  title: 'Tashkilot bo‘lib ariza yuborish',
-  description:
-    'TourneyUp platformasida rasmiy tashkilot bo‘lib turnirlar o‘tkazish uchun ariza yuboring. Super admin arizani ko‘rib chiqib, sizga akkaunt yaratib beradi.',
+export async function generateMetadata(): Promise<Metadata> {
+  const { dict } = await getI18n()
+  return {
+    title: dict.account.apply.meta_title,
+    description: dict.account.apply.meta_description,
+  }
 }
 
-export default function ApplyPage() {
+export default async function ApplyPage() {
+  const { dict } = await getI18n()
+  const t = dict.account.apply
+
   return (
     <AuthShell
       wide
-      title="Tashkilot arizasi"
-      subtitle="Arizangiz super admin dashboard'ida ko‘rinadi. Tasdiqlangandan keyin sizga login va parol beriladi."
+      title={t.title}
+      subtitle={t.subtitle}
       footer={
         <>
-          Oddiy foydalanuvchi bo‘lib qo‘shilmoqchimisiz?{' '}
+          {t.footer_question}{' '}
           <Link href="/register" className="font-semibold text-primary hover:underline">
-            Ro‘yxatdan o‘tish
+            {t.footer_link}
           </Link>
         </>
       }

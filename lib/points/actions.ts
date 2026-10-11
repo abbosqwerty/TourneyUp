@@ -5,6 +5,7 @@ import { getCurrentUser } from '../session'
 import { fail, succeedWith, type ActionResult } from '../action-result'
 import { guard, minutes } from '../rate-limit'
 import { recalculateAllPoints } from './award'
+import { getI18n } from '../i18n/server'
 
 /**
  * Super-admin safety valve: rebuild the whole ledger from tournament
@@ -12,10 +13,11 @@ import { recalculateAllPoints } from './award'
  * RECALCULATED. There is no way to hand out arbitrary points.
  */
 export async function recalculatePoints(): Promise<ActionResult<{ tournaments: number; changed: number }>> {
+  const { dict, locale } = await getI18n()
   const user = await getCurrentUser()
-  if (!user || user.role !== 'SUPER_ADMIN') return fail('Faqat super admin uchun')
+  if (!user || user.role !== 'SUPER_ADMIN') return fail(dict.errors.super_admin_only)
 
-  const limited = guard(`points-recalc:${user.id}`, 5, minutes(10))
+  const limited = guard(`points-recalc:${user.id}`, 5, minutes(10), locale)
   if (limited) return limited
 
   try {
@@ -25,6 +27,6 @@ export async function recalculatePoints(): Promise<ActionResult<{ tournaments: n
     return succeedWith(result)
   } catch (error) {
     console.error('recalculatePoints failed', error)
-    return fail('Qayta hisoblashda xatolik')
+    return fail(dict.errors.recalculate_failed)
   }
 }

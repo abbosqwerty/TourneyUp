@@ -13,6 +13,11 @@ import { Input } from '@/components/ui/input'
 import { subscribeToChannel } from '@/lib/channel-actions'
 import type { TicketListItem } from '@/lib/support'
 import { cn } from '@/lib/utils'
+import { formatDayMonth } from '@/lib/time'
+import { useLanguage } from '@/lib/i18n/language-context'
+import type { Dictionary } from '@/lib/i18n/dictionaries'
+import type { Locale } from '@/lib/i18n/types'
+import { renderSystemPost } from '@/lib/stored-text'
 
 export type SidebarChannel = {
   id: string
@@ -21,8 +26,15 @@ export type SidebarChannel = {
   avatar: string
   archived: boolean
   memberRole: ChannelMemberRole
-  subtitle: string
+  handle: string
+  /** Sport as entered for the tournament/team (user content). */
+  sport: string
+  /** Team groups only. */
+  memberCount: number | null
   lastMessage: string | null
+  lastAuthor: string | null
+  /** The last post is a site-generated SYSTEM line (translated on render). */
+  lastSystem: boolean
   lastMessageAt: string | null
   unreadCount: number
 }
@@ -36,24 +48,36 @@ export type SidebarData = {
 
 type Section = 'ORGANIZATION' | 'TOURNAMENT' | 'TEAM' | 'SUPPORT'
 
-const SECTIONS: { key: Section; label: string; icon: typeof Building2 }[] = [
-  { key: 'ORGANIZATION', label: 'Tashkilotlar', icon: Building2 },
-  { key: 'TOURNAMENT', label: 'Turnirlar', icon: Trophy },
-  { key: 'TEAM', label: 'Jamoalarim', icon: Shirt },
-  { key: 'SUPPORT', label: 'Yordam', icon: LifeBuoy },
+const SECTIONS: { key: Section; label: 'organizations' | 'tournaments' | 'teams' | 'support'; icon: typeof Building2 }[] = [
+  { key: 'ORGANIZATION', label: 'organizations', icon: Building2 },
+  { key: 'TOURNAMENT', label: 'tournaments', icon: Trophy },
+  { key: 'TEAM', label: 'teams', icon: Shirt },
+  { key: 'SUPPORT', label: 'support', icon: LifeBuoy },
 ]
 
-export function relativeTime(iso: string | null) {
+export function relativeTime(iso: string | null, dict: Dictionary, locale: Locale) {
   if (!iso) return ''
   const diff = Date.now() - new Date(iso).getTime()
   const minutes = Math.round(diff / 60000)
-  if (minutes < 1) return 'hozir'
-  if (minutes < 60) return `${minutes} daq`
+  if (minutes < 1) return dict.relative.now
+  if (minutes < 60) return dict.relative.minutes(minutes)
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours} soat`
+  if (hours < 24) return dict.relative.hours(hours)
   const days = Math.round(hours / 24)
-  if (days < 7) return `${days} kun`
-  return new Date(iso).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' })
+  if (days < 7) return dict.relative.days(days)
+  return formatDayMonth(iso, locale)
+}
+
+function channelSubtitle(c: SidebarChannel, dict: Dictionary) {
+  if (c.type === 'TOURNAMENT') return c.sport
+  if (c.type === 'TEAM') return `${c.sport} · ${dict.chat.shell.members(c.memberCount ?? 0)}`
+  return `@${c.handle}`
+}
+
+function channelPreview(c: SidebarChannel, dict: Dictionary) {
+  if (!c.lastMessage) return null
+  const text = c.lastSystem ? renderSystemPost(c.lastMessage, dict) : c.lastMessage
+  return `${c.lastAuthor ? `${c.lastAuthor}: ` : ''}${text}`
 }
 
 function UnreadDot({ count }: { count: number }) {
@@ -70,6 +94,8 @@ function UnreadDot({ count }: { count: number }) {
  * conversation take turns, driven by the URL.
  */
 export function MessagesShell({ data, isPlayer, children }: { data: SidebarData; isPlayer: boolean; children: React.ReactNode }) {
+  const { dict } = useLanguage()
+  const t = dict.chat.shell
   const pathname = usePathname()
   const onIndex = pathname === '/messages'
   const activeId = pathname.split('/')[2] ?? null
@@ -108,12 +134,20 @@ export function MessagesShell({ data, isPlayer, children }: { data: SidebarData;
   const section = chosen ?? sectionOfPath() ?? fallback
 
   return (
-    <div className="theme-msg container mx-auto max-w-6xl bg-background px-0 text-foreground md:px-4 md:py-4">
-      <div className="grid md:h-[calc(100dvh-7.5rem)] md:grid-cols-[340px_minmax(0,1fr)] md:overflow-hidden md:rounded-2xl md:border md:border-border">
-        <aside className={cn('flex min-h-0 flex-col border-border md:border-r', !onIndex && 'hidden md:flex')}>
+    <div className={cn('theme-msg container mx-auto max-w-6xl bg-background px-0 text-foreground md:px-4 md:py-4', !onIndex && 'max-md:-mb-4')}>
+      {/* On phones an open conversation fills exactly the space between the
+          top bar and the fixed bottom nav (4rem + 1px border each, plus safe area); the -mb-4
+          cancels the extra 1rem of the layout's pb-20 so the composer sits on the nav. */}
+      <div
+        className={cn(
+          'grid grid-cols-[minmax(0,1fr)] md:h-[calc(100dvh-7.5rem)] md:grid-cols-[300px_minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)] md:overflow-hidden md:rounded-2xl md:border md:border-border',
+          !onIndex && 'h-[calc(100dvh-8rem-2px-env(safe-area-inset-bottom))] overflow-hidden md:h-[calc(100dvh-7.5rem)]'
+        )}
+      >
+        <aside className={cn('flex min-h-0 min-w-0 flex-col border-border md:border-r', !onIndex && 'hidden md:flex')}>
           <div className="space-y-3 border-b border-border p-4">
-            <h1 className="text-xl font-bold">Xabarlar</h1>
-            <nav className="grid grid-cols-4 gap-1 rounded-xl bg-secondary/60 p-1" aria-label="Xabar bo‘limlari">
+            <h1 className="text-xl font-bold">{t.title}</h1>
+            <nav className="grid grid-cols-4 gap-1 rounded-xl bg-secondary/60 p-1" aria-label={t.sections_label}>
               {SECTIONS.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
@@ -121,14 +155,14 @@ export function MessagesShell({ data, isPlayer, children }: { data: SidebarData;
                   onClick={() => setChosen(key)}
                   aria-pressed={section === key}
                   className={cn(
-                    'relative flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[11px] font-medium transition-colors',
+                    'relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[11px] font-medium transition-colors',
                     section === key ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   <Icon className="h-4 w-4" aria-hidden />
-                  <span className="truncate">{label}{sectionCounts[key] > 0 ? ` (${sectionCounts[key]})` : ''}</span>
+                  <span className="max-w-full truncate" title={t[label]}>{t[label]}{sectionCounts[key] > 0 ? ` (${sectionCounts[key]})` : ''}</span>
                   {counts[key] > 0 ? (
-                    <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" aria-label={`${counts[key]} o‘qilmagan`} />
+                    <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" aria-label={t.unread(counts[key])} />
                   ) : null}
                 </button>
               ))}
@@ -150,25 +184,16 @@ export function MessagesShell({ data, isPlayer, children }: { data: SidebarData;
           </div>
         </aside>
 
-        <section className={cn('flex min-h-[70dvh] min-w-0 flex-col md:min-h-0', onIndex && 'hidden md:flex')}>{children}</section>
+        <section className={cn('flex min-h-0 min-w-0 flex-col', onIndex && 'hidden md:flex')}>{children}</section>
       </div>
     </div>
   )
 }
 
-const EMPTY: Record<Exclude<Section, 'SUPPORT'>, { title: string; text: string }> = {
-  ORGANIZATION: {
-    title: 'Hali hech kimni kuzatmayapsiz',
-    text: 'Tashkilotlarning rasmiy e’lonlari — yangi turnirlar, sanalar, qoidalar — shu yerda chiqadi. Pastdan obuna bo‘ling.',
-  },
-  TOURNAMENT: {
-    title: 'Turnir guruhlari yo‘q',
-    text: 'Turnirga arizangiz tasdiqlangach, uning guruhiga avtomatik qo‘shilasiz: jadval, e’lonlar va tashkilotchilar bilan muloqot.',
-  },
-  TEAM: {
-    title: 'Jamoa chatlari yo‘q',
-    text: 'Har bir jamoangizning yopiq chati shu yerda paydo bo‘ladi.',
-  },
+const EMPTY_KEY: Record<Exclude<Section, 'SUPPORT'>, 'organization' | 'tournament' | 'team'> = {
+  ORGANIZATION: 'organization',
+  TOURNAMENT: 'tournament',
+  TEAM: 'team',
 }
 
 function ChannelList({
@@ -184,6 +209,9 @@ function ChannelList({
   activeId: string | null
   isPlayer: boolean
 }) {
+  const { dict, locale } = useLanguage()
+  const t = dict.chat.shell
+  const empty = EMPTY_KEY[section]
   const [query, setQuery] = useState('')
   const visible = channels.filter((c) => !query || c.title.toLowerCase().includes(query.toLowerCase()))
 
@@ -192,22 +220,22 @@ function ChannelList({
       {channels.length > 5 ? (
         <div className="relative px-4">
           <Search className="absolute left-7 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Qidirish" className="pl-9" aria-label="Suhbatlarni qidirish" />
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.search} className="pl-9" aria-label={t.search_label} />
         </div>
       ) : null}
 
       {channels.length === 0 ? (
         <div className="space-y-2 px-6 py-8 text-center">
-          <p className="text-sm font-medium">{EMPTY[section].title}</p>
-          <p className="text-xs text-muted-foreground">{EMPTY[section].text}</p>
+          <p className="text-sm font-medium">{dict.chat.empty[`${empty}_title`]}</p>
+          <p className="text-xs text-muted-foreground">{dict.chat.empty[`${empty}_text`]}</p>
           {section === 'TEAM' && isPlayer ? (
             <Button size="sm" variant="outline" asChild className="mt-2">
-              <Link href="/teams">Jamoalarim bo‘limiga o‘tish</Link>
+              <Link href="/teams">{t.go_teams}</Link>
             </Button>
           ) : null}
           {section === 'TOURNAMENT' ? (
             <Button size="sm" variant="outline" asChild className="mt-2">
-              <Link href="/feed">Turnirlarni ko‘rish</Link>
+              <Link href="/feed">{t.browse_tournaments}</Link>
             </Button>
           ) : null}
         </div>
@@ -230,12 +258,12 @@ function ChannelList({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <p className="truncate text-sm font-semibold">{c.title}</p>
-                    {c.archived ? <Archive className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Arxiv" /> : null}
+                    {c.archived ? <Archive className="h-3 w-3 shrink-0 text-muted-foreground" aria-label={t.archive} /> : null}
                   </div>
-                  <p className="truncate text-xs text-muted-foreground">{c.lastMessage ?? c.subtitle}</p>
+                  <p className="truncate text-xs text-muted-foreground">{channelPreview(c, dict) ?? channelSubtitle(c, dict)}</p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span className="text-[11px] text-muted-foreground">{relativeTime(c.lastMessageAt)}</span>
+                  <span className="text-[11px] text-muted-foreground">{relativeTime(c.lastMessageAt, dict, locale)}</span>
                   <UnreadDot count={c.unreadCount} />
                 </div>
               </Link>
@@ -250,6 +278,8 @@ function ChannelList({
 }
 
 function Discover({ items }: { items: SidebarData['discover'] }) {
+  const { dict } = useLanguage()
+  const t = dict.chat.shell
   const router = useRouter()
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [, startTransition] = useTransition()
@@ -260,14 +290,14 @@ function Discover({ items }: { items: SidebarData['discover'] }) {
       const result = await subscribeToChannel(id)
       setPendingId(null)
       if (!result.ok) return void toast.error(result.error)
-      toast.success('Obuna bo‘ldingiz')
+      toast.success(t.subscribed)
       router.refresh()
     })
   }
 
   return (
     <div className="space-y-2 border-t border-border px-4 pt-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tashkilotlarni kuzatish</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.follow_title}</p>
       {items.map((item) => (
         <div key={item.id} className="flex items-center gap-3 rounded-lg border border-border p-2.5">
           <Avatar className="h-9 w-9 shrink-0">
@@ -278,12 +308,12 @@ function Discover({ items }: { items: SidebarData['discover'] }) {
             <p className="truncate text-sm font-medium">{item.title}</p>
             <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
               <Users className="h-3 w-3" aria-hidden />
-              {item.memberCount} obunachi
+              {t.subscribers(item.memberCount)}
             </p>
           </div>
           <Button size="sm" variant="outline" className="gap-1" disabled={pendingId === item.id} onClick={() => follow(item.id)}>
             {pendingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Plus className="h-3.5 w-3.5" aria-hidden />}
-            Obuna
+            {t.subscribe}
           </Button>
         </div>
       ))}
@@ -297,14 +327,9 @@ const STATUS_CLASSES: Record<TicketListItem['status'], string> = {
   RESOLVED: 'bg-success text-success-foreground',
   CLOSED: 'bg-muted text-muted-foreground',
 }
-const STATUS_LABELS: Record<TicketListItem['status'], string> = {
-  OPEN: 'Ochiq',
-  IN_PROGRESS: 'Jarayonda',
-  RESOLVED: 'Hal qilindi',
-  CLOSED: 'Yopilgan',
-}
-
 function TicketRow({ ticket, activeId, staffView }: { ticket: TicketListItem; activeId: string | null; staffView: boolean }) {
+  const { dict, locale } = useLanguage()
+  const t = dict.chat.support_list
   return (
     <Link
       href={`/messages/support/${ticket.id}`}
@@ -313,35 +338,34 @@ function TicketRow({ ticket, activeId, staffView }: { ticket: TicketListItem; ac
     >
       <div className="flex items-center gap-2">
         <p className={cn('min-w-0 flex-1 truncate text-sm', ticket.unread ? 'font-bold' : 'font-medium')}>{ticket.subject}</p>
-        <Badge className={cn('shrink-0 text-[10px]', STATUS_CLASSES[ticket.status])}>{STATUS_LABELS[ticket.status]}</Badge>
+        <Badge className={cn('shrink-0 text-[10px]', STATUS_CLASSES[ticket.status])}>{dict.chat.ticket_status[ticket.status]}</Badge>
       </div>
       <p className="truncate text-xs text-muted-foreground">
-        {ticket.scope === 'TOURNAMENT' ? `Turnir: ${ticket.tournament?.title ?? '—'}` : 'TourneyUp yordami'}
-        {staffView ? ` · ${ticket.requester.name}` : ''} · {relativeTime(ticket.lastMessageAt)}
+        {ticket.scope === 'TOURNAMENT' ? t.tournament(ticket.tournament?.title ?? '—') : t.platform}
+        {staffView ? ` · ${ticket.requester.name}` : ''} · {relativeTime(ticket.lastMessageAt, dict, locale)}
       </p>
     </Link>
   )
 }
 
 function SupportList({ data, activeId }: { data: SidebarData; activeId: string | null }) {
+  const { dict } = useLanguage()
+  const t = dict.chat.support_list
   return (
     <div className="space-y-4 py-3">
       <div className="px-4">
         <Button asChild className="w-full gap-2">
           <Link href="/messages/support/new">
             <Plus className="h-4 w-4" aria-hidden />
-            Yangi murojaat
+            {t.new_ticket}
           </Link>
         </Button>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Texnik muammo, shikoyat yoki savol — TourneyUp jamoasiga yoki aniq turnir supportiga yozing. Murojaatlaringizni faqat
-          siz va support xodimlari ko‘radi.
-        </p>
+        <p className="mt-2 text-xs text-muted-foreground">{t.intro}</p>
       </div>
 
       {data.staffQueue.length > 0 ? (
         <div>
-          <p className="px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Javob kutayotganlar (xodim)</p>
+          <p className="px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.staff_queue}</p>
           <ul className="divide-y divide-border">
             {data.staffQueue.map((t) => (
               <li key={t.id}>
@@ -353,9 +377,9 @@ function SupportList({ data, activeId }: { data: SidebarData; activeId: string |
       ) : null}
 
       <div>
-        <p className="px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Mening murojaatlarim</p>
+        <p className="px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.mine}</p>
         {data.myTickets.length === 0 ? (
-          <p className="px-4 py-4 text-xs text-muted-foreground">Hali murojaat yo‘q.</p>
+          <p className="px-4 py-4 text-xs text-muted-foreground">{t.none}</p>
         ) : (
           <ul className="divide-y divide-border">
             {data.myTickets.map((t) => (

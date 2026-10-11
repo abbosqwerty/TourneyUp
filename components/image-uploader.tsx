@@ -13,6 +13,7 @@ import {
   isAllowedVideoType,
 } from '@/lib/media'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export type UploadedImage = {
   id: string
@@ -42,12 +43,14 @@ type Props = {
 export function ImageUploader({
   value,
   onChange,
-  label = 'Rasm yuklash',
-  hint = `PNG, JPG, WebP — maksimal ${formatBytes(MAX_UPLOAD_BYTES)}`,
+  label,
+  hint,
   className,
   aspectClassName = 'aspect-[1200/630]',
   allowVideo = false,
 }: Props) {
+  const { dict } = useLanguage()
+  const t = dict.chrome.uploader
   const inputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -60,12 +63,12 @@ export function ImageUploader({
       const isImage = isAllowedImageType(file.type)
       const isVideo = allowVideo && isAllowedVideoType(file.type)
       if (!isImage && !isVideo) {
-        setError(allowVideo ? 'Faqat rasm, MP4 yoki WebM video yuklash mumkin' : 'Faqat PNG, JPG, WebP yoki GIF yuklash mumkin')
+        setError(allowVideo ? t.only_media : t.only_images)
         return
       }
       const maxBytes = isVideo ? MAX_STORY_VIDEO_BYTES : MAX_UPLOAD_BYTES
       if (file.size > maxBytes) {
-        setError(`Fayl juda katta (${formatBytes(file.size)}). Maksimal — ${formatBytes(maxBytes)}`)
+        setError(t.too_large(formatBytes(file.size), formatBytes(maxBytes)))
         return
       }
 
@@ -77,17 +80,17 @@ export function ImageUploader({
         const payload = await response.json()
 
         if (!response.ok || !payload.ok) {
-          setError(payload?.error ?? 'Yuklashda xatolik')
+          setError(payload?.error ?? t.upload_error)
           return
         }
         onChange(payload.data as UploadedImage)
       } catch {
-        setError('Tarmoq xatosi — qayta urinib ko‘ring')
+        setError(t.network_error)
       } finally {
         setIsUploading(false)
       }
     },
-    [onChange]
+    [onChange, allowVideo, t]
   )
 
   return (
@@ -110,7 +113,7 @@ export function ImageUploader({
           {value.mimeType.startsWith('video/') ? (
             <video src={value.url} className="h-full w-full object-cover" controls muted playsInline />
           ) : (
-            <img src={value.url} alt="Yuklangan rasm" className="h-full w-full object-cover" />
+            <img src={value.url} alt={t.uploaded_alt} className="h-full w-full object-cover" />
           )}
           <div className="absolute right-2 top-2 flex gap-2">
             <Button
@@ -120,13 +123,13 @@ export function ImageUploader({
               onClick={() => inputRef.current?.click()}
               disabled={isUploading}
             >
-              Almashtirish
+              {t.replace}
             </Button>
             <Button
               type="button"
               size="icon"
               variant="destructive"
-              aria-label="Rasmni olib tashlash"
+              aria-label={t.remove}
               onClick={() => onChange(null)}
               disabled={isUploading}
             >
@@ -168,8 +171,8 @@ export function ImageUploader({
           ) : (
             <Upload className="h-10 w-10 text-muted-foreground" />
           )}
-          <span className="text-sm font-medium">{isUploading ? 'Yuklanmoqda…' : label}</span>
-          <span className="text-xs text-muted-foreground">{hint}</span>
+          <span className="text-sm font-medium">{isUploading ? t.uploading : (label ?? t.label)}</span>
+          <span className="text-xs text-muted-foreground">{hint ?? t.hint(formatBytes(MAX_UPLOAD_BYTES))}</span>
         </button>
       )}
 

@@ -1,6 +1,7 @@
 import { db } from './db'
 import type { ChannelMemberRole, Prisma, TeamRole } from '@prisma/client'
 import { mediaUrl } from './media'
+import { encodeSystemPost, type SystemPostKey } from './stored-text'
 
 /** Plain helpers — not server actions. See the note in `lib/staff.ts`. */
 
@@ -326,6 +327,14 @@ export async function postSystemMessage(channelId: string | null | undefined, au
   await db.channelPost.create({ data: { channelId, authorId, content, kind: 'SYSTEM' } })
 }
 
+/**
+ * Preferred form of `postSystemMessage`: stores a key so each reader sees the
+ * line in their own language (`renderSystemPost` in `lib/stored-text`).
+ */
+export async function postSystemNotice(channelId: string | null | undefined, authorId: string, key: SystemPostKey) {
+  await postSystemMessage(channelId, authorId, encodeSystemPost(key))
+}
+
 export type ChannelListEntry = Awaited<ReturnType<typeof listChannelsForUser>>[number]
 
 /** Channels the user belongs to, newest activity first. */
@@ -363,7 +372,7 @@ export async function listChannelsForUser(userId: string) {
           posts: {
             orderBy: { createdAt: 'desc' },
             take: 1,
-            select: { content: true, createdAt: true, author: { select: { name: true } } },
+            select: { content: true, kind: true, createdAt: true, author: { select: { name: true } } },
           },
         },
       },
@@ -394,6 +403,7 @@ export async function listChannelsForUser(userId: string) {
           ? { id: m.channel.team.id, name: m.channel.team.name, sport: m.channel.team.sport, memberCount: m.channel.team._count.members }
           : null,
         lastMessage: last?.content ?? null,
+        lastMessageKind: last?.kind ?? null,
         lastMessageAt: last?.createdAt ?? null,
         lastAuthor: last?.author.name ?? null,
         unreadCount: unread,

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { StoryViewer } from './story-viewer'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export type StoryGroupProps = {
   organizationId: string
@@ -27,6 +28,7 @@ export type StoryGroupProps = {
  */
 export function StoriesBar({ groups }: { groups: StoryGroupProps[] }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
+  const { dict } = useLanguage()
 
   if (groups.length === 0) return null
 
@@ -53,7 +55,7 @@ export function StoriesBar({ groups }: { groups: StoryGroupProps[] }) {
                    
                   <img
                     src={group.avatar}
-                    alt={`${group.organizationName} story`}
+                    alt={dict.tournament.viewer.avatar_alt(group.organizationName)}
                     className="h-14 w-14 rounded-full object-cover"
                   />
                 ) : (

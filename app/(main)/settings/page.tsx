@@ -9,26 +9,26 @@ import { LogoutButton } from '@/components/logout-button'
 import { DeleteAccountDialog } from './delete-account'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { LanguageToggle } from '@/components/language-toggle'
+import { getI18n } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Sozlamalar', robots: { index: false } }
-
-const ROLE_LABELS = {
-  USER: 'Foydalanuvchi',
-  ORGANIZATION: 'Tashkilot',
-  SUPER_ADMIN: 'Super admin',
-} as const
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.account.settings.meta_title, robots: { index: false } }
+}
 
 export default async function SettingsPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login?next=%2Fsettings')
+  const { dict } = await getI18n()
+  const t = dict.account.settings
 
   return (
     <div className="container mx-auto max-w-2xl space-y-6 px-4 py-6 theme-settings bg-background text-foreground">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Sozlamalar</h1>
-        <p className="text-sm text-muted-foreground">Akkaunt va ko‘rinish sozlamalari</p>
+        <h1 className="text-2xl font-bold md:text-3xl">{t.title}</h1>
+        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </div>
 
       {user.mustChangePassword ? (
@@ -36,10 +36,10 @@ export default async function SettingsPage() {
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
             <p className="flex items-center gap-2 text-sm">
               <ShieldAlert className="h-4 w-4 text-warning" aria-hidden />
-              Sizga berilgan vaqtinchalik parolni almashtirishingiz kerak.
+              {t.must_change}
             </p>
             <Button size="sm" asChild>
-              <Link href="/settings/password">Parolni almashtirish</Link>
+              <Link href="/settings/password">{t.change_password}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -47,30 +47,30 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Akkaunt</CardTitle>
-          <CardDescription>Profil ma‘lumotlari</CardDescription>
+          <CardTitle className="text-base">{t.account}</CardTitle>
+          <CardDescription>{t.account_desc}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Ism</span>
+            <span className="text-muted-foreground">{t.name}</span>
             <span className="font-medium">{user.name}</span>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Username</span>
+            <span className="text-muted-foreground">{t.username}</span>
             <span className="font-mono">@{user.username}</span>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Email</span>
+            <span className="text-muted-foreground">{t.email}</span>
             <span className="truncate font-mono">{user.email ?? '—'}</span>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Rol</span>
-            <Badge variant="outline">{ROLE_LABELS[user.role]}</Badge>
+            <span className="text-muted-foreground">{t.role}</span>
+            <Badge variant="outline">{t.roles[user.role]}</Badge>
           </div>
           <Button variant="outline" className="mt-2 w-full gap-2" asChild>
             <Link href="/settings/profile">
               <UserPen className="h-4 w-4" aria-hidden />
-              Profilni tahrirlash
+              {t.edit_profile}
             </Link>
           </Button>
         </CardContent>
@@ -78,14 +78,14 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Xavfsizlik</CardTitle>
-          <CardDescription>Parolni almashtirish barcha qurilmalardagi seansni yopadi</CardDescription>
+          <CardTitle className="text-base">{t.security}</CardTitle>
+          <CardDescription>{t.security_desc}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button variant="outline" className="gap-2" asChild>
             <Link href="/settings/password">
               <KeyRound className="h-4 w-4" aria-hidden />
-              Parolni almashtirish
+              {t.change_password}
             </Link>
           </Button>
         </CardContent>
@@ -93,19 +93,19 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Ko‘rinish</CardTitle>
-          <CardDescription>Yorug‘ va tungi rejim o‘rtasida almashish</CardDescription>
+          <CardTitle className="text-base">{t.appearance}</CardTitle>
+          <CardDescription>{t.appearance_desc}</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center gap-3">
           <ThemeToggle />
-          <span className="text-sm text-muted-foreground">Mavzuni almashtirish</span>
+          <span className="text-sm text-muted-foreground">{t.toggle_theme}</span>
           <LanguageToggle showLabel={true} size="default" variant="default" />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Seans</CardTitle>
+          <CardTitle className="text-base">{t.session}</CardTitle>
         </CardHeader>
         <CardContent>
           <LogoutButton variant="destructive" />
@@ -115,11 +115,11 @@ export default async function SettingsPage() {
       {user.role === 'USER' ? (
         <Card className="border-destructive/40">
           <CardHeader>
-            <CardTitle className="text-base text-destructive">Akkauntni o‘chirish</CardTitle>
+            <CardTitle className="text-base text-destructive">{t.delete_title}</CardTitle>
             <CardDescription>
-              Ma‘lumotlaringiz butunlay o‘chadi va qaytarilmaydi. Shartlar:{' '}
+              {t.delete_desc}{' '}
               <Link href="/privacy" className="underline">
-                maxfiylik siyosati
+                {t.privacy_link}
               </Link>
               .
             </CardDescription>

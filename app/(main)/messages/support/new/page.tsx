@@ -1,11 +1,15 @@
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { getI18n } from '@/lib/i18n/server'
 import { NewTicketForm } from './new-ticket-form'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Yangi murojaat', robots: { index: false } }
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.chat.meta.new_ticket, robots: { index: false } }
+}
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 

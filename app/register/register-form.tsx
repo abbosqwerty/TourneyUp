@@ -9,12 +9,15 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { registerUser } from '@/lib/auth-actions'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export function RegisterForm() {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
+  const { dict } = useLanguage()
+  const t = dict.account.register
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -41,7 +44,7 @@ export function RegisterForm() {
         return
       }
 
-      toast.success('Akkaunt yaratildi — xush kelibsiz!')
+      toast.success(t.created_toast)
       window.location.href = result.data.redirectTo
     })
   }
@@ -51,14 +54,14 @@ export function RegisterForm() {
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div className="space-y-2">
-            <Label htmlFor="name">To‘liq ism</Label>
+            <Label htmlFor="name">{t.full_name}</Label>
             <Input id="name" name="name" autoComplete="name" placeholder="Abbos Qurbonov" disabled={isPending} required />
             {errors.name ? <p className="text-xs text-destructive">{errors.name}</p> : null}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">{t.username}</Label>
               <Input
                 id="username"
                 name="username"
@@ -72,7 +75,7 @@ export function RegisterForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t.email}</Label>
               <Input
                 id="email"
                 name="email"
@@ -87,13 +90,13 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Parol</Label>
+            <Label htmlFor="password">{t.password}</Label>
             <Input
               id="password"
               name="password"
               type="password"
               autoComplete="new-password"
-              placeholder="Kamida 8 belgi"
+              placeholder={t.password_placeholder}
               minLength={8}
               disabled={isPending}
               required
@@ -103,12 +106,12 @@ export function RegisterForm() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="university">Universitet (ixtiyoriy)</Label>
+              <Label htmlFor="university">{t.university_optional}</Label>
               <Input id="university" name="university" placeholder="TUIT" disabled={isPending} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="location">Shahar (ixtiyoriy)</Label>
-              <Input id="location" name="location" placeholder="Tashkent, Uzbekistan" disabled={isPending} />
+              <Label htmlFor="location">{t.city_optional}</Label>
+              <Input id="location" name="location" placeholder={t.location_placeholder} disabled={isPending} />
             </div>
           </div>
 
@@ -123,7 +126,7 @@ export function RegisterForm() {
 
           <Button type="submit" className="w-full gap-2" disabled={isPending}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-            {isPending ? 'Yaratilmoqda…' : 'Akkaunt yaratish'}
+            {isPending ? t.creating : t.create_account}
           </Button>
         </form>
       </CardContent>

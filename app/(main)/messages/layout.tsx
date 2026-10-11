@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/session'
 import { listChannelsForUser } from '@/lib/channels'
 import { listStaffQueue, listTicketsForRequester } from '@/lib/support'
 import { DbErrorCard } from '@/components/db-error-card'
+import { getI18n } from '@/lib/i18n/server'
 import { MessagesShell, type SidebarData } from './messages-shell'
 
 export const dynamic = 'force-dynamic'
@@ -23,7 +24,10 @@ export default async function MessagesLayout({ children }: { children: React.Rea
   } catch (error) {
     console.error('messages sidebar failed', error)
   }
-  if (!data) return <DbErrorCard message="Xabarlarni yuklab bo‘lmadi. Keyinroq qayta urinib ko‘ring." />
+  if (!data) {
+    const { dict } = await getI18n()
+    return <DbErrorCard message={dict.chat.load_failed} />
+  }
 
   return <MessagesShell data={data} isPlayer={user.role === 'USER'}>{children}</MessagesShell>
 }
@@ -50,13 +54,12 @@ async function load(userId: string, role: string): Promise<SidebarData> {
       avatar: c.avatar,
       archived: c.archived,
       memberRole: c.memberRole,
-      subtitle:
-        c.type === 'TOURNAMENT'
-          ? (c.tournament?.sport ?? '')
-          : c.type === 'TEAM'
-            ? `${c.team?.sport ?? ''} · ${c.team?.memberCount ?? 0} a’zo`
-            : `@${c.handle}`,
-      lastMessage: c.lastMessage ? `${c.lastAuthor ? `${c.lastAuthor}: ` : ''}${c.lastMessage}` : null,
+      handle: c.handle,
+      sport: c.tournament?.sport ?? c.team?.sport ?? '',
+      memberCount: c.type === 'TEAM' ? (c.team?.memberCount ?? 0) : null,
+      lastMessage: c.lastMessage,
+      lastAuthor: c.lastAuthor,
+      lastSystem: c.lastMessageKind === 'SYSTEM',
       lastMessageAt: c.lastMessageAt?.toISOString() ?? null,
       unreadCount: c.unreadCount,
     })),

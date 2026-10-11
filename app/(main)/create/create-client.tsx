@@ -34,7 +34,9 @@ import { ImageUploader, type UploadedImage } from '@/components/image-uploader'
 import { createTournament } from '@/lib/actions'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
-import { FORMAT_LABELS, TOURNAMENT_FORMATS, suggestFormat, type TournamentFormat } from '@/lib/competition/config'
+import { TOURNAMENT_FORMATS, suggestFormat, type TournamentFormat } from '@/lib/competition/config'
+import { useLanguage } from '@/lib/i18n/language-context'
+import { formatClock, formatDate } from '@/lib/time'
 
 type FormatState = {
   format: TournamentFormat
@@ -70,16 +72,6 @@ const INITIAL_FORMAT: FormatState = {
   leaderboardRounds: '1',
 }
 
-const FORMAT_HINTS: Record<TournamentFormat, string> = {
-  SINGLE_ELIMINATION: 'One loss and you are out. Byes go to the top seeds automatically.',
-  DOUBLE_ELIMINATION: 'Winners and losers brackets; a second loss eliminates. Grand final decides the champion.',
-  ROUND_ROBIN: 'Everyone plays everyone once. Standings decide the placings.',
-  GROUPS_KNOCKOUT: 'Round-robin groups, then the best of each group play a knockout bracket.',
-  SWISS: 'Fixed number of rounds; each round pairs players with similar scores, no rematches.',
-  LEADERBOARD:
-    'No head-to-head games: everyone competes in every round (race, heat, battle-royale match) and a live table ranks them by total points or time.',
-}
-
 const sportCategories = [
   { id: 'football', name: 'Football' },
   { id: 'basketball', name: 'Basketball' },
@@ -95,11 +87,13 @@ const sportCategories = [
   { id: 'badminton', name: 'Badminton' },
   { id: 'league-of-legends', name: 'League of Legends' },
   { id: 'other', name: 'Other' },
-]
+] as const
+
+type SportId = (typeof sportCategories)[number]['id']
 
 const PRESET_TEMPLATES = [
   {
-    name: '⚽ Football Cup',
+    key: 'football' as const,
     title: 'Tashkent Inter-University Football Cup',
     sport: 'football',
     category: 'sports',
@@ -114,7 +108,7 @@ const PRESET_TEMPLATES = [
     requirements: 'Must be an enrolled university student\nValid student ID card required at check-in\nTeam roster minimum 15, maximum 22 players\nMedical clearance certificate required',
   },
   {
-    name: '🎮 Valorant Masters',
+    key: 'valorant' as const,
     title: 'Central Asia Valorant Open Championship',
     sport: 'valorant',
     category: 'esports',
@@ -129,7 +123,7 @@ const PRESET_TEMPLATES = [
     requirements: 'Account level 20+ in current or previous act\nAll team members must join the official Discord server\nMust check in 30 minutes before match time',
   },
   {
-    name: '♟️ Chess Grand Prix',
+    key: 'chess' as const,
     title: 'Uzbekistan Youth Chess Grand Prix',
     sport: 'chess',
     category: 'academic',
@@ -144,7 +138,7 @@ const PRESET_TEMPLATES = [
     requirements: 'Open to players aged 14 to 28\nNational or FIDE rating ID (unrated players also welcome in section B)\nPassport or national ID card required',
   },
   {
-    name: '🏀 3v3 Streetball',
+    key: 'streetball' as const,
     title: 'TUIT Campus 3v3 Streetball Arena',
     sport: 'basketball',
     category: 'sports',
@@ -162,6 +156,8 @@ const PRESET_TEMPLATES = [
 
 export default function CreateTournamentClient() {
   const router = useRouter()
+  const { dict, locale } = useLanguage()
+  const c = dict.create
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [poster, setPoster] = useState<UploadedImage | null>(null)
   const [gallery, setGallery] = useState<(UploadedImage | null)[]>([])
@@ -172,7 +168,7 @@ export default function CreateTournamentClient() {
   // Picking a sport pre-selects the format that fits it, until the organizer
   // chooses a format by hand.
   const [formatTouched, setFormatTouched] = useState(false)
-  const [suggestedFor, setSuggestedFor] = useState<string | null>(null)
+  const [suggestedFor, setSuggestedFor] = useState<SportId | null>(null)
   const suggestFor = (sportId: string) => {
     if (formatTouched) return
     const name = sportCategories.find((c) => c.id === sportId)?.name ?? sportId
@@ -183,7 +179,8 @@ export default function CreateTournamentClient() {
       scoreKind: config.scoreKind ?? prev.scoreKind,
       leaderboardRounds: config.leaderboardRounds ? String(config.leaderboardRounds) : prev.leaderboardRounds,
     }))
-    setSuggestedFor(sportId === 'other' ? null : name)
+    const known = sportCategories.find((cat) => cat.id === sportId)
+    setSuggestedFor(known && known.id !== 'other' ? known.id : null)
   }
 
   const [formData, setFormData] = useState({
@@ -267,7 +264,7 @@ export default function CreateTournamentClient() {
       return
     }
 
-    toast.success('Turnir yaratildi')
+    toast.success(c.created)
     router.push(`/tournament/${result.data.tournamentId}`)
   }
 
@@ -282,9 +279,9 @@ export default function CreateTournamentClient() {
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold">Create Tournament</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">{c.title}</h1>
           <p className="text-muted-foreground mt-1">
-            Set up a new tournament and start accepting registrations
+            {c.subtitle}
           </p>
 
           {/* Quick Fill Real Examples */}
@@ -292,20 +289,20 @@ export default function CreateTournamentClient() {
             <div className="flex items-center gap-2 mb-2.5">
               <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
               <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                Quick Fill Real Examples
+                {c.quick_fill}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               {PRESET_TEMPLATES.map((tmpl) => (
                 <Button
-                  key={tmpl.name}
+                  key={tmpl.key}
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => applyPreset(tmpl)}
                   className="text-xs font-medium border-primary/30 hover:bg-primary hover:text-primary-foreground transition-all"
                 >
-                  {tmpl.name}
+                  {c.presets[tmpl.key]}
                 </Button>
               ))}
             </div>
@@ -320,16 +317,16 @@ export default function CreateTournamentClient() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-primary" />
-                  Basic Information
+                  {c.basic_info}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <FieldGroup>
                   <Field>
-                    <FieldLabel htmlFor="title">Tournament Title</FieldLabel>
+                    <FieldLabel htmlFor="title">{c.tournament_title}</FieldLabel>
                     <Input
                       id="title"
-                      placeholder="e.g., Tashkent Inter-University Football Cup"
+                      placeholder={c.title_placeholder}
                       value={formData.title}
                       onChange={(e) => handleChange('title', e.target.value)}
                     />
@@ -337,15 +334,15 @@ export default function CreateTournamentClient() {
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     <Field>
-                      <FieldLabel htmlFor="sport">Sport / Game</FieldLabel>
+                      <FieldLabel htmlFor="sport">{c.sport_game}</FieldLabel>
                       <Select value={formData.sport} onValueChange={(v) => handleChange('sport', v)}>
                         <SelectTrigger id="sport">
-                          <SelectValue placeholder="Select sport" />
+                          <SelectValue placeholder={c.select_sport} />
                         </SelectTrigger>
                         <SelectContent>
-                          {sportCategories.filter(c => c.id !== 'all').map((category) => (
+                          {sportCategories.map((category) => (
                             <SelectItem key={category.id} value={category.id}>
-                              {category.name}
+                              {c.sports[category.id]}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -353,15 +350,15 @@ export default function CreateTournamentClient() {
                     </Field>
 
                     <Field>
-                      <FieldLabel htmlFor="category">Category</FieldLabel>
+                      <FieldLabel htmlFor="category">{c.category}</FieldLabel>
                       <Select value={formData.category} onValueChange={(v) => handleChange('category', v)}>
                         <SelectTrigger id="category">
-                          <SelectValue placeholder="Select category" />
+                          <SelectValue placeholder={c.select_category} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="sports">Sports</SelectItem>
-                          <SelectItem value="esports">Esports</SelectItem>
-                          <SelectItem value="academic">Academic</SelectItem>
+                          <SelectItem value="sports">{c.categories.sports}</SelectItem>
+                          <SelectItem value="esports">{c.categories.esports}</SelectItem>
+                          <SelectItem value="academic">{c.categories.academic}</SelectItem>
                         </SelectContent>
                       </Select>
                     </Field>
@@ -375,14 +372,14 @@ export default function CreateTournamentClient() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-primary" />
-                  Date & Location
+                  {c.date_location}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <FieldGroup>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <Field>
-                      <FieldLabel htmlFor="date">Start Date</FieldLabel>
+                      <FieldLabel htmlFor="date">{c.start_date}</FieldLabel>
                       <Input
                         id="date"
                         type="date"
@@ -392,7 +389,7 @@ export default function CreateTournamentClient() {
                     </Field>
 
                     <Field>
-                      <FieldLabel htmlFor="time">Start Time</FieldLabel>
+                      <FieldLabel htmlFor="time">{c.start_time}</FieldLabel>
                       <Input
                         id="time"
                         type="time"
@@ -403,13 +400,13 @@ export default function CreateTournamentClient() {
                   </div>
 
                   <Field>
-                    <FieldLabel htmlFor="location">Location</FieldLabel>
+                    <FieldLabel htmlFor="location">{c.location}</FieldLabel>
                     <div className="relative">
                       <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="location"
                         className="pl-10"
-                        placeholder="e.g., Pakhtakor Central Stadium, Tashkent or 'Online'"
+                        placeholder={c.location_placeholder}
                         value={formData.location}
                         onChange={(e) => handleChange('location', e.target.value)}
                       />
@@ -424,17 +421,17 @@ export default function CreateTournamentClient() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" />
-                  Participants & Prizes
+                  {c.participants_prizes}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <FieldGroup>
                   <Field>
-                    <FieldLabel htmlFor="maxParticipants">Maximum Participants</FieldLabel>
+                    <FieldLabel htmlFor="maxParticipants">{c.max_participants}</FieldLabel>
                     <Input
                       id="maxParticipants"
                       type="number"
-                      placeholder="e.g., 32"
+                      placeholder={c.max_participants_placeholder}
                       value={formData.maxParticipants}
                       onChange={(e) => handleChange('maxParticipants', e.target.value)}
                     />
@@ -442,13 +439,13 @@ export default function CreateTournamentClient() {
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     <Field>
-                      <FieldLabel htmlFor="prizePool">Prize Pool</FieldLabel>
+                      <FieldLabel htmlFor="prizePool">{c.prize_pool}</FieldLabel>
                       <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="prizePool"
                           className="pl-10"
-                          placeholder="e.g., 20,000,000 UZS or $1,500"
+                          placeholder={c.prize_pool_placeholder}
                           value={formData.prizePool}
                           onChange={(e) => handleChange('prizePool', e.target.value)}
                         />
@@ -456,13 +453,13 @@ export default function CreateTournamentClient() {
                     </Field>
 
                     <Field>
-                      <FieldLabel htmlFor="entryFee">Entry Fee</FieldLabel>
+                      <FieldLabel htmlFor="entryFee">{c.entry_fee}</FieldLabel>
                       <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="entryFee"
                           className="pl-10"
-                          placeholder="e.g., 100,000 UZS (or leave empty for free)"
+                          placeholder={c.entry_fee_placeholder}
                           value={formData.entryFee}
                           onChange={(e) => handleChange('entryFee', e.target.value)}
                         />
@@ -478,17 +475,17 @@ export default function CreateTournamentClient() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-primary" />
-                  Competition Format
+                  {c.competition_format}
                 </CardTitle>
                 <CardDescription>
-                  When you start the tournament, TourneyUp makes the draw and creates every match automatically.
+                  {c.competition_format_desc}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <FieldGroup>
-                  <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field>
-                      <FieldLabel htmlFor="format">Format</FieldLabel>
+                      <FieldLabel htmlFor="format">{c.format}</FieldLabel>
                       <Select
                         value={formatState.format}
                         onValueChange={(v) => {
@@ -496,13 +493,13 @@ export default function CreateTournamentClient() {
                           setFormat('format', v as TournamentFormat)
                         }}
                       >
-                        <SelectTrigger id="format">
+                        <SelectTrigger id="format" className="w-full min-w-0">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {TOURNAMENT_FORMATS.map((format) => (
                             <SelectItem key={format} value={format}>
-                              {FORMAT_LABELS[format]}
+                              {c.formats[format].label}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -510,7 +507,7 @@ export default function CreateTournamentClient() {
                     </Field>
 
                     <Field>
-                      <FieldLabel htmlFor="participantType">Participants</FieldLabel>
+                      <FieldLabel htmlFor="participantType">{c.participants}</FieldLabel>
                       <Select
                         value={formatState.participantType}
                         onValueChange={(v) => setFormat('participantType', v as FormatState['participantType'])}
@@ -519,23 +516,23 @@ export default function CreateTournamentClient() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="INDIVIDUAL">Individual players</SelectItem>
-                          <SelectItem value="TEAM">Teams</SelectItem>
+                          <SelectItem value="INDIVIDUAL">{c.individual}</SelectItem>
+                          <SelectItem value="TEAM">{c.teams}</SelectItem>
                         </SelectContent>
                       </Select>
                     </Field>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {FORMAT_HINTS[formatState.format]}
+                    {c.formats[formatState.format].hint}
                     {suggestedFor && !formatTouched ? (
-                      <span className="text-primary"> Recommended for {suggestedFor}.</span>
+                      <span className="text-primary">{c.recommended_for(c.sports[suggestedFor])}</span>
                     ) : null}
                   </p>
 
                   {formatState.format === 'LEADERBOARD' ? (
                     <div className="grid sm:grid-cols-2 gap-4">
                       <Field>
-                        <FieldLabel htmlFor="scoreKind">Ranked by</FieldLabel>
+                        <FieldLabel htmlFor="scoreKind">{c.ranked_by}</FieldLabel>
                         <Select
                           value={formatState.scoreKind}
                           onValueChange={(v) => setFormat('scoreKind', v as FormatState['scoreKind'])}
@@ -544,13 +541,13 @@ export default function CreateTournamentClient() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="time">Time — fastest wins (races, swimming)</SelectItem>
-                            <SelectItem value="points">Points — highest total wins (battle royale)</SelectItem>
+                            <SelectItem value="time">{c.rank_time}</SelectItem>
+                            <SelectItem value="points">{c.rank_points}</SelectItem>
                           </SelectContent>
                         </Select>
                       </Field>
                       <Field>
-                        <FieldLabel htmlFor="leaderboardRounds">Rounds / heats</FieldLabel>
+                        <FieldLabel htmlFor="leaderboardRounds">{c.rounds_heats}</FieldLabel>
                         <Input
                           id="leaderboardRounds"
                           type="number"
@@ -566,24 +563,24 @@ export default function CreateTournamentClient() {
                   {formatState.participantType === 'TEAM' ? (
                     <div className="grid sm:grid-cols-2 gap-4">
                       <Field>
-                        <FieldLabel htmlFor="teamSize">Roster size (min)</FieldLabel>
+                        <FieldLabel htmlFor="teamSize">{c.roster_min}</FieldLabel>
                         <Input
                           id="teamSize"
                           type="number"
                           min={1}
-                          placeholder="e.g., 5"
+                          placeholder={c.roster_min_placeholder}
                           value={formatState.teamSize}
                           onChange={(e) => setFormat('teamSize', e.target.value)}
                         />
                         {errors.teamSize ? <p className="text-xs text-destructive">{errors.teamSize}</p> : null}
                       </Field>
                       <Field>
-                        <FieldLabel htmlFor="teamSizeMax">Roster size (max)</FieldLabel>
+                        <FieldLabel htmlFor="teamSizeMax">{c.roster_max}</FieldLabel>
                         <Input
                           id="teamSizeMax"
                           type="number"
                           min={1}
-                          placeholder="Same as min"
+                          placeholder={c.roster_max_placeholder}
                           value={formatState.teamSizeMax}
                           onChange={(e) => setFormat('teamSizeMax', e.target.value)}
                         />
@@ -594,26 +591,26 @@ export default function CreateTournamentClient() {
 
                   <div className={cn('grid sm:grid-cols-2 gap-4', formatState.format === 'LEADERBOARD' && 'hidden')}>
                     <Field>
-                      <FieldLabel htmlFor="seeding">Draw</FieldLabel>
+                      <FieldLabel htmlFor="seeding">{c.draw}</FieldLabel>
                       <Select value={formatState.seeding} onValueChange={(v) => setFormat('seeding', v as FormatState['seeding'])}>
                         <SelectTrigger id="seeding">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="random">Random draw</SelectItem>
-                          <SelectItem value="seeded">Use seeds (set on the participants page)</SelectItem>
+                          <SelectItem value="random">{c.random_draw}</SelectItem>
+                          <SelectItem value="seeded">{c.seeded_draw}</SelectItem>
                         </SelectContent>
                       </Select>
                     </Field>
 
                     {formatState.format === 'GROUPS_KNOCKOUT' ? (
                       <Field>
-                        <FieldLabel htmlFor="groupCount">Number of groups</FieldLabel>
+                        <FieldLabel htmlFor="groupCount">{c.group_count}</FieldLabel>
                         <Input
                           id="groupCount"
                           type="number"
                           min={1}
-                          placeholder="Auto (≈4 per group)"
+                          placeholder={c.group_count_placeholder}
                           value={formatState.groupCount}
                           onChange={(e) => setFormat('groupCount', e.target.value)}
                         />
@@ -622,12 +619,12 @@ export default function CreateTournamentClient() {
 
                     {formatState.format === 'SWISS' ? (
                       <Field>
-                        <FieldLabel htmlFor="swissRounds">Rounds</FieldLabel>
+                        <FieldLabel htmlFor="swissRounds">{c.swiss_rounds}</FieldLabel>
                         <Input
                           id="swissRounds"
                           type="number"
                           min={1}
-                          placeholder="Auto (log₂ of players)"
+                          placeholder={c.swiss_rounds_placeholder}
                           value={formatState.swissRounds}
                           onChange={(e) => setFormat('swissRounds', e.target.value)}
                         />
@@ -637,7 +634,7 @@ export default function CreateTournamentClient() {
 
                   {formatState.format === 'GROUPS_KNOCKOUT' ? (
                     <Field>
-                      <FieldLabel htmlFor="advancePerGroup">Advance from each group</FieldLabel>
+                      <FieldLabel htmlFor="advancePerGroup">{c.advance_per_group}</FieldLabel>
                       <Input
                         id="advancePerGroup"
                         type="number"
@@ -651,7 +648,7 @@ export default function CreateTournamentClient() {
                   {['ROUND_ROBIN', 'GROUPS_KNOCKOUT', 'SWISS'].includes(formatState.format) ? (
                     <div className="grid grid-cols-2 gap-4">
                       <Field>
-                        <FieldLabel htmlFor="winPoints">Points for a win</FieldLabel>
+                        <FieldLabel htmlFor="winPoints">{c.win_points}</FieldLabel>
                         <Input
                           id="winPoints"
                           type="number"
@@ -662,7 +659,7 @@ export default function CreateTournamentClient() {
                         />
                       </Field>
                       <Field>
-                        <FieldLabel htmlFor="drawPoints">Points for a draw</FieldLabel>
+                        <FieldLabel htmlFor="drawPoints">{c.draw_points}</FieldLabel>
                         <Input
                           id="drawPoints"
                           type="number"
@@ -678,9 +675,9 @@ export default function CreateTournamentClient() {
                   {formatState.format === 'SINGLE_ELIMINATION' || formatState.format === 'GROUPS_KNOCKOUT' ? (
                     <label className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
                       <span>
-                        <span className="block text-sm font-medium">Third-place match</span>
+                        <span className="block text-sm font-medium">{c.third_place}</span>
                         <span className="block text-xs text-muted-foreground">
-                          Off: both semi-final losers share 3rd place.
+                          {c.third_place_hint}
                         </span>
                       </span>
                       <Switch
@@ -693,9 +690,9 @@ export default function CreateTournamentClient() {
                   {formatState.format === 'DOUBLE_ELIMINATION' ? (
                     <label className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
                       <span>
-                        <span className="block text-sm font-medium">Grand final reset</span>
+                        <span className="block text-sm font-medium">{c.grand_final_reset}</span>
                         <span className="block text-xs text-muted-foreground">
-                          If the losers-bracket finalist wins the grand final, a deciding match is played.
+                          {c.grand_final_reset_hint}
                         </span>
                       </span>
                       <Switch
@@ -713,16 +710,16 @@ export default function CreateTournamentClient() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-primary" />
-                  Tournament Details
+                  {c.details}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <FieldGroup>
                   <Field>
-                    <FieldLabel htmlFor="description">Description</FieldLabel>
+                    <FieldLabel htmlFor="description">{c.description}</FieldLabel>
                     <Textarea
                       id="description"
-                      placeholder="Describe your tournament, what makes it special, and what participants can expect..."
+                      placeholder={c.description_placeholder}
                       rows={4}
                       value={formData.description}
                       onChange={(e) => handleChange('description', e.target.value)}
@@ -730,24 +727,24 @@ export default function CreateTournamentClient() {
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="rules">Rules</FieldLabel>
+                    <FieldLabel htmlFor="rules">{c.rules}</FieldLabel>
                     <Textarea
                       id="rules"
-                      placeholder="Enter tournament rules (one per line)"
+                      placeholder={c.rules_placeholder}
                       rows={4}
                       value={formData.rules}
                       onChange={(e) => handleChange('rules', e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Enter each rule on a new line
+                      {c.rules_hint}
                     </p>
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="requirements">Requirements</FieldLabel>
+                    <FieldLabel htmlFor="requirements">{c.requirements}</FieldLabel>
                     <Textarea
                       id="requirements"
-                      placeholder="Enter participation requirements (one per line)"
+                      placeholder={c.requirements_placeholder}
                       rows={3}
                       value={formData.requirements}
                       onChange={(e) => handleChange('requirements', e.target.value)}
@@ -762,36 +759,36 @@ export default function CreateTournamentClient() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Upload className="h-5 w-5 text-primary" />
-                  Tournament Poster
+                  {c.poster}
                 </CardTitle>
                 <CardDescription>
-                  Upload an eye-catching poster for your tournament
+                  {c.poster_desc}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <ImageUploader
                   value={poster}
                   onChange={setPoster}
-                  label="Rasmni tanlang yoki shu yerga tashlang"
-                  hint="PNG, JPG, WebP — maksimal 4 MB. Tavsiya: 1200×630px"
+                  label={c.poster_label}
+                  hint={c.poster_hint}
                 />
                 <div className="mt-5 space-y-3">
                   <div>
-                    <p className="text-sm font-medium">Qo‘shimcha posterlar (ixtiyoriy)</p>
-                    <p className="text-xs text-muted-foreground">Feed kartasida Instagram kabi slayd bo‘ladi. Detail sahifada faqat asosiy poster ko‘rinadi.</p>
+                    <p className="text-sm font-medium">{c.extra_posters}</p>
+                    <p className="text-xs text-muted-foreground">{c.extra_posters_hint}</p>
                   </div>
                   {gallery.map((image, index) => (
                     <ImageUploader
                       key={image?.id ?? `draft-${index}`}
                       value={image}
                       onChange={(next) => setGallery((items) => next ? items.map((item, itemIndex) => itemIndex === index ? next : item) : items.filter((_, itemIndex) => itemIndex !== index))}
-                      label={`Qo‘shimcha poster ${index + 1}`}
-                      hint="PNG, JPG yoki WebP — maksimal 4 MB"
+                      label={c.extra_poster(index + 1)}
+                      hint={c.extra_poster_hint}
                     />
                   ))}
                   {gallery.length < 4 ? (
                     <Button type="button" variant="outline" size="sm" onClick={() => setGallery((items) => [...items, null])}>
-                      Qo‘shimcha rasm qo‘shish
+                      {c.add_image}
                     </Button>
                   ) : null}
                 </div>
@@ -804,7 +801,7 @@ export default function CreateTournamentClient() {
                 role="alert"
                 className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
               >
-                <p className="mb-1 font-semibold">Quyidagilarni to‘g‘rilang:</p>
+                <p className="mb-1 font-semibold">{c.fix_errors}</p>
                 <ul className="list-inside list-disc space-y-0.5 text-xs">
                   {Object.entries(errors).map(([field, message]) => (
                     <li key={field}>{message}</li>
@@ -817,7 +814,7 @@ export default function CreateTournamentClient() {
             <div className="flex gap-4 justify-end">
               <Button className="gap-2" onClick={handleSubmit} disabled={isSubmitting}>
                 <Trophy className="h-4 w-4" />
-                {isSubmitting ? 'Creating...' : 'Create Tournament'}
+                {isSubmitting ? c.creating : c.submit}
               </Button>
             </div>
           </div>
@@ -829,7 +826,7 @@ export default function CreateTournamentClient() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Eye className="h-4 w-4" />
-                    Live Preview
+                    {c.preview}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -845,28 +842,24 @@ export default function CreateTournamentClient() {
                         </div>
                       )}
                       <Badge className="absolute top-2 left-2 bg-primary">
-                        Registration Open
+                        {c.preview_registration}
                       </Badge>
                       {formData.sport && (
                         <Badge variant="secondary" className="absolute bottom-2 left-2">
-                          {sportCategories.find(c => c.id === formData.sport)?.name || formData.sport}
+                          {c.sports[formData.sport as SportId] ?? formData.sport}
                         </Badge>
                       )}
                     </div>
                     <div className="p-4">
                       <h3 className="font-semibold line-clamp-2 mb-2">
-                        {formData.title || 'Tournament Title'}
+                        {formData.title || c.preview_title}
                       </h3>
                       <div className="space-y-2 text-xs text-muted-foreground">
                         {formData.date && (
                           <div className="flex items-center gap-2">
                             <Calendar className="h-3 w-3" />
-                            {new Date(formData.date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })}
-                            {formData.time && ` at ${formData.time}`}
+                            {formatDate(formData.date, locale)}
+                            {formData.time && c.preview_at(formatClock(formData.time, locale))}
                           </div>
                         )}
                         {formData.location && (
@@ -878,7 +871,7 @@ export default function CreateTournamentClient() {
                         {formData.maxParticipants && (
                           <div className="flex items-center gap-2">
                             <Users className="h-3 w-3" />
-                            0/{formData.maxParticipants} participants
+                            {c.preview_participants(formData.maxParticipants)}
                           </div>
                         )}
                       </div>
@@ -888,14 +881,14 @@ export default function CreateTournamentClient() {
                           <div className="flex justify-between text-sm">
                             {formData.prizePool && (
                               <div>
-                                <p className="text-xs text-muted-foreground">Prize</p>
+                                <p className="text-xs text-muted-foreground">{c.preview_prize}</p>
                                 <p className="font-bold text-primary">${formData.prizePool}</p>
                               </div>
                             )}
                             <div className="text-right">
-                              <p className="text-xs text-muted-foreground">Entry</p>
+                              <p className="text-xs text-muted-foreground">{c.preview_entry}</p>
                               <p className="font-semibold">
-                                {formData.entryFee ? `$${formData.entryFee}` : 'Free'}
+                                {formData.entryFee ? `$${formData.entryFee}` : c.preview_free}
                               </p>
                             </div>
                           </div>
@@ -905,7 +898,7 @@ export default function CreateTournamentClient() {
                   </div>
 
                   <p className="text-xs text-muted-foreground text-center mt-4">
-                    This is how your tournament will appear in the feed
+                    {c.preview_hint}
                   </p>
                 </CardContent>
               </Card>

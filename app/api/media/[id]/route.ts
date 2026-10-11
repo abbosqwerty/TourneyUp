@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getI18n } from '@/lib/i18n/server'
 
 export const runtime = 'nodejs'
 
@@ -17,7 +18,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     })
 
     if (!asset) {
-      return NextResponse.json({ error: 'Rasm topilmadi' }, { status: 404 })
+      return NextResponse.json({ error: (await getI18n()).dict.errors.media_not_found }, { status: 404 })
     }
 
     const bytes = new Uint8Array(asset.data)
@@ -51,7 +52,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     })
   } catch (error) {
     console.error('media fetch failed', error)
-    return NextResponse.json({ error: 'Rasmni olishda xatolik' }, { status: 500 })
+    return NextResponse.json({ error: (await getI18n()).dict.errors.media_fetch_failed }, { status: 500 })
   }
 }
 

@@ -13,6 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TournamentCard } from '@/components/tournament-card'
 import { NoUpcomingMatches } from '@/components/empty-state'
 import { cn } from '@/lib/utils';
+import { formatDayMonth } from '@/lib/time'
+import { getI18n } from '@/lib/i18n/server'
+import { stageLabel } from '@/lib/competition/labels'
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -21,8 +24,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     where: { OR: [{ id }, { username: id }] },
     select: { name: true },
   })
-  if (!user) return { title: 'Profil topilmadi' }
-  return { title: `${user.name} — Profil` }
+  const { dict } = await getI18n()
+  if (!user) return { title: dict.account.profile.not_found_title }
+  return { title: dict.account.profile.page_title(user.name) }
 }
 
 const resultStyles: Record<UserMatchView['result'], string> = {
@@ -32,16 +36,16 @@ const resultStyles: Record<UserMatchView['result'], string> = {
   pending: 'bg-muted text-muted-foreground border-border',
 }
 
-const resultLabels: Record<UserMatchView['result'], string> = {
-  win: 'G‘ALABA',
-  loss: 'MAG‘LUBIYAT',
-  draw: 'DURANG',
-  pending: 'KUTILMOQDA',
-}
-
 export default async function UserProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await getCurrentUser()
+  const { dict, locale } = await getI18n()
+  const resultLabels: Record<UserMatchView['result'], string> = {
+    win: dict.profile.win,
+    loss: dict.profile.loss,
+    draw: dict.profile.draw,
+    pending: dict.profile.pending,
+  }
 
   let data: Awaited<ReturnType<typeof load>> | null = null
   try {
@@ -53,41 +57,41 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
   if (data === null) {
     const exists = await db.user.findFirst({ where: { OR: [{ id }, { username: id }] }, select: { id: true } })
     if (!exists) notFound()
-    return <DbErrorCard message="Profilni yuklab bo‘lmadi. Keyinroq qayta urinib ko‘ring." />
+    return <DbErrorCard message={dict.account.profile.load_error} />
   }
 
   const { profile, joinedTournaments, upcomingTournaments, matches } = data
   const isOwnProfile = session?.id === profile.id
 
   return (
-    <div className="container mx-auto max-w-5xl space-y-6 px-3.5 sm:px-4 py-4 sm:py-6 theme-profile bg-background text-foreground overflow-x-hidden min-w-0">
+    <div className="container mx-auto max-w-5xl space-y-6 px-3.5 sm:px-4 py-4 sm:py-6 theme-profile bg-background text-foreground overflow-x-clip min-w-0">
       <ProfileHeader user={profile} isOwnProfile={isOwnProfile} />
 
       <Tabs defaultValue="history" className="w-full min-w-0">
-        <TabsList className="w-full justify-start overflow-x-auto scrollbar-none flex-nowrap max-w-full">
+        <TabsList className="sticky top-[4.0625rem] z-30 h-11 w-full max-w-full flex-nowrap justify-start overflow-x-auto shadow-sm scrollbar-none">
           <TabsTrigger value="history" className="gap-2 shrink-0 text-xs sm:text-sm">
             <Swords className="h-4 w-4" aria-hidden />
-            O‘yin tarixi
+            {dict.profile.match_history}
           </TabsTrigger>
           <TabsTrigger value="tournaments" className="gap-2 shrink-0 text-xs sm:text-sm">
             <Trophy className="h-4 w-4" aria-hidden />
-            Turnirlar
+            {dict.profile.tournaments}
           </TabsTrigger>
           <TabsTrigger value="upcoming" className="gap-2 shrink-0 text-xs sm:text-sm">
             <Calendar className="h-4 w-4" aria-hidden />
-            Kutilayotgan
+            {dict.profile.upcoming}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="history" className="mt-4 sm:mt-6 min-w-0">
           <Card className="min-w-0">
             <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-base sm:text-lg">Oxirgi o‘yinlar</CardTitle>
+              <CardTitle className="text-base sm:text-lg">{dict.profile.recent_matches}</CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
               {matches.length === 0 ? (
                 <p className="py-4 text-center text-sm text-muted-foreground">
-                  Hali o‘yin natijasi kiritilmagan.
+                  {dict.profile.no_matches}
                 </p>
               ) : (
                 <ul className="space-y-3 sm:space-y-4">
@@ -109,8 +113,8 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold text-sm sm:text-base">{match.tournamentTitle}</p>
                           <p className="truncate text-xs sm:text-sm text-muted-foreground">
-                            {match.stage ? `${match.stage} · ` : ''}
-                            {match.opponent} bilan
+                            {match.stage ? `${stageLabel(dict, match.stage)} · ` : ''}
+                            {dict.account.profile.vs(match.opponent)}
                           </p>
                         </div>
                       </div>
@@ -118,10 +122,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
                         <p className="text-base sm:text-lg font-bold">{match.score}</p>
                         <p className="text-[11px] sm:text-xs text-muted-foreground">
                           {match.scheduledAt
-                            ? new Date(match.scheduledAt).toLocaleDateString('uz-UZ', {
-                                day: 'numeric',
-                                month: 'short',
-                              })
+                            ? formatDayMonth(match.scheduledAt, locale)
                             : '—'}
                         </p>
                       </div>
@@ -136,7 +137,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
         <TabsContent value="tournaments" className="mt-6">
           {joinedTournaments.length === 0 ? (
             <p className="py-12 text-center text-muted-foreground">
-              {isOwnProfile ? 'Hali hech qanday turnirga yozilmagansiz.' : 'Hali hech qanday turnirda qatnashmagan.'}
+              {isOwnProfile ? dict.profile.no_tournaments_own : dict.profile.no_tournaments_other}
             </p>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

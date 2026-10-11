@@ -116,35 +116,40 @@ export function Navbar({
   return (
     <header className="sticky top-0 z-50 w-full border-b theme-header border-border bg-background/95 text-foreground backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2.5">
+        <Link href="/" className="flex shrink-0 items-center gap-2.5">
           <LogoIcon className="h-9 w-9" />
           <span className="text-xl font-bold tracking-tight">
             Tourney<span className="text-primary">Up</span>
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="hidden min-w-0 items-center gap-0.5 md:flex lg:gap-1">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
+              title={link.label}
+              aria-label={link.label}
               className={cn(
-                'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                'relative flex shrink-0 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors lg:px-3',
                 isActive(link.href)
                   ? 'bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
               )}
             >
               <link.icon className="h-4 w-4" aria-hidden />
-              <span>{link.label}</span>
+              <span className="hidden lg:inline">{link.label}</span>
               {'isLive' in link && link.isLive ? (
-                <span className="flex h-4 items-center gap-1 rounded-full border border-destructive/30 bg-destructive/15 px-1.5 text-[10px] font-extrabold text-destructive">
+                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive lg:hidden" aria-hidden />
+              ) : null}
+              {'isLive' in link && link.isLive ? (
+                <span className="hidden h-4 items-center gap-1 rounded-full border border-destructive/30 bg-destructive/15 px-1.5 text-[10px] font-extrabold text-destructive">
                   <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
-                  LIVE
+                  {dict.chrome.navbar.live}
                 </span>
               ) : null}
               {'badge' in link && link.badge ? (
-                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground lg:static">
                   {link.badge > 99 ? '99+' : link.badge}
                 </span>
               ) : null}
@@ -152,7 +157,7 @@ export function Navbar({
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden shrink-0 items-center gap-1 md:flex lg:gap-2">
 
 
           {currentUser ? <NotificationBell unreadCount={notificationCount} /> : null}
@@ -174,9 +179,9 @@ export function Navbar({
 
           {isOrganization ? (
             <Button size="sm" className="gap-2" asChild>
-              <Link href="/create">
+              <Link href="/create" aria-label={dict.nav.create}>
                 <Plus className="h-4 w-4" aria-hidden />
-                {dict.nav.create}
+                <span className="hidden xl:inline">{dict.nav.create}</span>
               </Link>
             </Button>
           ) : null}
@@ -186,10 +191,10 @@ export function Navbar({
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9 ring-2 ring-border">
-                    <AvatarImage src={currentUser.avatar} alt={`${currentUser.name} avatari`} />
+                    <AvatarImage src={currentUser.avatar} alt={dict.chrome.navbar.avatar_alt(currentUser.name)} />
                     <AvatarFallback>{currentUser.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
-                  <span className="sr-only">Akkaunt menyusi</span>
+                  <span className="sr-only">{dict.chrome.navbar.account_menu}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">

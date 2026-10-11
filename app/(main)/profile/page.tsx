@@ -12,11 +12,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TournamentCard } from '@/components/tournament-card';
 import { NoUpcomingMatches } from '@/components/empty-state';
+import { getI18n } from '@/lib/i18n/server';
 import ProfileContent from './ProfileContent';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Profil', robots: { index: false } };
+export async function generateMetadata() {
+  const { dict } = await getI18n();
+  return { title: dict.account.profile.meta_title, robots: { index: false } };
+}
 
 export default async function ProfilePage() {
   const session = await getCurrentUser();
@@ -29,7 +33,10 @@ export default async function ProfilePage() {
     console.error('profile page failed', error);
   }
 
-  if (!data) return <DbErrorCard message="Profilni yuklab bo‘lmadi. Keyinroq qayta urinib ko‘ring." />;
+  if (!data) {
+    const { dict } = await getI18n();
+    return <DbErrorCard message={dict.account.profile.load_error} />;
+  }
 
   return <ProfileContent data={data} />;
 }

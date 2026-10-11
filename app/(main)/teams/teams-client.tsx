@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { EmptyState } from '@/components/empty-state'
 import { TeamForm } from '@/components/teams/team-form'
 import { createTeam, respondToInvite } from '@/lib/team-actions'
-import { CATEGORY_LABELS } from '@/lib/constants'
+import { useLanguage } from '@/lib/i18n/language-context'
 import type { TeamCard } from '@/lib/teams'
 import { cn } from '@/lib/utils'
 
@@ -24,10 +24,10 @@ type Invite = {
   team: { id: string; name: string; sport: string; logo: string | null; memberCount: number }
 }
 
-const ROLE_BADGE: Record<TeamCard['myRole'], { label: string; className: string; icon: typeof Crown }> = {
-  OWNER: { label: 'Egasi', className: 'bg-primary text-primary-foreground', icon: Crown },
-  CAPTAIN: { label: 'Kapitan', className: 'border border-primary/40 bg-primary/10 text-primary', icon: Shield },
-  MEMBER: { label: 'A’zo', className: 'bg-secondary text-secondary-foreground', icon: Users },
+const ROLE_BADGE: Record<TeamCard['myRole'], { className: string; icon: typeof Crown }> = {
+  OWNER: { className: 'bg-primary text-primary-foreground', icon: Crown },
+  CAPTAIN: { className: 'border border-primary/40 bg-primary/10 text-primary', icon: Shield },
+  MEMBER: { className: 'bg-secondary text-secondary-foreground', icon: Users },
 }
 
 export function TeamLogo({ name, logo, className }: { name: string; logo: string | null; className?: string }) {
@@ -53,6 +53,8 @@ export function TeamsClient({
   maxTeams: number
 }) {
   const router = useRouter()
+  const { dict } = useLanguage()
+  const t = dict.team.list
   const [open, setOpen] = useState(false)
   const active = teams.filter((t) => !t.disbanded)
   const disbanded = teams.filter((t) => t.disbanded)
@@ -60,22 +62,22 @@ export function TeamsClient({
   const createButton = (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2" disabled={!canCreate} title={canCreate ? undefined : `Ko‘pi bilan ${maxTeams} ta jamoa`}>
+        <Button className="gap-2" disabled={!canCreate} title={canCreate ? undefined : t.create_limit(maxTeams)}>
           <Plus className="h-4 w-4" aria-hidden />
-          Jamoa yaratish
+          {t.create}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Yangi jamoa</DialogTitle>
-          <DialogDescription>Siz jamoa egasi bo‘lasiz. Keyin a’zolarni taklif qilasiz.</DialogDescription>
+          <DialogTitle>{t.new_title}</DialogTitle>
+          <DialogDescription>{t.new_description}</DialogDescription>
         </DialogHeader>
         <TeamForm
-          submitLabel="Yaratish"
+          submitLabel={t.create_submit}
           onSubmit={(values) => createTeam(values)}
           onDone={(result) => {
             setOpen(false)
-            toast.success('Jamoa yaratildi')
+            toast.success(t.created)
             if (result.ok && result.data && typeof result.data === 'object' && 'teamId' in result.data) {
               router.push(`/teams/${(result.data as { teamId: string }).teamId}`)
             } else {
@@ -91,9 +93,9 @@ export function TeamsClient({
     <div className="container mx-auto max-w-5xl space-y-6 px-4 py-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold md:text-3xl">Jamoalarim</h1>
+          <h1 className="text-2xl font-bold md:text-3xl">{dict.teams.title}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Har bir o‘yin uchun alohida jamoa — tarkib, rollar va turnirga yozilish shu yerda.
+            {t.subtitle}
           </p>
         </div>
         {createButton}
@@ -103,7 +105,7 @@ export function TeamsClient({
         <section className="space-y-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             <Mail className="h-4 w-4" aria-hidden />
-            Takliflar ({invites.length})
+            {t.invites(invites.length)}
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {invites.map((invite) => (
@@ -117,8 +119,8 @@ export function TeamsClient({
         <EmptyState
           icon={Shirt}
           variant="card"
-          title="Hali jamoangiz yo‘q"
-          description="Futbol, Valorant yoki boshqa jamoaviy musobaqalar uchun jamoa tuzing. Do‘stlaringizni taklif qiling, kapitan tayinlang va jamoaviy turnirlarga birga yoziling. Har bir jamoaning o‘z yopiq chati bo‘ladi."
+          title={t.empty_title}
+          description={t.empty_description}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -130,7 +132,7 @@ export function TeamsClient({
 
       {disbanded.length > 0 ? (
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Tarqatilgan jamoalar</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t.disbanded_title}</h2>
           <div className="grid gap-4 opacity-70 sm:grid-cols-2 lg:grid-cols-3">
             {disbanded.map((team) => (
               <TeamCardView key={team.id} team={team} />
@@ -143,22 +145,24 @@ export function TeamsClient({
 }
 
 function TeamCardView({ team }: { team: TeamCard }) {
+  const { dict } = useLanguage()
+  const categories: Record<string, string> = dict.competition.categories
   const role = ROLE_BADGE[team.myRole]
   const RoleIcon = role.icon
   return (
-    <Card className="flex flex-col transition-colors hover:border-primary/40">
+    <Card className="flex min-w-0 flex-col transition-colors hover:border-primary/40">
       <CardContent className="flex flex-1 flex-col gap-4 p-4">
         <div className="flex items-start gap-3">
           <TeamLogo name={team.name} logo={team.logo} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold">{team.name}</p>
             <p className="truncate text-xs text-muted-foreground">
-              {team.sport} · {CATEGORY_LABELS[team.category] ?? team.category}
+              {team.sport} · {categories[team.category] ?? team.category}
             </p>
           </div>
           <Badge className={cn('gap-1', role.className)}>
             <RoleIcon className="h-3 w-3" aria-hidden />
-            {role.label}
+            {dict.team.roles[team.myRole]}
           </Badge>
         </div>
 
@@ -167,7 +171,7 @@ function TeamCardView({ team }: { team: TeamCard }) {
         <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Users className="h-3.5 w-3.5" aria-hidden />
-            {team.memberCount} a’zo
+            {dict.team.members(team.memberCount)}
           </span>
           <span className="flex items-center gap-1">
             <Crown className="h-3.5 w-3.5" aria-hidden />
@@ -176,14 +180,14 @@ function TeamCardView({ team }: { team: TeamCard }) {
           {team.activeTournaments > 0 ? (
             <span className="flex items-center gap-1 text-primary">
               <Trophy className="h-3.5 w-3.5" aria-hidden />
-              {team.activeTournaments} faol turnir
+              {dict.team.list.active_tournaments(team.activeTournaments)}
             </span>
           ) : null}
-          {team.disbanded ? <Badge variant="outline">Tarqatilgan</Badge> : null}
+          {team.disbanded ? <Badge variant="outline">{dict.teams.disbanded}</Badge> : null}
         </div>
 
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/teams/${team.id}`}>{team.myRole === 'MEMBER' ? 'Ochish' : 'Ochish va boshqarish'}</Link>
+          <Link href={`/teams/${team.id}`}>{team.myRole === 'MEMBER' ? dict.team.list.open : dict.team.list.open_manage}</Link>
         </Button>
       </CardContent>
     </Card>
@@ -192,13 +196,15 @@ function TeamCardView({ team }: { team: TeamCard }) {
 
 function InviteCard({ invite }: { invite: Invite }) {
   const router = useRouter()
+  const { dict } = useLanguage()
+  const t = dict.team.list
   const [isPending, startTransition] = useTransition()
 
   const answer = (accept: boolean) =>
     startTransition(async () => {
       const result = await respondToInvite({ inviteId: invite.id, accept })
       if (!result.ok) return void toast.error(result.error)
-      toast.success(accept ? `“${invite.team.name}” jamoasiga qo‘shildingiz` : 'Taklif rad etildi')
+      toast.success(accept ? t.joined(invite.team.name) : t.declined)
       if (accept) router.push(`/teams/${invite.team.id}`)
       else router.refresh()
     })
@@ -210,15 +216,15 @@ function InviteCard({ invite }: { invite: Invite }) {
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{invite.team.name}</p>
           <p className="truncate text-xs text-muted-foreground">
-            {invite.team.sport} · {invite.team.memberCount} a’zo
-            {invite.invitedBy ? ` · ${invite.invitedBy} taklif qildi` : ''}
+            {invite.team.sport} · {dict.team.members(invite.team.memberCount)}
+            {invite.invitedBy ? ` · ${t.invited_by(invite.invitedBy)}` : ''}
           </p>
         </div>
         <div className="flex gap-1">
-          <Button size="icon" variant="ghost" aria-label="Rad etish" disabled={isPending} onClick={() => answer(false)}>
+          <Button size="icon" variant="ghost" aria-label={t.decline} disabled={isPending} onClick={() => answer(false)}>
             <X className="h-4 w-4" aria-hidden />
           </Button>
-          <Button size="icon" aria-label="Qabul qilish" disabled={isPending} onClick={() => answer(true)}>
+          <Button size="icon" aria-label={t.accept} disabled={isPending} onClick={() => answer(true)}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}
           </Button>
         </div>

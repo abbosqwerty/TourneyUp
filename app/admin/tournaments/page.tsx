@@ -4,20 +4,18 @@ import { db } from '@/lib/db'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { getI18n } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Turnirlar', robots: { index: false } }
-
-const STATUS_LABELS = {
-  upcoming: 'Kutilmoqda',
-  registration_open: 'Ro‘yxat ochiq',
-  ongoing: 'Davom etmoqda',
-  completed: 'Yakunlangan',
-  cancelled: 'Bekor qilingan',
-} as const
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.admin.tournaments.meta_title, robots: { index: false } }
+}
 
 export default async function AdminTournamentsPage() {
+  const { dict } = await getI18n()
+  const t = dict.admin.tournaments
   let tournaments: Awaited<ReturnType<typeof load>> = []
   let failed = false
 
@@ -32,8 +30,8 @@ export default async function AdminTournamentsPage() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Turnirlarni olib bo‘lmadi</CardTitle>
-          <CardDescription>Baza bilan aloqa yo‘q.</CardDescription>
+          <CardTitle>{t.load_failed}</CardTitle>
+          <CardDescription>{dict.admin.db_unavailable_short}</CardDescription>
         </CardHeader>
       </Card>
     )
@@ -42,15 +40,15 @@ export default async function AdminTournamentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Turnirlar</h1>
-        <p className="text-sm text-muted-foreground">Platformadagi barcha turnirlar va ularning xodimlari</p>
+        <h1 className="text-2xl font-bold md:text-3xl">{t.title}</h1>
+        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </div>
 
       <div className="space-y-4">
         {tournaments.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              Hali turnir yo‘q.
+              {t.empty}
             </CardContent>
           </Card>
         ) : (
@@ -73,7 +71,7 @@ export default async function AdminTournamentsPage() {
                   }
                   className="shrink-0"
                 >
-                  {STATUS_LABELS[tournament.status]}
+                  {dict.status[tournament.status]}
                 </Badge>
               </CardHeader>
 
@@ -92,12 +90,12 @@ export default async function AdminTournamentsPage() {
                     {tournament._count.participants} / {tournament.maxParticipants}
                   </span>
                   <span>
-                    Faol xodimlar: <strong className="text-foreground">{tournament.activeStaff}</strong>
+                    {t.active_staff} <strong className="text-foreground">{tournament.activeStaff}</strong>
                   </span>
                 </div>
 
                 <Button asChild size="sm" variant="outline">
-                  <Link href={`/tournament/${tournament.id}`}>Turnirni ko‘rish</Link>
+                  <Link href={`/tournament/${tournament.id}`}>{t.view}</Link>
                 </Button>
               </CardContent>
             </Card>

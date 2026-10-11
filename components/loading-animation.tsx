@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 interface LoadingAnimationProps {
   className?: string
@@ -17,6 +18,7 @@ export function LoadingAnimation({
   autoplay = true,
 }: LoadingAnimationProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const { dict } = useLanguage()
 
   useEffect(() => {
     let anim: import('lottie-web').AnimationItem | null = null
@@ -50,7 +52,7 @@ export function LoadingAnimation({
       ref={containerRef}
       style={style}
       className={cn('inline-flex items-center justify-center pointer-events-none', className)}
-      aria-label="Loading"
+      aria-label={dict.common.loading}
       role="status"
     />
   )

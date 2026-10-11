@@ -37,6 +37,7 @@ import type { User } from '@/lib/types'
 import { useLanguage } from '@/lib/i18n/language-context'
 import { logout } from '@/lib/auth-actions'
 import { LOCALES } from '@/lib/i18n/types'
+import { formatMonthYear } from '@/lib/time'
 
 interface ProfileHeaderProps {
   user: User
@@ -93,11 +94,11 @@ export function ProfileHeader({ user, isOwnProfile = false }: ProfileHeaderProps
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="h-8 gap-1.5 rounded-full bg-background/80 backdrop-blur shadow-xs border border-border/60 text-xs px-2.5 hover:bg-background"
+                  className="h-9 gap-1.5 rounded-full bg-background/90 backdrop-blur shadow-sm border border-border/60 text-xs px-3 hover:bg-background"
                   aria-label={dict.profile.settings_dropdown}
                 >
                   <Settings className="h-3.5 w-3.5 text-foreground" />
-                  <span className="hidden sm:inline font-medium">{dict.nav.settings}</span>
+                  <span className="font-medium">{dict.nav.settings}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -213,7 +214,7 @@ export function ProfileHeader({ user, isOwnProfile = false }: ProfileHeaderProps
           <div className="flex items-center gap-1.5 shrink-0">
             <Calendar className="h-4 w-4 shrink-0" aria-hidden />
             <span>
-              {new Date(user.joinedDate).toLocaleDateString(locale === 'ru' ? 'ru-RU' : locale === 'en' ? 'en-US' : 'uz-UZ', { month: 'short', year: 'numeric' })} {dict.profile.since_prefix}
+              {dict.account.profile.joined(formatMonthYear(user.joinedDate, locale))}
             </span>
           </div>
         </div>
@@ -262,11 +263,11 @@ export function ProfileHeader({ user, isOwnProfile = false }: ProfileHeaderProps
           </div>
         )}
 
-        {/* Sport Rankings - single col on narrow mobile, 2 on sm, 4 on lg */}
+        {/* Sport Rankings - 2 per row on phones and tablets, 4 on lg */}
         {user.sportRanks.length > 0 && (
           <div className="mt-5 sm:mt-6">
             <h3 className="font-semibold text-xs sm:text-sm mb-2.5">{dict.profile.sport_rankings}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
               {user.sportRanks.map((sportRank) => (
                 <div 
                   key={sportRank.sport}
@@ -280,7 +281,7 @@ export function ProfileHeader({ user, isOwnProfile = false }: ProfileHeaderProps
                         tierColors[sportRank.tier]
                       )}
                     >
-                      {sportRank.tier.toUpperCase()}
+                      {(dict.account.profile.tiers[sportRank.tier] ?? sportRank.tier).toUpperCase()}
                     </Badge>
                   </div>
                   <p className="text-base sm:text-lg font-bold">#{sportRank.rank}</p>

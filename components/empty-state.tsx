@@ -1,4 +1,7 @@
+'use client'
+
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/lib/i18n/language-context'
 import { Button } from '@/components/ui/button'
 import { LucideIcon, Bookmark, Trophy, MessageSquare, Users, Search, Calendar } from 'lucide-react'
 import Link from 'next/link'
@@ -52,56 +55,66 @@ export function EmptyState({
 
 // Pre-configured empty states
 export function NoSavedTournaments() {
+  const { dict } = useLanguage()
+  const t = dict.chrome.empty
   return (
     <EmptyState
       icon={Bookmark}
-      title="No saved tournaments"
-      description="Save tournaments you're interested in to easily find them later."
-      action={{ label: "Explore Tournaments", href: "/feed" }}
+      title={t.saved_title}
+      description={t.saved_desc}
+      action={{ label: t.saved_action, href: "/feed" }}
       variant="card"
     />
   )
 }
 
 export function NoTournamentsFound() {
+  const { dict } = useLanguage()
+  const t = dict.chrome.empty
   return (
     <EmptyState
       icon={Search}
-      title="No tournaments found"
-      description="Try adjusting your search filters or check back later for new tournaments."
+      title={t.no_tournaments_title}
+      description={t.no_tournaments_desc}
     />
   )
 }
 
 export function NoMessages() {
+  const { dict } = useLanguage()
+  const t = dict.chrome.empty
   return (
     <EmptyState
       icon={MessageSquare}
-      title="No messages yet"
-      description="Start a conversation with tournament organizers or other players."
+      title={t.no_messages_title}
+      description={t.no_messages_desc}
       variant="card"
     />
   )
 }
 
 export function NoParticipants() {
+  const { dict } = useLanguage()
+  const t = dict.chrome.empty
   return (
     <EmptyState
       icon={Users}
-      title="No participants yet"
-      description="Share your tournament to attract participants."
+      title={t.no_participants_title}
+      description={t.no_participants_desc}
       variant="card"
     />
   )
 }
 
 export function NoUpcomingMatches() {
+  const { dict } = useLanguage()
+  const t = dict.chrome.empty
   return (
     <EmptyState
       icon={Calendar}
-      title="No upcoming matches"
-      description="Join a tournament to compete and track your matches here."
-      action={{ label: "Find Tournaments", href: "/feed" }}
+      title={t.no_upcoming_title}
+      description={t.no_upcoming_desc}
+      action={{ label: t.no_upcoming_action, href: "/feed" }}
       variant="card"
     />
   )

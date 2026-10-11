@@ -12,6 +12,7 @@ import {
   readImageSize,
 } from '@/lib/media'
 import { clientIp, minutes, rateLimit } from '@/lib/rate-limit'
+import { getI18n } from '@/lib/i18n/server'
 
 export const runtime = 'nodejs'
 
@@ -21,15 +22,16 @@ export const runtime = 'nodejs'
  * through `GET /api/media/[id]`.
  */
 export async function POST(request: Request) {
+  const { dict } = await getI18n()
   const user = await getCurrentUser()
   if (!user) {
-    return NextResponse.json({ ok: false, error: 'Avval tizimga kiring' }, { status: 401 })
+    return NextResponse.json({ ok: false, error: dict.errors.login_required }, { status: 401 })
   }
 
   const ip = await clientIp()
   const limit = rateLimit(`upload:${user.id}:${ip}`, 20, minutes(10))
   if (!limit.ok) {
-    return NextResponse.json({ ok: false, error: 'Juda ko‘p fayl yuklandi, keyinroq urinib ko‘ring' }, { status: 429 })
+    return NextResponse.json({ ok: false, error: dict.errors.upload_rate_limited }, { status: 429 })
   }
 
   let file: File | null = null
@@ -38,18 +40,18 @@ export async function POST(request: Request) {
     const entry = form.get('file')
     if (entry instanceof File) file = entry
   } catch {
-    return NextResponse.json({ ok: false, error: 'Faylni o‘qib bo‘lmadi' }, { status: 400 })
+    return NextResponse.json({ ok: false, error: dict.errors.upload_read_failed }, { status: 400 })
   }
 
   if (!file) {
-    return NextResponse.json({ ok: false, error: 'Fayl tanlanmagan' }, { status: 400 })
+    return NextResponse.json({ ok: false, error: dict.errors.upload_no_file }, { status: 400 })
   }
 
   const isImage = isAllowedImageType(file.type)
   const isVideo = isAllowedVideoType(file.type)
   if (!isImage && !isVideo) {
     return NextResponse.json(
-      { ok: false, error: `Faqat ${[...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES].join(', ')} formatlari qabul qilinadi` },
+      { ok: false, error: dict.errors.upload_bad_type([...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES].join(', ')) },
       { status: 415 }
     )
   }
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
   const maxBytes = isVideo ? MAX_STORY_VIDEO_BYTES : MAX_UPLOAD_BYTES
   if (file.size > maxBytes) {
     return NextResponse.json(
-      { ok: false, error: `Fayl juda katta. Maksimal hajm — ${formatBytes(maxBytes)}` },
+      { ok: false, error: dict.errors.upload_too_large(formatBytes(maxBytes)) },
       { status: 413 }
     )
   }
@@ -69,7 +71,7 @@ export async function POST(request: Request) {
     // the story player, so video dimensions stay unknown here.
     const { width, height } = isImage ? readImageSize(buffer) : { width: null, height: null }
     if (isImage && width === null && height === null) {
-      return NextResponse.json({ ok: false, error: 'Bu fayl rasm emas yoki buzilgan' }, { status: 415 })
+      return NextResponse.json({ ok: false, error: dict.errors.upload_not_image }, { status: 415 })
     }
 
     const asset = await db.mediaAsset.create({
@@ -91,6 +93,6 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('upload failed', error)
-    return NextResponse.json({ ok: false, error: 'Yuklashda server xatosi' }, { status: 500 })
+    return NextResponse.json({ ok: false, error: dict.errors.upload_failed }, { status: 500 })
   }
 }

@@ -3,6 +3,7 @@
 import { Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 /**
  * Real share behaviour instead of a decorative icon: the native share sheet
@@ -20,6 +21,9 @@ export function ShareButton({
   variant?: 'secondary' | 'outline' | 'ghost'
   className?: string
 }) {
+  const { dict } = useLanguage()
+  const t = dict.chrome.share
+
   const share = async () => {
     const url = `${window.location.origin}${path}`
 
@@ -29,16 +33,16 @@ export function ShareButton({
         return
       }
       await navigator.clipboard.writeText(url)
-      toast.success('Havola nusxalandi')
+      toast.success(t.copied)
     } catch (error) {
       // AbortError just means the user dismissed the native sheet.
       if (error instanceof DOMException && error.name === 'AbortError') return
-      toast.error('Havolani ulashib bo‘lmadi')
+      toast.error(t.failed)
     }
   }
 
   return (
-    <Button variant={variant} size="icon" onClick={share} className={className} aria-label="Havolani ulashish">
+    <Button variant={variant} size="icon" onClick={share} className={className} aria-label={t.aria}>
       <Share2 className="h-4 w-4" aria-hidden />
     </Button>
   )

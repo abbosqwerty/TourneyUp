@@ -1,4 +1,6 @@
 import { headers } from 'next/headers'
+import { dictionaries } from './i18n/dictionaries'
+import { DEFAULT_LOCALE, type Locale } from './i18n/types'
 
 type Bucket = { count: number; resetAt: number }
 
@@ -54,17 +56,18 @@ export function minutes(n: number) {
  * allowed, or a ready-made failure with a human-readable wait time.
  *
  * Server actions are plain HTTP endpoints, so every write path needs this —
- * not just the login form.
+ * not just the login form. Pass the visitor's `locale` (from getI18n) so the
+ * message is in their language; it defaults to Uzbek.
  */
 export function guard(
   key: string,
   max: number,
-  windowMs: number
+  windowMs: number,
+  locale: Locale = DEFAULT_LOCALE
 ): { ok: false; error: string } | null {
   const limit = rateLimit(key, max, windowMs)
   if (limit.ok) return null
 
   const waitMinutes = Math.ceil(limit.retryAfterMs / 60_000)
-  const wait = waitMinutes > 1 ? `${waitMinutes} daqiqa` : 'bir daqiqa'
-  return { ok: false, error: `Juda ko‘p urinish. ${wait}dan keyin qayta urinib ko‘ring.` }
+  return { ok: false, error: dictionaries[locale].errors.rate_limited(waitMinutes) }
 }

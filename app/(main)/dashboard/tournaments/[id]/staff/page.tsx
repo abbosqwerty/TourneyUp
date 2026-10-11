@@ -6,11 +6,16 @@ import { getCurrentUser, getTournamentAbility } from '@/lib/session'
 import { listTournamentStaff } from '@/lib/staff'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { getI18n } from '@/lib/i18n/server'
+import { formatDate } from '@/lib/time'
 import { StaffClient } from './staff-client'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Turnir xodimlari', robots: { index: false } }
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.dashboard.staff.meta_title, robots: { index: false } }
+}
 
 export default async function TournamentStaffPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -22,6 +27,8 @@ export default async function TournamentStaffPage({ params }: { params: Promise<
     select: { id: true, title: true, sport: true, date: true, status: true },
   })
   if (!tournament) notFound()
+  const { dict, locale } = await getI18n()
+  const d = dict.dashboard
 
   const ability = await getTournamentAbility(user.id, id)
   if (!ability.canManageStaff) {
@@ -29,14 +36,14 @@ export default async function TournamentStaffPage({ params }: { params: Promise<
       <div className="container mx-auto max-w-3xl px-4 py-6">
         <Card>
           <CardHeader>
-            <CardTitle>Ruxsat yo‘q</CardTitle>
+            <CardTitle>{d.no_access}</CardTitle>
             <CardDescription>
-              Xodimlarni faqat tashkilot egasi yoki ADMIN roliga ega xodim boshqaradi.
+              {d.staff.no_access_desc}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" asChild>
-              <Link href={`/tournament/${id}`}>Turnirga qaytish</Link>
+              <Link href={`/tournament/${id}`}>{d.back_to_tournament}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -52,14 +59,14 @@ export default async function TournamentStaffPage({ params }: { params: Promise<
       <Button variant="ghost" asChild className="-ml-2">
         <Link href="/dashboard" className="gap-2">
           <ChevronLeft className="h-4 w-4" aria-hidden />
-          Panelga qaytish
+          {d.back_to_panel}
         </Link>
       </Button>
 
       <div>
         <h1 className="text-2xl font-bold md:text-3xl">{tournament.title}</h1>
         <p className="text-sm text-muted-foreground">
-          {tournament.sport} · {tournament.date} · vaqtinchalik rollarni boshqarish
+          {tournament.sport} · {formatDate(tournament.date, locale)} · {d.staff.manage_subtitle}
         </p>
       </div>
 

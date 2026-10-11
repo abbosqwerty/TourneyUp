@@ -8,12 +8,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { COMPETITION_TABS, type CompetitionTab } from '@/lib/competition/list'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 const SEARCH_DEBOUNCE_MS = 300
 
 /** Filters write to the URL; the server page re-queries. */
 export function CompetitionFilters({ tab, query, category }: { tab: CompetitionTab; query: string; category: string }) {
   const router = useRouter()
+  const { dict } = useLanguage()
+  const t = dict.competition
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
   const [text, setText] = useState(query)
@@ -47,9 +50,9 @@ export function CompetitionFilters({ tab, query, category }: { tab: CompetitionT
           <Input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Turnir nomi bo‘yicha qidirish"
+            placeholder={t.filters.search_placeholder}
             className="pl-9"
-            aria-label="Turnir qidirish"
+            aria-label={t.filters.search_aria}
           />
           {isPending ? (
             <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />
@@ -61,23 +64,23 @@ export function CompetitionFilters({ tab, query, category }: { tab: CompetitionT
             startTransition(() => router.replace(hrefFor({ category: value === 'all' ? '' : value })))
           }
         >
-          <SelectTrigger className="w-full sm:w-44" aria-label="Kategoriya">
+          <SelectTrigger className="w-full sm:w-44" aria-label={t.filters.category_aria}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Barcha kategoriyalar</SelectItem>
-            <SelectItem value="sports">Sport</SelectItem>
-            <SelectItem value="esports">Kibersport</SelectItem>
-            <SelectItem value="academic">Akademik</SelectItem>
+            <SelectItem value="all">{t.filters.all_categories}</SelectItem>
+            <SelectItem value="sports">{t.categories.sports}</SelectItem>
+            <SelectItem value="esports">{t.categories.esports}</SelectItem>
+            <SelectItem value="academic">{t.categories.academic}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-secondary/40 p-1" aria-label="Turnir holati">
+      <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-secondary/40 p-1" aria-label={t.filters.status_aria}>
         {(Object.keys(COMPETITION_TABS) as CompetitionTab[]).map((key) => (
           <Button key={key} asChild size="sm" variant={key === tab ? 'default' : 'ghost'} className="flex-1 whitespace-nowrap">
             <Link href={hrefFor({ tab: key })} aria-current={key === tab ? 'page' : undefined}>
-              {COMPETITION_TABS[key].label}
+              {t.tabs[key]}
             </Link>
           </Button>
         ))}

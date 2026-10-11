@@ -3,13 +3,14 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/session'
 import { listInvitesForUser, listTeamsForUser, MAX_OWNED_TEAMS } from '@/lib/teams'
 import { DbErrorCard } from '@/components/db-error-card'
+import { getI18n } from '@/lib/i18n/server'
 import { TeamsClient } from './teams-client'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Jamoalarim',
-  robots: { index: false },
+export async function generateMetadata(): Promise<Metadata> {
+  const { dict } = await getI18n()
+  return { title: dict.teams.title, robots: { index: false } }
 }
 
 export default async function TeamsPage() {
@@ -24,7 +25,7 @@ export default async function TeamsPage() {
   } catch (error) {
     console.error('teams page failed', error)
   }
-  if (!data) return <DbErrorCard message="Jamoalarni yuklab bo‘lmadi. Keyinroq qayta urinib ko‘ring." />
+  if (!data) return <DbErrorCard message={(await getI18n()).dict.team.list.load_failed} />
 
   const ownedActive = data.teams.filter((t) => t.myRole === 'OWNER' && !t.disbanded).length
 

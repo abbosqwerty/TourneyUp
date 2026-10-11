@@ -16,6 +16,7 @@ import {
 import { fail, succeedWith, type ActionResult } from './action-result'
 import { clientIp, guard, minutes, rateLimit } from './rate-limit'
 import { mediaUrl } from './media'
+import { getI18n } from './i18n/server'
 
 /** Where a role should land after signing in. */
 function landingFor(role: 'USER' | 'ORGANIZATION' | 'SUPER_ADMIN') {
@@ -33,15 +34,17 @@ async function userAgent() {
 }
 
 export async function registerUser(input: unknown): Promise<ActionResult<{ redirectTo: string }>> {
+  const { dict } = await getI18n()
+  const t = dict.account.actions
   const parsed = registerSchema.safeParse(input)
   if (!parsed.success) {
-    return fail('Formada xatolar bor', fieldErrors(parsed.error))
+    return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
   }
 
   const ip = await clientIp()
   const limit = rateLimit(`register:${ip}`, 5, minutes(30))
   if (!limit.ok) {
-    return fail('Juda ko‘p urinish. 30 daqiqadan keyin qayta urinib ko‘ring.')
+    return fail(dict.errors.rate_limited(30))
   }
 
   const { name, username, email, password, university, location } = parsed.data
@@ -53,10 +56,10 @@ export async function registerUser(input: unknown): Promise<ActionResult<{ redir
     })
     if (clash) {
       return fail(
-        'Bu akkaunt allaqachon mavjud',
+        t.account_exists,
         clash.username === username
-          ? { username: 'Bu username band' }
-          : { email: 'Bu email allaqachon ro‘yxatdan o‘tgan' }
+          ? { username: t.username_taken }
+          : { email: t.email_registered }
       )
     }
 
@@ -81,14 +84,16 @@ export async function registerUser(input: unknown): Promise<ActionResult<{ redir
     return succeedWith({ redirectTo: landingFor(user.role) })
   } catch (error) {
     console.error('registerUser failed', error)
-    return fail('Ro‘yxatdan o‘tishda xatolik yuz berdi. Keyinroq urinib ko‘ring.')
+    return fail(t.register_failed)
   }
 }
 
 export async function loginWithPassword(input: unknown): Promise<ActionResult<{ redirectTo: string; mustChangePassword: boolean }>> {
+  const { dict } = await getI18n()
+  const t = dict.account.actions
   const parsed = loginSchema.safeParse(input)
   if (!parsed.success) {
-    return fail('Formada xatolar bor', fieldErrors(parsed.error))
+    return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
   }
 
   const { identifier, password } = parsed.data
@@ -99,7 +104,7 @@ export async function loginWithPassword(input: unknown): Promise<ActionResult<{ 
   for (const key of [`login:ip:${ip}`, `login:id:${identifier.toLowerCase()}`]) {
     const limit = rateLimit(key, 8, minutes(15))
     if (!limit.ok) {
-      return fail('Juda ko‘p urinish. 15 daqiqadan keyin qayta urinib ko‘ring.')
+      return fail(dict.errors.rate_limited(15))
     }
   }
 
@@ -118,7 +123,7 @@ export async function loginWithPassword(input: unknown): Promise<ActionResult<{ 
 
     const valid = await verifyPassword(password, user?.passwordHash)
     if (!user || !valid) {
-      return fail('Email/username yoki parol noto‘g‘ri')
+      return fail(t.invalid_credentials)
     }
 
     await createSession(user.id, await userAgent())
@@ -130,7 +135,7 @@ export async function loginWithPassword(input: unknown): Promise<ActionResult<{ 
     })
   } catch (error) {
     console.error('loginWithPassword failed', error)
-    return fail('Tizimga kirishda xatolik. Keyinroq urinib ko‘ring.')
+    return fail(t.login_failed)
   }
 }
 
@@ -145,21 +150,23 @@ export async function logout(): Promise<ActionResult> {
  * are deliberately not writable here — those are set by the platform.
  */
 export async function updateProfile(input: unknown): Promise<ActionResult> {
+  const { dict, locale } = await getI18n()
+  const t = dict.account.actions
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
-  const limited = guard(`update-profile:${user.id}`, 20, minutes(10))
+  const limited = guard(`update-profile:${user.id}`, 20, minutes(10), locale)
   if (limited) return limited
 
   const parsed = updateProfileSchema.safeParse(input)
-  if (!parsed.success) return fail('Formada xatolar bor', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
 
   const { name, username, bio, university, location, avatarMediaId } = parsed.data
 
   try {
     if (username !== user.username) {
       const taken = await db.user.findUnique({ where: { username }, select: { id: true } })
-      if (taken) return fail('Bu username band', { username: 'Bu username band' })
+      if (taken) return fail(t.username_taken, { username: t.username_taken })
     }
 
     // An avatar may only point at an asset this account uploaded.
@@ -169,7 +176,7 @@ export async function updateProfile(input: unknown): Promise<ActionResult> {
         where: { id: avatarMediaId, uploadedById: user.id },
         select: { id: true },
       })
-      if (!asset) return fail('Rasm topilmadi — qaytadan yuklang')
+      if (!asset) return fail(t.image_not_found)
       avatar = mediaUrl(asset.id) ?? undefined
     }
 
@@ -191,23 +198,25 @@ export async function updateProfile(input: unknown): Promise<ActionResult> {
     return { ok: true }
   } catch (error) {
     console.error('updateProfile failed', error)
-    return fail('Profilni saqlashda xatolik')
+    return fail(t.profile_save_failed)
   }
 }
 
 export async function changePassword(input: unknown): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.account.actions
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const parsed = changePasswordSchema.safeParse(input)
   if (!parsed.success) {
-    return fail('Formada xatolar bor', fieldErrors(parsed.error))
+    return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
   }
 
   try {
     const record = await db.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } })
     if (!(await verifyPassword(parsed.data.currentPassword, record?.passwordHash))) {
-      return fail('Hozirgi parol noto‘g‘ri', { currentPassword: 'Parol noto‘g‘ri' })
+      return fail(t.current_password_wrong, { currentPassword: t.password_wrong })
     }
 
     await db.user.update({
@@ -225,7 +234,7 @@ export async function changePassword(input: unknown): Promise<ActionResult> {
     return { ok: true }
   } catch (error) {
     console.error('changePassword failed', error)
-    return fail('Parolni almashtirishda xatolik')
+    return fail(t.password_change_failed)
   }
 }
 
@@ -238,18 +247,20 @@ export async function changePassword(input: unknown): Promise<ActionResult> {
  * one. Those go through a SUPER_ADMIN.
  */
 export async function deleteAccount(input: unknown): Promise<ActionResult> {
+  const { dict, locale } = await getI18n()
+  const t = dict.account.actions
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   if (user.role !== 'USER') {
-    return fail('Tashkilot va admin akkauntlarini o‘zi o‘chira olmaydi — administratorga murojaat qiling')
+    return fail(t.org_cannot_delete)
   }
 
-  const limited = guard(`delete-account:${user.id}`, 5, minutes(60))
+  const limited = guard(`delete-account:${user.id}`, 5, minutes(60), locale)
   if (limited) return limited
 
   const parsed = deleteAccountSchema.safeParse(input)
-  if (!parsed.success) return fail('Tasdiqlashda xatolik', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(t.confirm_failed, fieldErrors(parsed.error, dict))
 
   try {
     const record = await db.user.findUnique({
@@ -257,7 +268,7 @@ export async function deleteAccount(input: unknown): Promise<ActionResult> {
       select: { passwordHash: true },
     })
     if (!(await verifyPassword(parsed.data.password, record?.passwordHash))) {
-      return fail('Parol noto‘g‘ri', { password: 'Parol noto‘g‘ri' })
+      return fail(t.password_wrong, { password: t.password_wrong })
     }
 
     await db.user.delete({ where: { id: user.id } })
@@ -266,6 +277,6 @@ export async function deleteAccount(input: unknown): Promise<ActionResult> {
     return { ok: true }
   } catch (error) {
     console.error('deleteAccount failed', error)
-    return fail('Akkauntni o‘chirishda xatolik')
+    return fail(t.delete_failed)
   }
 }

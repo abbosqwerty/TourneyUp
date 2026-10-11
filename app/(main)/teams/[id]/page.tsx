@@ -6,11 +6,15 @@ import { getTeamAbility, lockedRosterUserIds } from '@/lib/teams'
 import { syncTeamChannel } from '@/lib/channels'
 import { mediaUrl } from '@/lib/media'
 import { DbErrorCard } from '@/components/db-error-card'
+import { getI18n } from '@/lib/i18n/server'
 import { TeamDetailClient, type TeamDetail } from './team-detail-client'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = { title: 'Jamoa', robots: { index: false } }
+export async function generateMetadata(): Promise<Metadata> {
+  const { dict } = await getI18n()
+  return { title: dict.team.detail.meta_title, robots: { index: false } }
+}
 
 export default async function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -27,7 +31,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
   } catch (error) {
     console.error('team page failed', error)
   }
-  if (!detail) return <DbErrorCard message="Jamoani yuklab bo‘lmadi." />
+  if (!detail) return <DbErrorCard message={(await getI18n()).dict.team.detail.load_failed} />
 
   return <TeamDetailClient team={detail} ability={ability} currentUserId={user.id} />
 }

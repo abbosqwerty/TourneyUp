@@ -1,4 +1,4 @@
-import type { Prisma, SupportCategory, TicketStatus } from '@prisma/client'
+import type { Prisma, TicketStatus } from '@prisma/client'
 import { db } from './db'
 
 /**
@@ -15,20 +15,7 @@ import { db } from './db'
  * nobody else.
  */
 
-export const SUPPORT_CATEGORY_LABELS: Record<SupportCategory, string> = {
-  TECHNICAL: 'Texnik muammo',
-  TOURNAMENT_ISSUE: 'Turnir bo‘yicha savol',
-  REPORT_BEHAVIOR: 'Nojo‘ya xatti-harakat haqida xabar',
-  ACCOUNT: 'Akkaunt',
-  OTHER: 'Boshqa',
-}
-
-export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
-  OPEN: 'Ochiq',
-  IN_PROGRESS: 'Ko‘rib chiqilmoqda',
-  RESOLVED: 'Hal qilindi',
-  CLOSED: 'Yopilgan',
-}
+// Category and status labels live in the dictionaries (`dict.chat.ticket_category`, `dict.chat.ticket_status`).
 
 const OPEN_TOURNAMENT = { status: { notIn: ['completed', 'cancelled'] } } satisfies Prisma.TournamentWhereInput
 

@@ -4,6 +4,7 @@ import { Inter, Geist_Mono } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { LanguageProvider } from '@/lib/i18n/language-context'
+import { getI18n } from '@/lib/i18n/server'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -11,29 +12,34 @@ const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  // One brand spelling everywhere: "TourneyUp".
-  title: { default: 'TourneyUp — turnirlaringizni bir joyda boshqaring', template: '%s | TourneyUp' },
-  description:
-    'Universitet va shahar turnirlarini kashf qiling, ro‘yxatdan o‘ting, tashkilot kanallariga obuna bo‘ling.',
-  keywords: ['turnir', 'tournaments', 'esports', 'sport', 'reyting', 'Uzbekistan'],
-  authors: [{ name: 'TourneyUp' }],
-  applicationName: 'TourneyUp',
-  openGraph: {
-    type: 'website',
-    siteName: 'TourneyUp',
-    locale: 'uz_UZ',
-    url: siteUrl,
-    title: 'TourneyUp — turnirlaringizni bir joyda boshqaring',
-    description: 'Turnirlarni kashf qiling, ro‘yxatdan o‘ting va kanallar orqali kuzatib boring.',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'TourneyUp',
-    description: 'Turnirlarni kashf qiling, ro‘yxatdan o‘ting va kanallar orqali kuzatib boring.',
-  },
-  icons: { icon: '/icon.svg', apple: '/apple-icon.png' },
+const OG_LOCALE = { uz: 'uz_UZ', ru: 'ru_RU', en: 'en_US' } as const
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { dict, locale } = await getI18n()
+  const m = dict.chrome.meta
+  return {
+    metadataBase: new URL(siteUrl),
+    // One brand spelling everywhere: "TourneyUp".
+    title: { default: m.title, template: '%s | TourneyUp' },
+    description: m.description,
+    keywords: ['turnir', 'tournaments', 'турниры', 'esports', 'sport', 'reyting', 'Uzbekistan'],
+    authors: [{ name: 'TourneyUp' }],
+    applicationName: 'TourneyUp',
+    openGraph: {
+      type: 'website',
+      siteName: 'TourneyUp',
+      locale: OG_LOCALE[locale],
+      url: siteUrl,
+      title: m.title,
+      description: m.share_description,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'TourneyUp',
+      description: m.share_description,
+    },
+    icons: { icon: '/icon.svg', apple: '/apple-icon.png' },
+  }
 }
 
 export const viewport: Viewport = {
@@ -49,9 +55,10 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // next-themes writes an inline script; it needs the CSP nonce set in proxy.ts.
   const nonce = (await headers()).get('x-nonce') ?? undefined
+  const { locale } = await getI18n()
 
   return (
-    <html lang="uz" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body className={inter.variable + ' ' + geistMono.variable + ' font-sans antialiased'}>
         <ThemeProvider
           attribute="class"
@@ -60,7 +67,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           disableTransitionOnChange
           nonce={nonce}
         >
-          <LanguageProvider>
+          <LanguageProvider initialLocale={locale}>
             {children}
             <Toaster richColors position="top-center" />
           </LanguageProvider>

@@ -11,8 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { STAFF_ROLE_DESCRIPTIONS, STAFF_ROLE_LABELS } from '@/lib/staff-labels'
+import { revokeReasonLabel } from '@/lib/staff-labels'
+import { useLanguage } from '@/lib/i18n/language-context'
 import { assignTournamentStaff, revokeTournamentStaff, searchAssignableUsers } from '@/lib/staff-actions'
+import { formatDate } from '@/lib/time'
 
 type StaffRole = 'ADMIN' | 'ORGANIZER' | 'SUPPORT'
 
@@ -38,6 +40,9 @@ export function StaffClient({
   isClosed: boolean
 }) {
   const router = useRouter()
+  const { dict, locale } = useLanguage()
+  const d = dict.dashboard
+  const t = d.staff
   const [isPending, startTransition] = useTransition()
   const [query, setQuery] = useState('')
   const [role, setRole] = useState<StaffRole>('ORGANIZER')
@@ -79,7 +84,7 @@ export function StaffClient({
         toast.error(result.error)
         return
       }
-      toast.success(`${result.data.userName} — ${STAFF_ROLE_LABELS[role]} roli berildi`)
+      toast.success(t.toast_assigned(result.data.userName, d.roles[role]))
       setQuery('')
       setCandidates([])
       router.refresh()
@@ -93,7 +98,7 @@ export function StaffClient({
         toast.error(result.error)
         return
       }
-      toast.success(`${grant.user.name} ruxsati olib tashlandi`)
+      toast.success(t.toast_revoked(grant.user.name))
       router.refresh()
     })
   }
@@ -106,30 +111,28 @@ export function StaffClient({
       {isClosed ? (
         <Card className="border-muted bg-muted/40">
           <CardContent className="p-4 text-sm text-muted-foreground">
-            Turnir yopilgan — barcha vaqtinchalik ruxsatlar avtomatik olib tashlangan va yangi xodim
-            tayinlab bo‘lmaydi.
+            {t.closed_notice}
           </CardContent>
         </Card>
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Yangi xodim tayinlash</CardTitle>
+            <CardTitle className="text-base">{t.assign_title}</CardTitle>
             <CardDescription>
-              Platformadagi oddiy foydalanuvchini username yoki email bo‘yicha toping. Ruxsat faqat shu
-              turnirga tegishli va turnir yopilganda avtomatik tugaydi.
+              {t.assign_desc}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
               <div className="space-y-2">
-                <Label htmlFor="staff-search">Foydalanuvchi</Label>
+                <Label htmlFor="staff-search">{t.user_label}</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
                   <Input
                     id="staff-search"
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="username yoki email"
+                    placeholder={t.user_placeholder}
                     className="pl-9"
                     disabled={isPending}
                     aria-invalid={Boolean(errors.userQuery)}
@@ -142,7 +145,7 @@ export function StaffClient({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="staff-role">Rol</Label>
+                <Label htmlFor="staff-role">{t.role_label}</Label>
                 <Select value={role} onValueChange={(value) => setRole(value as StaffRole)} disabled={isPending}>
                   <SelectTrigger id="staff-role">
                     <SelectValue />
@@ -150,7 +153,7 @@ export function StaffClient({
                   <SelectContent>
                     {(['ADMIN', 'ORGANIZER', 'SUPPORT'] as const).map((value) => (
                       <SelectItem key={value} value={value}>
-                        {STAFF_ROLE_LABELS[value]}
+                        {d.roles[value]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -159,7 +162,7 @@ export function StaffClient({
             </div>
 
             <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-              {STAFF_ROLE_DESCRIPTIONS[role]}
+              {d.role_descriptions[role]}
             </p>
 
             {candidates.length > 0 ? (
@@ -167,7 +170,7 @@ export function StaffClient({
                 {candidates.map((candidate) => (
                   <li key={candidate.id} className="flex items-center gap-3 p-3">
                     <Avatar className="h-9 w-9 shrink-0">
-                      <AvatarImage src={candidate.avatar} alt={`${candidate.name} avatari`} />
+                      <AvatarImage src={candidate.avatar} alt={d.avatar_alt(candidate.name)} />
                       <AvatarFallback>{candidate.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
@@ -184,13 +187,13 @@ export function StaffClient({
                       onClick={() => assign(candidate.username)}
                     >
                       <UserPlus className="h-4 w-4" aria-hidden />
-                      Tayinlash
+                      {t.assign}
                     </Button>
                   </li>
                 ))}
               </ul>
             ) : query.trim().length >= 2 && !isSearching ? (
-              <p className="text-sm text-muted-foreground">Foydalanuvchi topilmadi.</p>
+              <p className="text-sm text-muted-foreground">{t.no_user_found}</p>
             ) : null}
           </CardContent>
         </Card>
@@ -198,11 +201,11 @@ export function StaffClient({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Faol xodimlar ({active.length})</CardTitle>
+          <CardTitle className="text-base">{t.active_title(active.length)}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {active.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Faol xodim yo‘q.</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">{t.no_active}</p>
           ) : (
             active.map((grant) => (
               <div
@@ -210,19 +213,19 @@ export function StaffClient({
                 className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3"
               >
                 <Avatar className="h-10 w-10 shrink-0">
-                  <AvatarImage src={grant.user.avatar} alt={`${grant.user.name} avatari`} />
+                  <AvatarImage src={grant.user.avatar} alt={d.avatar_alt(grant.user.name)} />
                   <AvatarFallback>{grant.user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{grant.user.name}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    @{grant.user.username} · {new Date(grant.grantedAt).toLocaleDateString('uz-UZ')} dan
-                    {grant.grantedByName ? ` · ${grant.grantedByName} tayinlagan` : ''}
+                    @{grant.user.username} · {d.since(formatDate(grant.grantedAt, locale))}
+                    {grant.grantedByName ? ` · ${d.assigned_by(grant.grantedByName)}` : ''}
                   </p>
                 </div>
                 <Badge variant="secondary" className="shrink-0 gap-1">
                   <ShieldCheck className="h-3 w-3" aria-hidden />
-                  {STAFF_ROLE_LABELS[grant.role]}
+                  {d.roles[grant.role]}
                 </Badge>
                 {!isClosed ? (
                   <Button
@@ -233,7 +236,7 @@ export function StaffClient({
                     onClick={() => revoke(grant)}
                   >
                     <ShieldOff className="h-4 w-4" aria-hidden />
-                    Olib tashlash
+                    {t.revoke}
                   </Button>
                 ) : null}
               </div>
@@ -245,21 +248,21 @@ export function StaffClient({
       {revoked.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Tugagan ruxsatlar ({revoked.length})</CardTitle>
+            <CardTitle className="text-base">{t.ended_title(revoked.length)}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {revoked.map((grant) => (
               <div key={grant.id} className="flex items-center gap-3 rounded-md border border-border/60 p-3 opacity-70">
                 <Avatar className="h-9 w-9 shrink-0">
-                  <AvatarImage src={grant.user.avatar} alt={`${grant.user.name} avatari`} />
+                  <AvatarImage src={grant.user.avatar} alt={d.avatar_alt(grant.user.name)} />
                   <AvatarFallback>{grant.user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{grant.user.name}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {STAFF_ROLE_LABELS[grant.role]} ·{' '}
-                    {grant.revokedAt ? new Date(grant.revokedAt).toLocaleDateString('uz-UZ') : ''}
-                    {grant.revokeReason ? ` · ${grant.revokeReason}` : ''}
+                    {d.roles[grant.role]} ·{' '}
+                    {grant.revokedAt ? formatDate(grant.revokedAt, locale) : ''}
+                    {grant.revokeReason ? ` · ${revokeReasonLabel(grant.revokeReason, dict)}` : ''}
                   </p>
                 </div>
                 {!isClosed ? (
@@ -270,7 +273,7 @@ export function StaffClient({
                     disabled={isPending}
                     onClick={() => assign(grant.user.username)}
                   >
-                    Qayta tayinlash
+                    {t.reassign}
                   </Button>
                 ) : null}
               </div>

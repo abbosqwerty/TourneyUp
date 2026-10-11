@@ -21,12 +21,19 @@ import {
   markNotificationRead,
 } from '@/lib/notification-actions'
 import type { NotificationView } from '@/lib/notifications'
+import { formatDayMonth } from '@/lib/time'
+import { useLanguage } from '@/lib/i18n/language-context'
+import type { Dictionary } from '@/lib/i18n/dictionaries'
+import type { Locale } from '@/lib/i18n/types'
+import { renderNotification } from '@/lib/stored-text'
 
 /**
  * The bell used to be a decorative icon with no handler. It now opens a real
  * list, loaded on first open so the layout does not pay for it on every page.
  */
 export function NotificationBell({ unreadCount }: { unreadCount: number }) {
+  const { dict, locale } = useLanguage()
+  const t = dict.notify
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<NotificationView[] | null>(null)
@@ -84,7 +91,7 @@ export function NotificationBell({ unreadCount }: { unreadCount: number }) {
           variant="ghost"
           size="icon"
           className="relative"
-          aria-label={unread > 0 ? `Bildirishnomalar (${unread} o‘qilmagan)` : 'Bildirishnomalar'}
+          aria-label={t.bell_label(unread)}
         >
           <Bell className="h-5 w-5" aria-hidden />
           {unread > 0 ? (
@@ -97,7 +104,7 @@ export function NotificationBell({ unreadCount }: { unreadCount: number }) {
 
       <DropdownMenuContent align="end" className="w-80 p-0">
         <div className="flex items-center justify-between gap-2 px-3 py-2">
-          <DropdownMenuLabel className="p-0 text-sm">Bildirishnomalar</DropdownMenuLabel>
+          <DropdownMenuLabel className="p-0 text-sm">{t.title}</DropdownMenuLabel>
           {unread > 0 ? (
             <Button
               variant="ghost"
@@ -107,7 +114,7 @@ export function NotificationBell({ unreadCount }: { unreadCount: number }) {
               disabled={isPending}
             >
               <Check className="h-3 w-3" aria-hidden />
-              Hammasini o‘qildi
+              {t.mark_all}
             </Button>
           ) : null}
         </div>
@@ -117,11 +124,13 @@ export function NotificationBell({ unreadCount }: { unreadCount: number }) {
           {isLoading ? (
             <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              Yuklanmoqda...
+              {t.loading}
             </div>
           ) : items && items.length > 0 ? (
             <ul className="divide-y divide-border">
-              {items.map((item) => (
+              {items.map((item) => {
+                const text = renderNotification(item, dict)
+                return (
                 <li key={item.id}>
                   <button
                     type="button"
@@ -135,29 +144,30 @@ export function NotificationBell({ unreadCount }: { unreadCount: number }) {
                       {!item.read ? (
                         <span
                           className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"
-                          aria-label="O‘qilmagan"
+                          aria-label={t.unread}
                         />
                       ) : (
                         <span className="mt-1.5 h-2 w-2 shrink-0" aria-hidden />
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{item.title}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">{item.body}</p>
+                        <p className="truncate text-sm font-medium">{text.title}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{text.body}</p>
                         <time
                           dateTime={item.createdAt}
                           className="mt-1 block text-[11px] text-muted-foreground"
                         >
-                          {formatWhen(item.createdAt)}
+                          {formatWhen(item.createdAt, dict, locale)}
                         </time>
                       </div>
                     </div>
                   </button>
                 </li>
-              ))}
+                )
+              })}
             </ul>
           ) : (
             <p className="px-3 py-8 text-center text-sm text-muted-foreground">
-              Hozircha bildirishnoma yo‘q
+              {t.empty}
             </p>
           )}
         </div>
@@ -166,7 +176,7 @@ export function NotificationBell({ unreadCount }: { unreadCount: number }) {
         <div className="px-3 py-2">
           <Button variant="ghost" size="sm" className="w-full text-xs" asChild>
             <Link href="/notifications" onClick={() => setOpen(false)}>
-              Barchasini ko‘rish
+              {t.view_all}
             </Link>
           </Button>
         </div>
@@ -175,18 +185,18 @@ export function NotificationBell({ unreadCount }: { unreadCount: number }) {
   )
 }
 
-function formatWhen(iso: string) {
+function formatWhen(iso: string, dict: Dictionary, locale: Locale) {
   const date = new Date(iso)
   const diffMinutes = Math.round((Date.now() - date.getTime()) / 60_000)
 
-  if (diffMinutes < 1) return 'hozir'
-  if (diffMinutes < 60) return `${diffMinutes} daqiqa oldin`
+  if (diffMinutes < 1) return dict.relative.now
+  if (diffMinutes < 60) return dict.relative.minutes_ago(diffMinutes)
 
   const hours = Math.round(diffMinutes / 60)
-  if (hours < 24) return `${hours} soat oldin`
+  if (hours < 24) return dict.relative.hours_ago(hours)
 
   const days = Math.round(hours / 24)
-  if (days < 7) return `${days} kun oldin`
+  if (days < 7) return dict.relative.days_ago(days)
 
-  return date.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' })
+  return formatDayMonth(date, locale)
 }

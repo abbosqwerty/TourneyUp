@@ -1,33 +1,34 @@
 import { z } from 'zod'
+import type { Dictionary } from './i18n/dictionaries'
 import { TOURNAMENT_FORMATS } from './competition/config'
 
 const trimmed = (max: number) => z.string().trim().max(max)
 
 export const usernameSchema = trimmed(30)
-  .min(3, 'Username kamida 3 belgi bo‘lishi kerak')
-  .regex(/^[a-z0-9_]+$/, 'Username faqat kichik harf, raqam va _ dan iborat bo‘lsin')
+  .min(3, 'username_min')
+  .regex(/^[a-z0-9_]+$/, 'username_format')
 
 export const passwordSchema = z
   .string()
-  .min(8, 'Parol kamida 8 belgi bo‘lishi kerak')
-  .max(128, 'Parol juda uzun')
+  .min(8, 'password_min')
+  .max(128, 'password_too_long')
 
 export const registerSchema = z.object({
-  name: trimmed(80).min(2, 'Ism kamida 2 belgi'),
+  name: trimmed(80).min(2, 'name_min'),
   username: usernameSchema,
-  email: trimmed(120).email('Email formati noto‘g‘ri').toLowerCase(),
+  email: trimmed(120).email('email_invalid').toLowerCase(),
   password: passwordSchema,
   university: trimmed(120).optional().or(z.literal('')),
   location: trimmed(80).optional().or(z.literal('')),
 })
 
 export const loginSchema = z.object({
-  identifier: trimmed(120).min(3, 'Email yoki username kiriting'),
-  password: z.string().min(1, 'Parolni kiriting'),
+  identifier: trimmed(120).min(3, 'identifier_required'),
+  password: z.string().min(1, 'password_required'),
 })
 
 export const updateProfileSchema = z.object({
-  name: trimmed(80).min(2, 'Ism kamida 2 belgi'),
+  name: trimmed(80).min(2, 'name_min'),
   username: usernameSchema,
   bio: trimmed(500).optional().or(z.literal('')),
   university: trimmed(120).optional().or(z.literal('')),
@@ -36,29 +37,29 @@ export const updateProfileSchema = z.object({
 })
 
 export const deleteAccountSchema = z.object({
-  password: z.string().min(1, 'Parolni kiriting'),
-  confirm: z.literal('O‘CHIRISH', { message: 'Tasdiqlash uchun O‘CHIRISH deb yozing' }),
+  password: z.string().min(1, 'password_required'),
+  confirm: z.literal('O‘CHIRISH', { errorMap: () => ({ message: 'delete_confirm' }) }),
 })
 
 export const changePasswordSchema = z
   .object({
-    currentPassword: z.string().min(1, 'Hozirgi parolni kiriting'),
+    currentPassword: z.string().min(1, 'current_password_required'),
     newPassword: passwordSchema,
     confirmPassword: z.string(),
   })
   .refine((v) => v.newPassword === v.confirmPassword, {
-    message: 'Parollar mos kelmadi',
+    message: 'passwords_mismatch',
     path: ['confirmPassword'],
   })
 
 export const organizationApplicationSchema = z.object({
-  orgName: trimmed(120).min(3, 'Tashkilot nomi kamida 3 belgi'),
-  contactName: trimmed(80).min(2, 'Mas’ul shaxs ismini kiriting'),
-  email: trimmed(120).email('Email formati noto‘g‘ri').toLowerCase(),
+  orgName: trimmed(120).min(3, 'org_name_min'),
+  contactName: trimmed(80).min(2, 'contact_name_required'),
+  email: trimmed(120).email('email_invalid').toLowerCase(),
   phone: trimmed(30).optional().or(z.literal('')),
   website: trimmed(200).optional().or(z.literal('')),
   location: trimmed(80).optional().or(z.literal('')),
-  description: trimmed(2000).min(30, 'Tashkilot haqida kamida 30 belgi yozing'),
+  description: trimmed(2000).min(30, 'org_description_min'),
 })
 
 export const approveApplicationSchema = z.object({
@@ -69,7 +70,7 @@ export const approveApplicationSchema = z.object({
 
 export const rejectApplicationSchema = z.object({
   applicationId: z.string().min(1),
-  note: trimmed(500).min(5, 'Rad etish sababini yozing'),
+  note: trimmed(500).min(5, 'reject_reason_required'),
 })
 
 export const tournamentStatuses = ['upcoming', 'registration_open', 'ongoing', 'completed', 'cancelled'] as const
@@ -80,7 +81,7 @@ export const staffRoles = ['ADMIN', 'ORGANIZER', 'SUPPORT'] as const
 const optionalInt = (min: number, max: number) =>
   z.preprocess(
     (value) => (value === '' || value === null || value === undefined ? undefined : value),
-    z.coerce.number().int('Butun son kiriting').min(min, `Kamida ${min}`).max(max, `Ko‘pi bilan ${max}`).optional()
+    z.coerce.number().int('integer_required').min(min, `min_value:${min}`).max(max, `max_value:${max}`).optional()
   )
 
 export const participantTypes = ['INDIVIDUAL', 'TEAM'] as const
@@ -103,23 +104,23 @@ export const formatConfigInputSchema = z
   .partial()
 
 const tournamentBaseSchema = z.object({
-  title: trimmed(140).min(5, 'Sarlavha kamida 5 belgi'),
-  sport: trimmed(60).min(2, 'Sport turini tanlang'),
+  title: trimmed(140).min(5, 'title_min'),
+  sport: trimmed(60).min(2, 'sport_required'),
   category: z.enum(tournamentCategories),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Sana YYYY-MM-DD formatida bo‘lsin'),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date_format'),
   endDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Sana YYYY-MM-DD formatida bo‘lsin')
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'date_format')
     .optional()
     .or(z.literal('')),
-  time: trimmed(20).min(3, 'Vaqtni kiriting'),
-  location: trimmed(140).min(2, 'Manzilni kiriting'),
+  time: trimmed(20).min(3, 'time_required'),
+  location: trimmed(140).min(2, 'location_required'),
   maxParticipants: z.coerce
     .number()
-    .int('Butun son kiriting')
-    .min(2, 'Kamida 2 ishtirokchi')
-    .max(100_000, 'Juda katta qiymat'),
-  description: trimmed(5000).min(20, 'Tavsif kamida 20 belgi'),
+    .int('integer_required')
+    .min(2, 'participants_min')
+    .max(100_000, 'value_too_large'),
+  description: trimmed(5000).min(20, 'description_min'),
   rules: trimmed(5000).optional().or(z.literal('')),
   requirements: trimmed(5000).optional().or(z.literal('')),
   prizePool: trimmed(60).optional().or(z.literal('')),
@@ -139,9 +140,9 @@ type TeamSizeFields = { participantType: string; teamSize?: number; teamSizeMax?
 function checkTeamSize(data: TeamSizeFields, ctx: z.RefinementCtx) {
   if (data.participantType !== 'TEAM') return
   if (!data.teamSize) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['teamSize'], message: 'Jamoa tarkibi sonini kiriting' })
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['teamSize'], message: 'team_size_required' })
   } else if (data.teamSizeMax && data.teamSizeMax < data.teamSize) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['teamSizeMax'], message: 'Minimaldan kichik bo‘lmasin' })
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['teamSizeMax'], message: 'team_size_max_below_min' })
   }
 }
 
@@ -169,8 +170,8 @@ export const registerParticipantSchema = z.object({
 // ------------------------------------------------------------
 
 export const teamFieldsSchema = z.object({
-  name: trimmed(50).min(2, 'Jamoa nomi kamida 2 belgi'),
-  sport: trimmed(60).min(2, 'O‘yin turini tanlang'),
+  name: trimmed(50).min(2, 'team_name_min'),
+  sport: trimmed(60).min(2, 'game_required'),
   category: z.enum(tournamentCategories),
   description: trimmed(500).optional().or(z.literal('')),
   logoMediaId: z.string().optional().or(z.literal('')),
@@ -180,7 +181,7 @@ export const updateTeamSchema = teamFieldsSchema.extend({ teamId: z.string().min
 
 export const inviteMemberSchema = z.object({
   teamId: z.string().min(1),
-  userQuery: trimmed(120).min(2, 'Username yoki email kiriting'),
+  userQuery: trimmed(120).min(2, 'user_query_required'),
 })
 
 export const respondInviteSchema = z.object({
@@ -204,7 +205,7 @@ export const participantStatusSchema = z.object({
 
 export const assignStaffSchema = z.object({
   tournamentId: z.string().min(1),
-  userQuery: trimmed(120).min(2, 'Username yoki email kiriting'),
+  userQuery: trimmed(120).min(2, 'user_query_required'),
   role: z.enum(staffRoles),
 })
 
@@ -226,8 +227,8 @@ export const recordMatchResultSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.forfeit) return
-    if (data.homeScore === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['homeScore'], message: 'Hisobni kiriting' })
-    if (data.awayScore === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['awayScore'], message: 'Hisobni kiriting' })
+    if (data.homeScore === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['homeScore'], message: 'score_required' })
+    if (data.awayScore === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['awayScore'], message: 'score_required' })
   })
 
 /** One round of a LEADERBOARD tournament; `value` is points or milliseconds. */
@@ -258,7 +259,7 @@ export const scheduleMatchSchema = z.object({
   /** `YYYY-MM-DDTHH:mm` in Tashkent time, or empty to clear. */
   scheduledAt: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Sana va vaqtni kiriting')
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'datetime_required')
     .optional()
     .or(z.literal('')),
 })
@@ -270,7 +271,7 @@ export const participantSeedSchema = z.object({
 
 export const channelPostSchema = z.object({
   channelId: z.string().min(1),
-  content: trimmed(4000).min(1, 'Xabar bo‘sh bo‘lmasin'),
+  content: trimmed(4000).min(1, 'message_empty'),
   mediaId: z.string().optional().or(z.literal('')),
   /** Publish as an official announcement (organizer side only). */
   announce: z.boolean().optional(),
@@ -287,18 +288,18 @@ export const createTicketSchema = z
     scope: z.enum(['PLATFORM', 'TOURNAMENT']),
     tournamentId: z.string().optional().or(z.literal('')),
     category: z.enum(supportCategories),
-    subject: trimmed(140).min(4, 'Mavzu kamida 4 belgi'),
-    content: trimmed(4000).min(10, 'Muammoni batafsilroq yozing (kamida 10 belgi)'),
+    subject: trimmed(140).min(4, 'subject_min'),
+    content: trimmed(4000).min(10, 'ticket_content_min'),
   })
   .superRefine((data, ctx) => {
     if (data.scope === 'TOURNAMENT' && !data.tournamentId) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tournamentId'], message: 'Turnirni tanlang' })
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tournamentId'], message: 'tournament_required' })
     }
   })
 
 export const replyTicketSchema = z.object({
   ticketId: z.string().min(1),
-  content: trimmed(4000).min(1, 'Xabar bo‘sh bo‘lmasin'),
+  content: trimmed(4000).min(1, 'message_empty'),
 })
 
 export const ticketStatusSchema = z.object({
@@ -307,17 +308,87 @@ export const ticketStatusSchema = z.object({
 })
 
 export const createStorySchema = z.object({
-  mediaId: z.string().min(1, 'Rasm yoki video yuklang'),
+  mediaId: z.string().min(1, 'media_required'),
   caption: trimmed(200).optional().or(z.literal('')),
-  tournamentId: z.string().min(1, 'Turnirni tanlang'),
+  tournamentId: z.string().min(1, 'tournament_required'),
 })
 
-/** Flatten a ZodError into `{ field: message }` for form rendering. */
-export function fieldErrors(error: z.ZodError): Record<string, string> {
+/**
+ * Schema messages are keys of `dict.errors` (e.g. 'passwords_mismatch') so one
+ * schema serves every language. A parametrized message is written
+ * 'key:param' (e.g. 'too_long:200' → dict.errors.too_long(200)). Anything not
+ * found is shown as written.
+ */
+export function translateError(dict: Dictionary, message: string): string {
+  const table = dict.errors as Record<string, unknown>
+  const entry = table[message]
+  if (typeof entry === 'string') return entry
+
+  const colon = message.indexOf(':')
+  if (colon > 0) {
+    const fn = table[message.slice(0, colon)]
+    if (typeof fn === 'function') {
+      const raw = message.slice(colon + 1)
+      const param = raw !== '' && !Number.isNaN(Number(raw)) ? Number(raw) : raw
+      return (fn as (value: unknown) => string)(param)
+    }
+  }
+  return message
+}
+
+/**
+ * zod's built-in English messages (checks without a custom message, e.g. the
+ * `.max(n)` in `trimmed`) mapped to an errors key from the issue itself.
+ */
+function defaultIssueKey(issue: z.ZodIssue): string {
+  switch (issue.code) {
+    case z.ZodIssueCode.invalid_type:
+      if (issue.received === 'undefined' || issue.received === 'null') return 'required'
+      if (issue.expected === 'number' || issue.expected === 'integer') return 'number_required'
+      return 'invalid_value'
+    case z.ZodIssueCode.too_small: {
+      const min = Number(issue.minimum)
+      if (issue.type === 'string') return min <= 1 ? 'required' : `too_short:${min}`
+      if (issue.type === 'number' || issue.type === 'bigint') return `min_value:${min}`
+      if (issue.type === 'array' || issue.type === 'set') return `too_few_items:${min}`
+      return 'invalid_value'
+    }
+    case z.ZodIssueCode.too_big: {
+      const max = Number(issue.maximum)
+      if (issue.type === 'string') return `too_long:${max}`
+      if (issue.type === 'number' || issue.type === 'bigint') return `max_value:${max}`
+      if (issue.type === 'array' || issue.type === 'set') return `too_many_items:${max}`
+      return 'invalid_value'
+    }
+    case z.ZodIssueCode.invalid_string:
+      return issue.validation === 'email' ? 'email_invalid' : 'invalid_format'
+    case z.ZodIssueCode.invalid_enum_value:
+    case z.ZodIssueCode.invalid_literal:
+    case z.ZodIssueCode.invalid_union:
+    case z.ZodIssueCode.invalid_union_discriminator:
+      return 'invalid_option'
+    default:
+      return 'invalid_value'
+  }
+}
+
+/** True when the issue still carries zod's own (English) default message. */
+function hasDefaultMessage(issue: z.ZodIssue): boolean {
+  try {
+    return z.defaultErrorMap(issue, { data: undefined, defaultError: '' }).message === issue.message
+  } catch {
+    return false
+  }
+}
+
+/** Flatten a ZodError into `{ field: message }` for form rendering, translated. */
+export function fieldErrors(error: z.ZodError, dict: Dictionary): Record<string, string> {
   const out: Record<string, string> = {}
   for (const issue of error.issues) {
     const key = issue.path.join('.') || '_'
-    if (!out[key]) out[key] = issue.message
+    if (out[key]) continue
+    const message = hasDefaultMessage(issue) ? defaultIssueKey(issue) : issue.message
+    out[key] = translateError(dict, message)
   }
   return out
 }

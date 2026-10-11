@@ -2,11 +2,15 @@ import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { getI18n } from '@/lib/i18n/server'
 import ParticipantsClient from './participants-client'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Ishtirokchilar', robots: { index: false } }
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.dashboard.participants.meta_title, robots: { index: false } }
+}
 
 export default async function ParticipantsPage() {
   const user = await getCurrentUser()
@@ -17,12 +21,13 @@ export default async function ParticipantsPage() {
     data = await load(user.id, user.role)
   } catch (error) {
     console.error('participants page failed', error)
+    const { dict } = await getI18n()
     return (
       <div className="container mx-auto px-4 py-6">
         <Card>
           <CardHeader>
-            <CardTitle>Ma‘lumotni olib bo‘lmadi</CardTitle>
-            <CardDescription>Baza bilan aloqa yo‘q. Keyinroq qayta urinib ko‘ring.</CardDescription>
+            <CardTitle>{dict.dashboard.data_failed_title}</CardTitle>
+            <CardDescription>{dict.dashboard.db_unavailable}</CardDescription>
           </CardHeader>
         </Card>
       </div>

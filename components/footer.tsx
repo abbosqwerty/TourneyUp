@@ -5,11 +5,12 @@ import { LogoIcon } from '@/components/logo-icon'
 import { useLanguage } from '@/lib/i18n/language-context'
 
 export function Footer() {
-  const { dict, locale } = useLanguage()
+  const { dict } = useLanguage()
+  const t = dict.chrome.footer
 
   const columns = [
     {
-      title: locale === 'ru' ? 'Платформа' : locale === 'en' ? 'Platform' : 'Platforma',
+      title: t.platform,
       links: [
         { label: dict.nav.tournaments, href: '/feed' },
         { label: dict.nav.rankings, href: '/rankings' },
@@ -17,7 +18,7 @@ export function Footer() {
       ],
     },
     {
-      title: locale === 'ru' ? 'Аккаунт' : locale === 'en' ? 'Account' : 'Akkaunt',
+      title: t.account,
       links: [
         { label: dict.nav.login, href: '/login' },
         { label: dict.nav.register, href: '/register' },
@@ -25,7 +26,7 @@ export function Footer() {
       ],
     },
     {
-      title: locale === 'ru' ? 'Организаторам' : locale === 'en' ? 'Organizers' : 'Tashkilotlar',
+      title: t.organizers,
       links: [
         { label: dict.auth.apply_link, href: '/organizations/apply' },
         { label: dict.nav.dashboard, href: '/dashboard' },
@@ -33,33 +34,13 @@ export function Footer() {
       ],
     },
     {
-      title: locale === 'ru' ? 'Юридическое' : locale === 'en' ? 'Legal' : 'Huquqiy',
+      title: t.legal,
       links: [
-        {
-          label: locale === 'ru' ? 'Политика конфиденциальности' : locale === 'en' ? 'Privacy Policy' : 'Maxfiylik siyosati',
-          href: '/privacy',
-        },
-        {
-          label: locale === 'ru' ? 'Условия использования' : locale === 'en' ? 'Terms of Service' : 'Foydalanish shartlari',
-          href: '/terms',
-        },
+        { label: t.privacy, href: '/privacy' },
+        { label: t.terms, href: '/terms' },
       ],
     },
   ]
-
-  const brandDesc =
-    locale === 'ru'
-      ? 'Открывайте турниры, регистрируйтесь и следите за событиями через каналы организаторов.'
-      : locale === 'en'
-        ? 'Discover tournaments, register and follow updates through organizer channels.'
-        : 'Turnirlarni kashf qiling, ro‘yxatdan o‘ting va tashkilotlar kanallari orqali kuzatib boring.'
-
-  const copyrightText =
-    locale === 'ru'
-      ? 'Все права защищены.'
-      : locale === 'en'
-        ? 'All rights reserved.'
-        : 'Barcha huquqlar himoyalangan.'
 
   return (
     <footer className="border-t border-border bg-card">
@@ -74,19 +55,19 @@ export function Footer() {
               </span>
             </Link>
             <p className="mt-4 text-sm text-muted-foreground">
-              {brandDesc}
+              {t.brand_desc}
             </p>
           </div>
 
           {columns.map((column) => (
-            <div key={column.title}>
+            <div key={column.title} className="min-w-0">
               <h4 className="mb-4 font-semibold">{column.title}</h4>
               <ul className="space-y-3">
                 {column.links.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      className="text-sm break-words text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {link.label}
                     </Link>
@@ -100,9 +81,9 @@ export function Footer() {
         {/* Bottom */}
         <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} TourneyUp. {copyrightText}
+            &copy; {new Date().getFullYear()} TourneyUp. {t.copyright}
           </p>
-          <p className="text-sm text-muted-foreground">Tashkent, Uzbekistan</p>
+          <p className="text-sm text-muted-foreground">{t.location}</p>
         </div>
       </div>
     </footer>

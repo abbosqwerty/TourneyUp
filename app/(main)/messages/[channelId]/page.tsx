@@ -4,7 +4,8 @@ import { ChevronLeft, Lock } from 'lucide-react'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { getChannelAccess } from '@/lib/channels'
-import { STAFF_ROLE_LABELS } from '@/lib/staff-labels'
+import { getI18n } from '@/lib/i18n/server'
+import type { Dictionary } from '@/lib/i18n/dictionaries'
 import { Button } from '@/components/ui/button'
 import { ChannelThread, type ThreadPost } from './channel-thread'
 
@@ -16,6 +17,8 @@ const POST_PAGE_SIZE = 80
 
 export default async function ChannelPage({ params }: { params: Promise<{ channelId: string }> }) {
   const { channelId } = await params
+  const { dict } = await getI18n()
+  const t = dict.chat.channel_page
   const user = await getCurrentUser()
   if (!user) redirect(`/login?next=${encodeURIComponent(`/messages/${channelId}`)}`)
 
@@ -56,16 +59,14 @@ export default async function ChannelPage({ params }: { params: Promise<{ channe
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
         <Lock className="h-10 w-10 text-muted-foreground" aria-hidden />
-        <p className="font-medium">Bu guruh yopiq</p>
+        <p className="font-medium">{t.closed_title}</p>
         <p className="max-w-sm text-sm text-muted-foreground">
-          {channel.type === 'TEAM'
-            ? 'Jamoa chatini faqat jamoaning joriy a’zolari ko‘radi.'
-            : 'Turnir guruhiga tasdiqlangan ishtirokchilar, tashkilotchilar va tayinlangan xodimlar kiradi.'}
+          {channel.type === 'TEAM' ? t.closed_team : t.closed_tournament}
         </p>
         <Button variant="outline" asChild>
           <Link href="/messages">
             <ChevronLeft className="h-4 w-4" aria-hidden />
-            Xabarlar
+            {t.back}
           </Link>
         </Button>
       </div>
@@ -88,7 +89,7 @@ export default async function ChannelPage({ params }: { params: Promise<{ channe
   })
   const posts = recent.reverse()
 
-  const roleOf = await authorRoles(channel, [...new Set(posts.map((p) => p.author.id))])
+  const roleOf = await authorRoles(channel, dict, [...new Set(posts.map((p) => p.author.id))])
 
   return (
     <ChannelThread
@@ -140,20 +141,21 @@ type ChannelForRoles = {
 }
 
 /** Label shown next to an author: who they are in this group. */
-async function authorRoles(channel: ChannelForRoles, authorIds: string[]): Promise<Map<string, string>> {
+async function authorRoles(channel: ChannelForRoles, dict: Dictionary, authorIds: string[]): Promise<Map<string, string>> {
+  const r = dict.chat.roles
   const roles = new Map<string, string>()
   if (authorIds.length === 0) return roles
 
-  if (channel.organization) roles.set(channel.organization.ownerId, 'Rasmiy')
+  if (channel.organization) roles.set(channel.organization.ownerId, r.official)
 
   if (channel.tournament) {
     const grants = await db.tournamentStaff.findMany({
       where: { tournamentId: channel.tournament.id, userId: { in: authorIds } },
       select: { userId: true, role: true },
     })
-    for (const g of grants) roles.set(g.userId, STAFF_ROLE_LABELS[g.role])
-    roles.set(channel.tournament.organizerId, 'Tashkilotchi')
-    if (channel.tournament.organization) roles.set(channel.tournament.organization.ownerId, 'Tashkilotchi')
+    for (const g of grants) roles.set(g.userId, r.staff[g.role])
+    roles.set(channel.tournament.organizerId, r.organizer)
+    if (channel.tournament.organization) roles.set(channel.tournament.organization.ownerId, r.organizer)
   }
 
   if (channel.team) {
@@ -161,7 +163,7 @@ async function authorRoles(channel: ChannelForRoles, authorIds: string[]): Promi
       where: { teamId: channel.team.id, userId: { in: authorIds }, role: { in: ['OWNER', 'CAPTAIN'] } },
       select: { userId: true, role: true },
     })
-    for (const m of members) roles.set(m.userId, m.role === 'OWNER' ? 'Jamoa egasi' : 'Kapitan')
+    for (const m of members) roles.set(m.userId, m.role === 'OWNER' ? r.team_owner : r.captain)
   }
 
   return roles

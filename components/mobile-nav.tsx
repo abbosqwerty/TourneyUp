@@ -35,7 +35,7 @@ export function MobileNav({ role = null, unreadCount = 0, staffAssignmentCount =
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden">
-      <div className="flex h-16 items-center justify-around px-2">
+      <div className="flex h-16 items-center justify-around gap-0.5 px-1">
         {navItems.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
@@ -45,7 +45,7 @@ export function MobileNav({ role = null, unreadCount = 0, staffAssignmentCount =
               <Link
                 key={item.href}
                 href={item.href}
-                className="-mt-6 flex flex-col items-center justify-center"
+                className="-mt-6 flex shrink-0 flex-col items-center justify-center"
                 aria-label={item.label}
               >
                 <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg glow-primary">
@@ -59,8 +59,9 @@ export function MobileNav({ role = null, unreadCount = 0, staffAssignmentCount =
             <Link
               key={item.href}
               href={item.href}
+              aria-label={item.label}
               className={cn(
-                'relative flex flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 transition-colors',
+                'relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-2 transition-colors',
                 active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -75,7 +76,7 @@ export function MobileNav({ role = null, unreadCount = 0, staffAssignmentCount =
                   </span>
                 ) : null}
               </span>
-              <span className="text-xs font-medium">{item.label}</span>
+              <span className="max-w-full truncate text-[10px] font-medium leading-tight min-[400px]:text-xs">{item.label}</span>
             </Link>
           )
         })}

@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
-import { ALL_LOCATIONS, sportCategories } from './constants'
+import { ALL_LOCATIONS, locationOptions, sportCategories } from './constants'
+import type { Dictionary } from './i18n/dictionaries'
 import { tournamentStatuses } from './schemas'
 
 export const FEED_PAGE_SIZE = 24
@@ -142,4 +143,18 @@ export function hasActiveFilters(filters: TournamentFilters): boolean {
     filters.status !== 'all' ||
     filters.dateRange !== 'all'
   )
+}
+
+type FilterLabels = Dictionary['tournament']['filters']
+
+/** On-screen name of a sport filter id ("rocket-league" → "Rocket League"). */
+export function sportFilterLabel(dict: Dictionary, id: string): string {
+  const key = id.replace(/-/g, '_') as keyof FilterLabels['sports']
+  return dict.tournament.filters.sports[key] ?? sportCategories.find((c) => c.id === id)?.name ?? id
+}
+
+/** On-screen name of a location filter value ("Tashkent" → "Ташкент"). */
+export function locationFilterLabel(dict: Dictionary, value: string): string {
+  const key = value.toLowerCase() as keyof FilterLabels['locations']
+  return dict.tournament.filters.locations[key] ?? locationOptions.find((o) => o.value === value)?.label ?? value
 }

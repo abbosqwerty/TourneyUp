@@ -5,6 +5,7 @@ import { db } from './db'
 import { getCurrentUser, getTournamentAbility } from './session'
 import { STORY_TTL_MS } from './stories'
 import { createStorySchema, fieldErrors } from './schemas'
+import { getI18n } from './i18n/server'
 import { fail, type ActionResult } from './action-result'
 import { minutes, rateLimit } from './rate-limit'
 
@@ -14,31 +15,33 @@ import { minutes, rateLimit } from './rate-limit'
  */
 export async function createStory(input: unknown): Promise<ActionResult> {
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  const { dict } = await getI18n()
+  const e = dict.tournament.errors
+  if (!user) return fail(dict.errors.login_required)
 
   const parsed = createStorySchema.safeParse(input)
-  if (!parsed.success) return fail('Formada xatolar bor', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
 
   const { mediaId, caption, tournamentId } = parsed.data
 
   const limit = rateLimit(`story:${user.id}`, 10, minutes(60))
-  if (!limit.ok) return fail('Bir soatda 10 tadan ko‘p story qo‘shib bo‘lmaydi')
+  if (!limit.ok) return fail(e.story_rate_limit)
 
   try {
     const media = await db.mediaAsset.findUnique({
       where: { id: mediaId },
       select: { id: true, uploadedById: true },
     })
-    if (!media) return fail('Media fayli topilmadi')
+    if (!media) return fail(e.media_not_found)
     if (media.uploadedById !== user.id && user.role !== 'SUPER_ADMIN') {
-      return fail('Bu media fayli sizga tegishli emas')
+      return fail(e.media_not_yours)
     }
 
     let organizationId: string | null = null
 
     if (tournamentId) {
       const ability = await getTournamentAbility(user.id, tournamentId)
-      if (!ability.canPostToChannel) return fail('Bu turnir uchun story qo‘shish huquqingiz yo‘q')
+      if (!ability.canPostToChannel) return fail(e.no_story_right)
 
       const tournament = await db.tournament.findUnique({
         where: { id: tournamentId },
@@ -50,12 +53,12 @@ export async function createStory(input: unknown): Promise<ActionResult> {
         where: { ownerId: user.id },
         select: { id: true, status: true },
       })
-      if (!organization) return fail('Story qo‘shish faqat tashkilotlar uchun')
-      if (organization.status === 'SUSPENDED') return fail('Tashkilot akkaunti to‘xtatilgan')
+      if (!organization) return fail(e.story_orgs_only)
+      if (organization.status === 'SUSPENDED') return fail(e.org_suspended)
       organizationId = organization.id
     }
 
-    if (!organizationId) return fail('Story uchun tashkilot aniqlanmadi')
+    if (!organizationId) return fail(e.story_no_org)
 
     await db.story.create({
       data: {
@@ -73,7 +76,7 @@ export async function createStory(input: unknown): Promise<ActionResult> {
     return { ok: true }
   } catch (error) {
     console.error('createStory failed', error)
-    return fail('Story qo‘shishda xatolik')
+    return fail(e.story_failed)
   }
 }
 
@@ -96,24 +99,26 @@ export async function markStorySeen(storyId: string): Promise<ActionResult> {
 
 export async function deleteStory(storyId: string): Promise<ActionResult> {
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  const { dict } = await getI18n()
+  const e = dict.tournament.errors
+  if (!user) return fail(dict.errors.login_required)
 
   try {
     const story = await db.story.findUnique({
       where: { id: storyId },
       select: { id: true, authorId: true, organization: { select: { ownerId: true } } },
     })
-    if (!story) return fail('Story topilmadi')
+    if (!story) return fail(e.story_not_found)
 
     const allowed =
       story.authorId === user.id || story.organization?.ownerId === user.id || user.role === 'SUPER_ADMIN'
-    if (!allowed) return fail('Huquqingiz yo‘q')
+    if (!allowed) return fail(e.no_permission)
 
     await db.story.delete({ where: { id: storyId } })
     revalidatePath('/feed')
     return { ok: true }
   } catch (error) {
     console.error('deleteStory failed', error)
-    return fail('O‘chirishda xatolik')
+    return fail(e.delete_failed)
   }
 }

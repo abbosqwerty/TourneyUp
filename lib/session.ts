@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'crypto'
 import { cookies } from 'next/headers'
 import { cache } from 'react'
 import { db } from './db'
+import { getI18n } from './i18n/server'
 import type { StaffRole, User } from '@prisma/client'
 
 export const SESSION_COOKIE = 'tu_session'
@@ -124,13 +125,13 @@ export class AuthError extends Error {
 
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser()
-  if (!user) throw new AuthError('Avval tizimga kiring')
+  if (!user) throw new AuthError((await getI18n()).dict.errors.login_required)
   return user
 }
 
 export async function requireSuperAdmin(): Promise<SessionUser> {
   const user = await requireUser()
-  if (user.role !== 'SUPER_ADMIN') throw new AuthError('Faqat super admin uchun')
+  if (user.role !== 'SUPER_ADMIN') throw new AuthError((await getI18n()).dict.errors.super_admin_only)
   return user
 }
 
@@ -138,14 +139,14 @@ export async function requireSuperAdmin(): Promise<SessionUser> {
 export async function requireOrganizationAccount() {
   const user = await requireUser()
   if (user.role === 'SUPER_ADMIN') return { user, organization: null as null | { id: string } }
-  if (user.role !== 'ORGANIZATION') throw new AuthError('Faqat tashkilot akkaunti uchun')
+  if (user.role !== 'ORGANIZATION') throw new AuthError((await getI18n()).dict.account.actions.org_account_only)
 
   const organization = await db.organization.findUnique({
     where: { ownerId: user.id },
     select: { id: true, name: true, slug: true, status: true },
   })
-  if (!organization) throw new AuthError('Tashkilot topilmadi')
-  if (organization.status === 'SUSPENDED') throw new AuthError('Tashkilot akkaunti to‘xtatilgan')
+  if (!organization) throw new AuthError((await getI18n()).dict.account.actions.org_not_found)
+  if (organization.status === 'SUSPENDED') throw new AuthError((await getI18n()).dict.account.actions.org_suspended)
 
   return { user, organization }
 }

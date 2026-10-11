@@ -17,6 +17,8 @@ import {
   type LeaderboardEntryData,
 } from './leaderboard'
 import { drawOrder } from './seeding'
+import { dictionaries, type Dictionary } from '../i18n/dictionaries'
+import { stageLabel } from './labels'
 import { matchKey, type Bracket, type EngineMatch, type Plan, type Rng, type Slot } from './types'
 
 /**
@@ -33,8 +35,29 @@ import { matchKey, type Bracket, type EngineMatch, type Plan, type Rng, type Slo
 
 type Tx = Prisma.TransactionClient
 
-/** A rule violation with a message safe to show the organizer. */
-export class CompetitionError extends Error {}
+type CompetitionErrors = Dictionary['competition']['errors']
+type ErrorKey = { [K in keyof CompetitionErrors]: CompetitionErrors[K] extends string ? K : never }[keyof CompetitionErrors]
+
+/**
+ * A rule violation with a message safe to show the organizer. `message` is
+ * Uzbek (logs, tests); `translated(dict)` gives it in the viewer's language.
+ */
+export class CompetitionError extends Error {
+  constructor(
+    message: string,
+    private readonly localize?: (dict: Dictionary) => string
+  ) {
+    super(message)
+  }
+
+  static of(key: ErrorKey) {
+    return new CompetitionError(dictionaries.uz.competition.errors[key], (dict) => dict.competition.errors[key])
+  }
+
+  translated(dict: Dictionary) {
+    return this.localize ? this.localize(dict) : this.message
+  }
+}
 
 const TX_OPTIONS = { timeout: 30_000, maxWait: 10_000 }
 
@@ -59,7 +82,7 @@ async function lockTournament(tx: Tx, tournamentId: string) {
       teamSize: true,
     },
   })
-  if (!tournament) throw new CompetitionError('Turnir topilmadi')
+  if (!tournament) throw CompetitionError.of('tournament_not_found')
   return tournament
 }
 
@@ -282,8 +305,10 @@ async function advance(tx: Tx, tournamentId: string): Promise<AdvanceResult> {
       const match = state.matches.find((m) => m.key === update.key)!
       const playedByPeople = match.finalized && match.resultType !== 'BYE'
       if (playedByPeople && (match.home !== update.home || match.away !== update.away || update.auto)) {
+        const stage = match.stage
         throw new CompetitionError(
-          `Bu o‘zgarish allaqachon o‘ynalgan o‘yinga ta’sir qiladi (${match.stage}). Avval o‘sha o‘yin natijasini tuzating.`
+          dictionaries.uz.competition.errors.affects_played(stage),
+          (dict) => dict.competition.errors.affects_played(stageLabel(dict, stage))
         )
       }
 
@@ -391,7 +416,10 @@ export async function startCompetition(tournamentId: string, rng: Rng = randomIn
         : approved
 
     const problem = validateForEntrants(tournament.format, config, eligible.length)
-    if (problem) throw new CompetitionError(problem)
+    if (problem) {
+      const count = eligible.length
+      throw new CompetitionError(problem, (dict) => validateForEntrants(tournament.format, config, count, dict) ?? problem)
+    }
 
     const ordered = orderParticipants(eligible)
     const entrants = drawOrder(ordered, config.seeding, rng)
@@ -440,7 +468,7 @@ export type RecordResult = AdvanceResult & {
  */
 export async function recordResult(input: ResultInput, actorId: string): Promise<RecordResult> {
   const head = await db.match.findUnique({ where: { id: input.matchId }, select: { tournamentId: true } })
-  if (!head) throw new CompetitionError('O‘yin topilmadi')
+  if (!head) throw CompetitionError.of('match_not_found')
 
   return db.$transaction(async (tx) => {
     const tournament = await lockTournament(tx, head.tournamentId)
@@ -463,14 +491,14 @@ export async function recordResult(input: ResultInput, actorId: string): Promise
       },
     })
 
-    if (match.bracket === 'MANUAL') throw new CompetitionError('Bu eski (qo‘lda qo‘shilgan) o‘yin — tahrirlanmaydi')
-    if (tournament.status === 'cancelled') throw new CompetitionError('Turnir bekor qilingan')
+    if (match.bracket === 'MANUAL') throw CompetitionError.of('legacy_match')
+    if (tournament.status === 'cancelled') throw CompetitionError.of('tournament_cancelled')
     if (tournament.status !== 'ongoing' && tournament.status !== 'completed') {
-      throw new CompetitionError('Natija faqat boshlangan turnirga kiritiladi')
+      throw CompetitionError.of('not_started')
     }
-    if (match.isBye || match.status === 'cancelled') throw new CompetitionError('Bu o‘yin o‘ynalmaydi')
+    if (match.isBye || match.status === 'cancelled') throw CompetitionError.of('not_playable')
     if (!match.homeParticipantId || !match.awayParticipantId) {
-      throw new CompetitionError('Ikkala tomon hali aniqlanmagan')
+      throw CompetitionError.of('sides_unknown')
     }
 
     let winner: string | null
@@ -484,11 +512,11 @@ export async function recordResult(input: ResultInput, actorId: string): Promise
       homeScore = null
       awayScore = null
     } else {
-      if (homeScore === null || awayScore === null) throw new CompetitionError('Ikkala hisobni kiriting')
+      if (homeScore === null || awayScore === null) throw CompetitionError.of('both_scores')
       winner =
         homeScore > awayScore ? match.homeParticipantId : awayScore > homeScore ? match.awayParticipantId : null
       if (winner === null && !drawsAllowed(tournament.format, match.bracket)) {
-        throw new CompetitionError('Bu bosqichda durang bo‘lmaydi — g‘olibni aniqlang')
+        throw CompetitionError.of('no_draws')
       }
     }
 
@@ -514,7 +542,7 @@ export async function recordResult(input: ResultInput, actorId: string): Promise
 
     if (isCorrection) {
       const reason = input.reason?.trim()
-      if (!reason || reason.length < 5) throw new CompetitionError('Natijani o‘zgartirish sababini yozing (kamida 5 belgi)')
+      if (!reason || reason.length < 5) throw CompetitionError.of('reason_required')
       await tx.matchResultRevision.create({
         data: {
           matchId: match.id,
@@ -601,17 +629,17 @@ export async function recordLeaderboardRound(
 ): Promise<LeaderboardRecordResult> {
   return db.$transaction(async (tx) => {
     const tournament = await lockTournament(tx, input.tournamentId)
-    if (tournament.format !== 'LEADERBOARD') throw new CompetitionError('Bu turnir reyting formatida emas')
-    if (tournament.status === 'cancelled') throw new CompetitionError('Turnir bekor qilingan')
+    if (tournament.format !== 'LEADERBOARD') throw CompetitionError.of('not_leaderboard')
+    if (tournament.status === 'cancelled') throw CompetitionError.of('tournament_cancelled')
     if (tournament.status !== 'ongoing' && tournament.status !== 'completed') {
-      throw new CompetitionError('Natija faqat boshlangan turnirga kiritiladi')
+      throw CompetitionError.of('not_started')
     }
 
     const existing = await tx.leaderboardEntry.findMany({
       where: { tournamentId: input.tournamentId, round: input.round },
       select: { id: true, participantId: true, value: true, status: true, participant: { select: { userId: true } } },
     })
-    if (existing.length === 0) throw new CompetitionError('Bunday bosqich yo‘q')
+    if (existing.length === 0) throw CompetitionError.of('no_such_round')
     const byParticipant = new Map(existing.map((e) => [e.participantId, e]))
 
     const changes = input.results.flatMap((r) => {
@@ -628,9 +656,9 @@ export async function recordLeaderboardRound(
     }
     if (corrected) {
       const reason = input.reason?.trim()
-      if (!reason || reason.length < 5) throw new CompetitionError('Natijani o‘zgartirish sababini yozing (kamida 5 belgi)')
+      if (!reason || reason.length < 5) throw CompetitionError.of('reason_required')
       if (changes.some((c) => c.status === 'pending')) {
-        throw new CompetitionError('Yakunlangan turnirda natijani o‘chirib bo‘lmaydi — qiymat yoki DNF kiriting')
+        throw CompetitionError.of('cannot_clear_final')
       }
     }
 

@@ -1,12 +1,27 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { dictionaries } from '@/lib/i18n/dictionaries'
+import { DEFAULT_LOCALE, LANGUAGE_COOKIE, isLocale, type Locale } from '@/lib/i18n/types'
+
 /**
  * Last-resort boundary: it replaces the whole document, so it cannot rely
- * on the app's providers, fonts or Tailwind layer being mounted.
+ * on the app's providers, fonts or Tailwind layer being mounted. The
+ * language is read straight from the cookie the language switcher writes.
  */
+function readLocale(): Locale {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${LANGUAGE_COOKIE}=([^;]*)`))
+  const value = match?.[1]
+  return isLocale(value) ? value : DEFAULT_LOCALE
+}
+
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE)
+  useEffect(() => setLocale(readLocale()), [])
+  const t = dictionaries[locale].chrome.error
+
   return (
-    <html lang="uz">
+    <html lang={locale}>
       <body
         style={{
           minHeight: '100vh',
@@ -21,9 +36,9 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         }}
       >
         <div style={{ maxWidth: 420, textAlign: 'center' }}>
-          <h1 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Ilova ishdan chiqdi</h1>
+          <h1 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>{t.global_title}</h1>
           <p style={{ opacity: 0.8, marginBottom: '1.25rem', lineHeight: 1.5 }}>
-            Kutilmagan xatolik yuz berdi. Sahifani qayta yuklashga urinib ko‘ring.
+            {t.global_description}
           </p>
           <button
             onClick={reset}
@@ -37,10 +52,10 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               cursor: 'pointer',
             }}
           >
-            Qayta urinish
+            {t.retry}
           </button>
           {error.digest ? (
-            <p style={{ marginTop: '1rem', fontSize: '0.75rem', opacity: 0.6 }}>Kod: {error.digest}</p>
+            <p style={{ marginTop: '1rem', fontSize: '0.75rem', opacity: 0.6 }}>{t.code(error.digest)}</p>
           ) : null}
         </div>
       </body>

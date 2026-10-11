@@ -77,10 +77,10 @@ export function TopThreePodium({
                 className="text-base sm:text-lg font-black"
                 style={{ color: 'var(--lb-silver)' }}
               >
-                2nd
+                {dict.account.rankings.place(2)}
               </span>
               <span className="mt-2 inline-flex items-center rounded-full bg-background/90 px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-foreground/90 shadow-xs border border-border/40">
-                {second.points.toLocaleString()} Pts
+                {second.points.toLocaleString()} {dict.account.rankings.pts(second.points)}
               </span>
             </div>
           </div>
@@ -125,13 +125,13 @@ export function TopThreePodium({
                 className="text-lg sm:text-2xl font-black"
                 style={{ color: 'var(--lb-gold)' }}
               >
-                1st
+                {dict.account.rankings.place(1)}
               </span>
               <span
                 className="mt-2.5 inline-flex items-center rounded-full bg-background/95 px-3 py-1 text-xs sm:text-sm font-bold text-foreground shadow-xs border"
                 style={{ borderColor: 'color-mix(in srgb, var(--lb-gold) 40%, transparent)' }}
               >
-                {first.points.toLocaleString()} Pts
+                {first.points.toLocaleString()} {dict.account.rankings.pts(first.points)}
               </span>
             </div>
           </div>
@@ -171,10 +171,10 @@ export function TopThreePodium({
                 className="text-sm sm:text-base font-bold"
                 style={{ color: 'var(--lb-bronze)' }}
               >
-                3rd
+                {dict.account.rankings.place(3)}
               </span>
               <span className="mt-2 inline-flex items-center rounded-full bg-background/90 px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-foreground/90 shadow-xs border border-border/40">
-                {third.points.toLocaleString()} Pts
+                {third.points.toLocaleString()} {dict.account.rankings.pts(third.points)}
               </span>
             </div>
           </div>
@@ -187,7 +187,7 @@ export function TopThreePodium({
       {/* Leaderboard Highlight Banner */}
       <div className="text-center mt-6 mb-4">
         <p className="text-sm sm:text-base font-medium text-foreground">
-          <span className="font-extrabold text-foreground">{first.user.name}</span> — {periodLabel}{sportLabel} {dict.rankings.leader_suffix}
+          <span className="font-extrabold text-foreground">{first.user.name}</span> {dict.account.rankings.leader(periodLabel, sportLabel)}
         </p>
       </div>
     </div>

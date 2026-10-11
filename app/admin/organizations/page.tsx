@@ -1,10 +1,14 @@
 import { db } from '@/lib/db'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { OrganizationsClient } from './organizations-client'
+import { getI18n } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Tashkilotlar', robots: { index: false } }
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.admin.organizations.meta_title, robots: { index: false } }
+}
 
 async function load() {
   const rows = await db.organization.findMany({
@@ -40,11 +44,12 @@ export default async function AdminOrganizationsPage() {
   }
 
   if (!organizations) {
+    const { dict } = await getI18n()
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Tashkilotlarni olib bo‘lmadi</CardTitle>
-          <CardDescription>Baza bilan aloqa yo‘q. Keyinroq qayta urinib ko‘ring.</CardDescription>
+          <CardTitle>{dict.admin.organizations.load_failed}</CardTitle>
+          <CardDescription>{dict.admin.db_unavailable}</CardDescription>
         </CardHeader>
       </Card>
     )

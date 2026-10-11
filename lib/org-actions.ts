@@ -14,18 +14,21 @@ import {
 import { fail, succeedWith, type ActionResult } from './action-result'
 import { clientIp, minutes, rateLimit } from './rate-limit'
 import type { ProvisionedCredentials } from './org-types'
+import { getI18n } from './i18n/server'
 
 // ------------------------------------------------------------
 // Public: apply to become an organization
 // ------------------------------------------------------------
 
 export async function submitOrganizationApplication(input: unknown): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.account.actions
   const parsed = organizationApplicationSchema.safeParse(input)
-  if (!parsed.success) return fail('Formada xatolar bor', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
 
   const ip = await clientIp()
   const limit = rateLimit(`org-apply:${ip}`, 3, minutes(60))
-  if (!limit.ok) return fail('Juda ko‘p ariza yuborildi. Bir soatdan keyin urinib ko‘ring.')
+  if (!limit.ok) return fail(t.too_many_applications)
 
   const data = parsed.data
 
@@ -35,8 +38,8 @@ export async function submitOrganizationApplication(input: unknown): Promise<Act
       select: { id: true },
     })
     if (pending) {
-      return fail('Bu email bilan ko‘rib chiqilmagan ariza allaqachon bor', {
-        email: 'Ariza allaqachon yuborilgan',
+      return fail(t.application_pending, {
+        email: t.application_already_sent,
       })
     }
 
@@ -58,7 +61,7 @@ export async function submitOrganizationApplication(input: unknown): Promise<Act
     return { ok: true }
   } catch (error) {
     console.error('submitOrganizationApplication failed', error)
-    return fail('Ariza yuborishda xatolik yuz berdi')
+    return fail(t.application_failed)
   }
 }
 
@@ -67,9 +70,10 @@ export async function submitOrganizationApplication(input: unknown): Promise<Act
 // ------------------------------------------------------------
 
 async function requireAdmin() {
+  const { dict } = await getI18n()
   const user = await getCurrentUser()
-  if (!user) return { error: 'Avval tizimga kiring' as const, user: null }
-  if (user.role !== 'SUPER_ADMIN') return { error: 'Faqat super admin uchun' as const, user: null }
+  if (!user) return { error: dict.errors.login_required, user: null }
+  if (user.role !== 'SUPER_ADMIN') return { error: dict.errors.super_admin_only, user: null }
   return { error: null, user }
 }
 
@@ -83,18 +87,20 @@ async function requireAdmin() {
 export async function approveOrganizationApplication(
   input: unknown
 ): Promise<ActionResult<ProvisionedCredentials>> {
+  const { dict } = await getI18n()
+  const t = dict.account.actions
   const auth = await requireAdmin()
   if (auth.error) return fail(auth.error)
 
   const parsed = approveApplicationSchema.safeParse(input)
-  if (!parsed.success) return fail('Formada xatolar bor', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
 
   const { applicationId, username, note } = parsed.data
 
   try {
     const application = await db.organizationApplication.findUnique({ where: { id: applicationId } })
-    if (!application) return fail('Ariza topilmadi')
-    if (application.status !== 'PENDING') return fail('Bu ariza allaqachon ko‘rib chiqilgan')
+    if (!application) return fail(t.application_not_found)
+    if (application.status !== 'PENDING') return fail(t.application_reviewed)
 
     const clash = await db.user.findFirst({
       where: { OR: [{ username }, { email: application.email }] },
@@ -102,8 +108,8 @@ export async function approveOrganizationApplication(
     })
     if (clash) {
       return fail(
-        clash.username === username ? 'Bu username band' : 'Bu email bilan akkaunt allaqachon bor',
-        clash.username === username ? { username: 'Username band' } : undefined
+        clash.username === username ? t.username_taken : t.email_account_exists,
+        clash.username === username ? { username: t.username_taken_short } : undefined
       )
     }
 
@@ -178,24 +184,26 @@ export async function approveOrganizationApplication(
     })
   } catch (error) {
     console.error('approveOrganizationApplication failed', error)
-    return fail('Arizani tasdiqlashda xatolik')
+    return fail(t.approve_failed)
   }
 }
 
 export async function rejectOrganizationApplication(input: unknown): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.account.actions
   const auth = await requireAdmin()
   if (auth.error) return fail(auth.error)
 
   const parsed = rejectApplicationSchema.safeParse(input)
-  if (!parsed.success) return fail('Formada xatolar bor', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
 
   try {
     const application = await db.organizationApplication.findUnique({
       where: { id: parsed.data.applicationId },
       select: { status: true },
     })
-    if (!application) return fail('Ariza topilmadi')
-    if (application.status !== 'PENDING') return fail('Bu ariza allaqachon ko‘rib chiqilgan')
+    if (!application) return fail(t.application_not_found)
+    if (application.status !== 'PENDING') return fail(t.application_reviewed)
 
     await db.organizationApplication.update({
       where: { id: parsed.data.applicationId },
@@ -212,7 +220,7 @@ export async function rejectOrganizationApplication(input: unknown): Promise<Act
     return { ok: true }
   } catch (error) {
     console.error('rejectOrganizationApplication failed', error)
-    return fail('Arizani rad etishda xatolik')
+    return fail(t.reject_failed)
   }
 }
 
@@ -224,6 +232,8 @@ export async function setOrganizationStatus(
   organizationId: string,
   status: 'ACTIVE' | 'SUSPENDED'
 ): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.account.actions
   const auth = await requireAdmin()
   if (auth.error) return fail(auth.error)
 
@@ -232,7 +242,7 @@ export async function setOrganizationStatus(
       where: { id: organizationId },
       select: { ownerId: true },
     })
-    if (!organization) return fail('Tashkilot topilmadi')
+    if (!organization) return fail(t.org_not_found)
 
     await db.organization.update({ where: { id: organizationId }, data: { status } })
 
@@ -246,7 +256,7 @@ export async function setOrganizationStatus(
     return { ok: true }
   } catch (error) {
     console.error('setOrganizationStatus failed', error)
-    return fail('Statusni o‘zgartirishda xatolik')
+    return fail(t.status_change_failed)
   }
 }
 
@@ -254,6 +264,8 @@ export async function setOrganizationStatus(
 export async function resetOrganizationPassword(
   organizationId: string
 ): Promise<ActionResult<ProvisionedCredentials>> {
+  const { dict } = await getI18n()
+  const t = dict.account.actions
   const auth = await requireAdmin()
   if (auth.error) return fail(auth.error)
 
@@ -262,7 +274,7 @@ export async function resetOrganizationPassword(
       where: { id: organizationId },
       select: { name: true, owner: { select: { id: true, username: true, email: true } } },
     })
-    if (!organization) return fail('Tashkilot topilmadi')
+    if (!organization) return fail(t.org_not_found)
 
     const password = generatePassword()
     await db.user.update({
@@ -280,6 +292,6 @@ export async function resetOrganizationPassword(
     })
   } catch (error) {
     console.error('resetOrganizationPassword failed', error)
-    return fail('Parolni tiklashda xatolik')
+    return fail(t.password_reset_failed)
   }
 }

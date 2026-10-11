@@ -14,3 +14,9 @@ export const LOCALES: LocaleOption[] = [
 ]
 
 export const DEFAULT_LOCALE: Locale = 'uz'
+
+export const LANGUAGE_COOKIE = 'tourneyup_lang'
+
+export function isLocale(value: unknown): value is Locale {
+  return value === 'uz' || value === 'ru' || value === 'en'
+}

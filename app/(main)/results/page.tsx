@@ -6,18 +6,18 @@ import { db } from '@/lib/db'
 import { DbErrorCard } from '@/components/db-error-card'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { TOURNAMENT_STATUS_CLASSES, TOURNAMENT_STATUS_LABELS } from '@/lib/constants'
-import { FORMAT_SHORT_LABELS } from '@/lib/competition/config'
+import { TOURNAMENT_STATUS_CLASSES } from '@/lib/constants'
+import { getI18n } from '@/lib/i18n/server'
 import { COMPETITION_TABS, type CompetitionTab } from '@/lib/competition/list'
 import { CompetitionFilters } from './competition-filters'
 import { CompetitionPager } from './competition-pager'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> {
+  const { dict } = await getI18n()
   // The root layout appends "| TourneyUp" via its title template.
-  title: 'Musobaqa',
-  description: 'Turnirlar to‘ri, guruh jadvallari, o‘yinlar tarixi va jadvali.',
+  return { title: dict.competition.list.title, description: dict.competition.list.meta_description }
 }
 
 const PAGE_SIZE = 20
@@ -31,12 +31,6 @@ const STATUS_ORDER: Record<string, number> = {
   cancelled: 4,
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  sports: 'Sport',
-  esports: 'Kibersport',
-  academic: 'Akademik',
-}
-
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
 function readParam(value: string | string[] | undefined): string {
@@ -45,6 +39,9 @@ function readParam(value: string | string[] | undefined): string {
 
 export default async function CompetitionListPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams
+  const { dict } = await getI18n()
+  const c = dict.competition
+  const categories: Record<string, string> = c.categories
   const rawTab = readParam(params.tab)
   const tab: CompetitionTab = rawTab in COMPETITION_TABS ? (rawTab as CompetitionTab) : 'all'
   const query = readParam(params.q).trim().slice(0, 80)
@@ -58,7 +55,7 @@ export default async function CompetitionListPage({ searchParams }: { searchPara
   } catch (error) {
     console.error('competition list failed', error)
   }
-  if (!rows) return <DbErrorCard message="Musobaqalarni yuklab bo‘lmadi. Keyinroq qayta urinib ko‘ring." />
+  if (!rows) return <DbErrorCard message={c.list.load_failed} />
 
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
   const visible = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -71,9 +68,9 @@ export default async function CompetitionListPage({ searchParams }: { searchPara
   return (
     <div className="container mx-auto max-w-4xl space-y-6 px-4 py-6">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Musobaqa</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">{c.list.title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Turnirni tanlang — to‘r, jadval, o‘yinlar tarixi va natijalar shu yerda.
+          {c.list.subtitle}
         </p>
       </div>
 
@@ -84,7 +81,7 @@ export default async function CompetitionListPage({ searchParams }: { searchPara
           <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
             <Trophy className="h-10 w-10 text-muted-foreground" aria-hidden />
             <p className="text-sm text-muted-foreground">
-              {query || category ? 'Bu filtr bo‘yicha turnir topilmadi.' : 'Hozircha bu bo‘limda turnir yo‘q.'}
+              {query || category ? c.list.empty_filtered : c.list.empty}
             </p>
           </CardContent>
         </Card>
@@ -102,23 +99,22 @@ export default async function CompetitionListPage({ searchParams }: { searchPara
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate font-semibold">{t.title}</p>
-                    <Badge className={TOURNAMENT_STATUS_CLASSES[t.status]}>{TOURNAMENT_STATUS_LABELS[t.status]}</Badge>
+                    <Badge className={TOURNAMENT_STATUS_CLASSES[t.status]}>{dict.status[t.status]}</Badge>
                     {t.liveCount > 0 ? (
                       <span className="flex items-center gap-1 text-xs font-semibold text-destructive">
                         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" aria-hidden />
-                        {t.liveCount} jonli
+                        {c.list.live_count(t.liveCount)}
                       </span>
                     ) : null}
                   </div>
                   <p className="truncate text-xs text-muted-foreground">
-                    {[t.sport, CATEGORY_LABELS[t.category] ?? t.category, t.organizer].filter(Boolean).join(' · ')}
+                    {[t.sport, categories[t.category] ?? t.category, t.organizer].filter(Boolean).join(' · ')}
                   </p>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                    <span>{FORMAT_SHORT_LABELS[t.format]}</span>
+                    <span>{c.formats_short[t.format]}</span>
                     <span className="flex items-center gap-1">
                       <Users className="h-3 w-3" aria-hidden />
-                      {t.participants}
-                      {t.participantType === 'TEAM' ? ' jamoa' : ' ishtirokchi'}
+                      {t.participantType === 'TEAM' ? c.list.teams(t.participants) : c.list.players(t.participants)}
                     </span>
                   </div>
                 </div>

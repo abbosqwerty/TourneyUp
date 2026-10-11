@@ -1,7 +1,9 @@
 'use client'
 
 import React from 'react'
+import { Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 interface ParticipantSlotsProps {
   current: number
@@ -9,61 +11,47 @@ interface ParticipantSlotsProps {
   className?: string
 }
 
+/** "1250" → "1 250" */
+export function formatCount(n: number) {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+}
+
+export function isTournamentFull(current: number, max: number) {
+  return max > 0 && current >= max
+}
+
+/** Capacity as one large, readable "12/40" — no per-slot dots or bars. */
 export function ParticipantSlots({ current, max, className }: ParticipantSlotsProps) {
-  // Bound max between 1 and 128 for clean visual presentation
-  const safeMax = Math.max(1, Math.min(max || 16, 128))
+  const { dict } = useLanguage()
+  const safeMax = Math.max(1, max || 16)
   const safeCurrent = Math.max(0, Math.min(current || 0, safeMax))
   const spotsLeft = safeMax - safeCurrent
-  const isAlmostFull = spotsLeft <= Math.max(2, Math.floor(safeMax * 0.2))
   const isFull = spotsLeft === 0
-
-  // Dot size based on total count — always readable
-  const dotSize =
-    safeMax <= 16
-      ? 'h-3.5 w-3.5'
-      : safeMax <= 32
-        ? 'h-3 w-3'
-        : safeMax <= 64
-          ? 'h-2.5 w-2.5'
-          : 'h-2 w-2'
-
-  const gapSize = safeMax <= 32 ? 'gap-1.5' : 'gap-1'
+  const isAlmostFull = !isFull && spotsLeft <= Math.max(2, Math.floor(safeMax * 0.2))
 
   return (
-    <div className={cn('w-full rounded-lg bg-secondary/20 border border-border/40 p-2.5', className)}>
-      {/* Dots grid */}
-      <div className={cn('flex flex-wrap items-center', gapSize)}>
-        {Array.from({ length: safeMax }).map((_, i) => {
-          const filled = i < safeCurrent
-          return (
-            <span
-              key={i}
-              title={`Slot ${i + 1}: ${filled ? 'Joined' : 'Available'}`}
-              className={cn(
-                dotSize,
-                'rounded-full inline-block shrink-0 transition-all duration-200',
-                filled
-                  ? 'bg-primary shadow-[0_0_4px_0px] shadow-primary/50'
-                  : 'bg-muted border border-border/60'
-              )}
-            />
-          )
-        })}
-      </div>
-
-      {/* Spots left label */}
-      <div className="flex items-center justify-between mt-2 text-[10px] font-medium">
-        <span className="text-muted-foreground">
-          {safeCurrent}/{safeMax} joined
+    <div
+      className={cn(
+        'flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5',
+        isFull ? 'border-destructive/40 bg-destructive/5' : 'border-border/60 bg-secondary/30',
+        className
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <Users className={cn('h-5 w-5 shrink-0', isFull ? 'text-destructive' : 'text-primary')} aria-hidden />
+        <span className="text-xl font-bold leading-none tabular-nums tracking-tight">
+          {formatCount(safeCurrent)}
+          <span className="text-muted-foreground">/{formatCount(safeMax)}</span>
         </span>
-        {isFull ? (
-          <span className="text-destructive font-semibold">Full</span>
-        ) : isAlmostFull ? (
-          <span className="text-warning font-semibold">{spotsLeft} left!</span>
-        ) : (
-          <span className="text-muted-foreground">{spotsLeft} spots left</span>
-        )}
+        <span className="truncate text-xs text-muted-foreground">{dict.feed.participants}</span>
       </div>
+      {isFull ? (
+        <span className="shrink-0 text-sm font-semibold text-destructive">{dict.feed.full}</span>
+      ) : (
+        <span className={cn('shrink-0 text-xs tabular-nums', isAlmostFull ? 'font-semibold text-warning' : 'text-muted-foreground')}>
+          {dict.feed.spots_left.replace('{n}', formatCount(spotsLeft))}
+        </span>
+      )}
     </div>
   )
 }

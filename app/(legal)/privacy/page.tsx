@@ -1,127 +1,98 @@
 import type { Metadata } from 'next'
+import { formatDateLong } from '@/lib/time'
+import { getI18n } from '@/lib/i18n/server'
 
-export const metadata: Metadata = {
-  title: 'Maxfiylik siyosati',
-  description: 'TourneyUp qanday ma‘lumot yig‘adi, nima uchun ishlatadi va qancha saqlaydi.',
+export async function generateMetadata(): Promise<Metadata> {
+  const { dict } = await getI18n()
+  return {
+    title: dict.legal.privacy.meta_title,
+    description: dict.legal.privacy.meta_description,
+  }
 }
 
 const UPDATED = '2026-10-09'
 
-export default function PrivacyPage() {
+/** `backticked` fragments of a translation render as <code>. */
+function withCode(text: string) {
+  return text.split('`').map((part, index) => (index % 2 ? <code key={index}>{part}</code> : part))
+}
+
+function Item({ label, text }: { label: string; text: string }) {
+  return (
+    <li>
+      <strong>{label}</strong> {text}
+    </li>
+  )
+}
+
+export default async function PrivacyPage() {
+  const { dict, locale } = await getI18n()
+  const t = dict.legal.privacy
+
   return (
     <>
       <header className="space-y-2">
-        <h1 className="text-3xl font-bold">Maxfiylik siyosati</h1>
+        <h1 className="text-3xl font-bold">{t.title}</h1>
         <p className="text-sm">
-          Oxirgi yangilanish:{' '}
+          {dict.legal.updated}{' '}
           <time dateTime={UPDATED}>
-            {new Date(UPDATED).toLocaleDateString('uz-UZ', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            })}
+            {formatDateLong(UPDATED, locale)}
           </time>
         </p>
       </header>
 
-      <p>
-        TourneyUp — universitet va shahar turnirlarini e‘lon qilish, ularga ro‘yxatdan o‘tish va
-        natijalarni kuzatish uchun platforma. Quyida platforma qanday ma‘lumot yig‘ishi va u bilan
-        nima qilishi yozilgan.
-      </p>
+      <p>{t.intro}</p>
 
-      <h2>Qanday ma‘lumot yig‘amiz</h2>
+      <h2>{t.collect_title}</h2>
       <ul>
-        <li>
-          <strong>Akkaunt ma‘lumotlari:</strong> ism, username, email, parol (faqat kriptografik
-          hash shaklida — ochiq parol hech qachon saqlanmaydi), ixtiyoriy ravishda universitet,
-          shahar, bio va avatar.
-        </li>
-        <li>
-          <strong>Faoliyat:</strong> qaysi turnirlarga yozilganingiz, saqlagan turnirlaringiz,
-          kanal obunalari, kanalga yozgan xabarlaringiz, stories va o‘yin natijalaringiz.
-        </li>
-        <li>
-          <strong>Seans ma‘lumotlari:</strong> seans tokeni (cookie), oxirgi kirish vaqti va
-          brauzer qatori (user agent) — ruxsatsiz kirishni aniqlash uchun.
-        </li>
-        <li>
-          <strong>Yuklangan fayllar:</strong> turnir posteri, avatar va kanal rasmlari.
-        </li>
+        <Item {...t.collect.account} />
+        <Item {...t.collect.activity} />
+        <Item {...t.collect.session} />
+        <Item {...t.collect.uploads} />
       </ul>
 
-      <h2>Nima uchun ishlatamiz</h2>
+      <h2>{t.use_title}</h2>
       <ul>
-        <li>Akkauntingizni yuritish va tizimga kirishingizni ta‘minlash.</li>
-        <li>Turnirga yozilish, tasdiqlash va rad etish oqimini ishlatish.</li>
-        <li>Sizga tegishli bildirishnomalarni yuborish (ariza holati, turnir statusi).</li>
-        <li>Platformani suiiste‘moldan himoya qilish — urinishlar sonini cheklash.</li>
+        <li>{t.use.account}</li>
+        <li>{t.use.registration}</li>
+        <li>{t.use.notifications}</li>
+        <li>{t.use.abuse}</li>
       </ul>
-      <p>
-        Ma‘lumotlaringizni reklama maqsadida ishlatmaymiz va uchinchi tomonlarga sotmaymiz.
-      </p>
+      <p>{t.no_ads}</p>
 
-      <h2>Kim ko‘radi</h2>
+      <h2>{t.visibility_title}</h2>
       <ul>
-        <li>
-          <strong>Ommaviy:</strong> ism, username, avatar, bio, universitet, shahar, reyting va
-          turnir natijalari — profil sahifasida ko‘rinadi.
-        </li>
-        <li>
-          <strong>Tashkilotchi:</strong> siz yozilgan turnir tashkilotchisi ismingiz, emailingiz va
-          jamoa nomingizni ko‘radi — arizani ko‘rib chiqish uchun.
-        </li>
-        <li>
-          <strong>Hech kim:</strong> parolingiz (faqat hash saqlanadi) va seans tokeningiz.
-        </li>
+        <Item {...t.visibility.public} />
+        <Item {...t.visibility.organizer} />
+        <Item {...t.visibility.nobody} />
       </ul>
 
-      <h2>Cookie</h2>
-      <p>
-        Platforma faqat bitta zarur cookie ishlatadi: <code>tu_session</code> — seans tokeni. U{' '}
-        <code>httpOnly</code>, <code>sameSite=lax</code> va productionda <code>secure</code>{' '}
-        bo‘ladi, ya‘ni JavaScript orqali o‘qilmaydi. Tahlil yoki reklama cookie‘lari yo‘q.
-      </p>
+      <h2>{t.cookie_title}</h2>
+      <p>{withCode(t.cookie)}</p>
 
-      <h2>Qancha saqlanadi</h2>
+      <h2>{t.retention_title}</h2>
       <ul>
-        <li>Akkaunt ma‘lumotlari — siz o‘chirmaguningizcha.</li>
-        <li>Seans — chiqib ketganingizda yoki parol almashtirilganda bekor qilinadi.</li>
-        <li>Turnir tarixiga oid yozuvlar — turnir yakunlangandan keyin ham arxiv sifatida qoladi.</li>
+        <li>{t.retention.account}</li>
+        <li>{t.retention.session}</li>
+        <li>{t.retention.history}</li>
       </ul>
 
-      <h2>Sizning huquqlaringiz</h2>
+      <h2>{t.rights_title}</h2>
       <ul>
-        <li>
-          <strong>Tahrirlash:</strong> Sozlamalar → Profilni tahrirlash orqali ism, username, bio,
-          universitet, shahar va avatarni o‘zgartirasiz.
-        </li>
-        <li>
-          <strong>O‘chirish:</strong> Sozlamalar → Akkauntni o‘chirish. Akkaunt o‘chganda
-          ro‘yxatlaringiz, saqlanganlar, kanal obunalari, stories va bildirishnomalar ham o‘chadi.
-        </li>
-        <li>
-          <strong>Nusxa olish:</strong> ma‘lumotlaringiz nusxasini olish uchun quyidagi manzilga
-          yozing.
-        </li>
+        <Item {...t.rights.edit} />
+        <Item {...t.rights.delete} />
+        <Item {...t.rights.export} />
       </ul>
 
-      <h2>Xavfsizlik</h2>
+      <h2>{t.security_title}</h2>
+      <p>{withCode(t.security)}</p>
+
+      <h2>{t.contact_title}</h2>
       <p>
-        Parollar <code>scrypt</code> bilan hashlanadi, seanslar bazada saqlanadi va bekor qilinishi
-        mumkin, barcha sahifalar Content-Security-Policy, HSTS va <code>X-Frame-Options</code>{' '}
-        header‘lari bilan beriladi.
+        {t.contact} <a className="underline" href="mailto:privacy@tourneyup.uz">privacy@tourneyup.uz</a>
       </p>
 
-      <h2>Bog‘lanish</h2>
-      <p>
-        Savol yoki so‘rov bo‘lsa: <a className="underline" href="mailto:privacy@tourneyup.uz">privacy@tourneyup.uz</a>
-      </p>
-
-      <p className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs">
-        Eslatma: bu matn platforma amaldagi ishlashini tavsiflaydi. Yuridik kuchga ega hujjat
-        sifatida ishlatishdan oldin huquqshunos bilan tekshirib chiqing.
-      </p>
+      <p className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs">{t.note}</p>
     </>
   )
 }

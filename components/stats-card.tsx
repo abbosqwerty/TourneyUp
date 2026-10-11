@@ -11,6 +11,11 @@ interface StatsCardProps {
     value: number
     direction: 'up' | 'down' | 'neutral'
   }
+  /**
+   * Caption after the trend figure (e.g. dict.dashboard "vs last month").
+   * Passed in by the caller because this card also renders in server components.
+   */
+  trendLabel?: string
   variant?: 'default' | 'primary' | 'accent' | 'gradient'
   className?: string
 }
@@ -21,6 +26,7 @@ export function StatsCard({
   description,
   icon: Icon,
   trend,
+  trendLabel,
   variant = 'default',
   className,
 }: StatsCardProps) {
@@ -60,7 +66,7 @@ export function StatsCard({
                   {trend.direction === 'up' ? '+' : trend.direction === 'down' ? '-' : ''}
                   {Math.abs(trend.value)}%
                 </span>
-                <span className="text-xs text-muted-foreground">vs last month</span>
+                {trendLabel ? <span className="text-xs text-muted-foreground">{trendLabel}</span> : null}
               </div>
             )}
           </div>

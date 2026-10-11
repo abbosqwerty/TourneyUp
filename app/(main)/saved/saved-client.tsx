@@ -6,9 +6,12 @@ import type { Tournament } from '@/lib/types'
 import { TournamentCard } from '@/components/tournament-card'
 import { NoSavedTournaments } from '@/components/empty-state'
 import { toggleSaveTournament } from '@/lib/actions'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export default function SavedClient({ initialTournaments }: { initialTournaments: Tournament[] }) {
   const [savedTournaments, setSavedTournaments] = useState(initialTournaments)
+  const { dict } = useLanguage()
+  const t = dict.account.saved
 
   const toggleSave = async (id: string) => {
     const previous = savedTournaments
@@ -25,8 +28,8 @@ export default function SavedClient({ initialTournaments }: { initialTournaments
   return (
     <div className="container mx-auto max-w-7xl px-4 py-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold md:text-3xl">Saqlangan turnirlar</h1>
-        <p className="mt-1 text-muted-foreground">Qiziqtirgan turnirlarga tez kirish</p>
+        <h1 className="text-2xl font-bold md:text-3xl">{t.title}</h1>
+        <p className="mt-1 text-muted-foreground">{t.subtitle}</p>
       </div>
 
       {savedTournaments.length === 0 ? (
@@ -34,7 +37,7 @@ export default function SavedClient({ initialTournaments }: { initialTournaments
       ) : (
         <>
           <p className="mb-4 text-sm text-muted-foreground">
-            {savedTournaments.length} ta saqlangan turnir
+            {t.count(savedTournaments.length)}
           </p>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {savedTournaments.map((tournament) => (

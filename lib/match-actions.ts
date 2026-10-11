@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { db } from './db'
+import { getI18n } from './i18n/server'
 import { getCurrentUser, getTournamentAbility } from './session'
 import {
   fieldErrors,
@@ -12,7 +13,7 @@ import {
 } from './schemas'
 import { fail, type ActionResult } from './action-result'
 import { guard, minutes } from './rate-limit'
-import { notify, notifyMany } from './notifications'
+import { notifyKey, notifyManyKey } from './notifications'
 import { CompetitionError, recordLeaderboardRound, recordResult } from './competition/lifecycle'
 import { onTournamentResultsChanged } from './competition/hooks'
 
@@ -46,11 +47,13 @@ function fromTashkentInput(value: string) {
  * already played is refused and nothing is written.
  */
 export async function recordMatchResult(input: unknown): Promise<ActionResult> {
+  const { dict, locale } = await getI18n()
+  const t = dict.competition.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const parsed = recordMatchResultSchema.safeParse(input)
-  if (!parsed.success) return fail('Formada xatolar bor', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
 
   const { matchId, homeScore, awayScore, forfeit, notes, reason } = parsed.data
 
@@ -58,14 +61,14 @@ export async function recordMatchResult(input: unknown): Promise<ActionResult> {
     where: { id: matchId },
     select: { tournamentId: true, homeLabel: true, awayLabel: true, tournament: { select: { title: true } } },
   })
-  if (!match) return fail('O‘yin topilmadi')
+  if (!match) return fail(t.match_not_found)
 
   // Permission comes from the match's own tournament, not from the input.
   if (!(await requireScorer(user.id, match.tournamentId))) {
-    return fail('Natija kiritish huquqingiz yo‘q')
+    return fail(t.no_record_right)
   }
 
-  const limited = guard(`record-match:${user.id}`, 200, minutes(10))
+  const limited = guard(`record-match:${user.id}`, 200, minutes(10), locale)
   if (limited) return limited
 
   try {
@@ -82,18 +85,24 @@ export async function recordMatchResult(input: unknown): Promise<ActionResult> {
     )
 
     if (result.changed) {
-      const score = forfeit
-        ? `texnik g‘alaba (${forfeit === 'HOME' ? match.homeLabel : match.awayLabel} kelmadi)`
-        : `${homeScore}–${awayScore}`
-      await notifyMany(
-        [result.homeUserId, result.awayUserId].filter((id): id is string => Boolean(id)),
-        {
+      const recipients = [result.homeUserId, result.awayUserId].filter((id): id is string => Boolean(id))
+      const teams = { home: match.homeLabel, away: match.awayLabel, tournament: match.tournament.title }
+      const link = `/results/${match.tournamentId}`
+      if (forfeit) {
+        await notifyManyKey(recipients, {
           type: 'TOURNAMENT_STATUS',
-          title: result.corrected ? 'O‘yin natijasi tuzatildi' : 'O‘yin natijasi kiritildi',
-          body: `${match.homeLabel} — ${match.awayLabel}: ${score}. “${match.tournament.title}”.`,
-          link: `/results/${match.tournamentId}`,
-        }
-      )
+          key: result.corrected ? 'match_forfeit_corrected' : 'match_forfeit',
+          params: { ...teams, absent: forfeit === 'HOME' ? match.homeLabel : match.awayLabel },
+          link,
+        })
+      } else {
+        await notifyManyKey(recipients, {
+          type: 'TOURNAMENT_STATUS',
+          key: result.corrected ? 'match_result_corrected' : 'match_result',
+          params: { ...teams, score: `${homeScore}–${awayScore}` },
+          link,
+        })
+      }
       await onTournamentResultsChanged(match.tournamentId, {
         justCompleted: result.justCompleted,
         corrected: result.corrected && result.complete,
@@ -104,9 +113,9 @@ export async function recordMatchResult(input: unknown): Promise<ActionResult> {
     revalidateMatchViews(match.tournamentId)
     return { ok: true }
   } catch (error) {
-    if (error instanceof CompetitionError) return fail(error.message)
+    if (error instanceof CompetitionError) return fail(error.translated(dict))
     console.error('recordMatchResult failed', error)
-    return fail('Natijani saqlashda xatolik')
+    return fail(t.save_result_failed)
   }
 }
 
@@ -115,26 +124,28 @@ export async function recordMatchResult(input: unknown): Promise<ActionResult> {
  * match). The table re-ranks itself; the last result finalizes the event.
  */
 export async function recordLeaderboardResults(input: unknown): Promise<ActionResult> {
+  const { dict, locale } = await getI18n()
+  const t = dict.competition.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const parsed = recordLeaderboardSchema.safeParse(input)
-  if (!parsed.success) return fail('Formada xatolar bor', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
   const { tournamentId, round, results, reason } = parsed.data
 
-  if (!(await requireScorer(user.id, tournamentId))) return fail('Natija kiritish huquqingiz yo‘q')
+  if (!(await requireScorer(user.id, tournamentId))) return fail(t.no_record_right)
 
-  const limited = guard(`record-match:${user.id}`, 200, minutes(10))
+  const limited = guard(`record-match:${user.id}`, 200, minutes(10), locale)
   if (limited) return limited
 
   try {
     const result = await recordLeaderboardRound({ tournamentId, round, results, reason: reason || null }, user.id)
     if (result.changed) {
       const tournament = await db.tournament.findUnique({ where: { id: tournamentId }, select: { title: true } })
-      await notifyMany(result.affectedUserIds, {
+      await notifyManyKey(result.affectedUserIds, {
         type: 'TOURNAMENT_STATUS',
-        title: result.corrected ? 'Natijangiz tuzatildi' : 'Natijangiz kiritildi',
-        body: `“${tournament?.title ?? 'Turnir'}”, ${round}-bosqich. Reyting jadvalida o‘rningizni ko‘ring.`,
+        key: result.corrected ? 'round_result_corrected' : 'round_result',
+        params: { tournament: tournament?.title ?? '', round },
         link: `/results/${tournamentId}`,
       })
       await onTournamentResultsChanged(tournamentId, {
@@ -146,19 +157,21 @@ export async function recordLeaderboardResults(input: unknown): Promise<ActionRe
     revalidateMatchViews(tournamentId)
     return { ok: true }
   } catch (error) {
-    if (error instanceof CompetitionError) return fail(error.message)
+    if (error instanceof CompetitionError) return fail(error.translated(dict))
     console.error('recordLeaderboardResults failed', error)
-    return fail('Natijalarni saqlashda xatolik')
+    return fail(t.save_results_failed)
   }
 }
 
 /** Mark a not-yet-finalized match as live or back to scheduled. */
 export async function setMatchStatus(input: unknown): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.competition.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const parsed = setMatchStatusSchema.safeParse(input)
-  if (!parsed.success) return fail('Status noto‘g‘ri')
+  if (!parsed.success) return fail(t.bad_status)
 
   const { matchId, status } = parsed.data
 
@@ -178,26 +191,26 @@ export async function setMatchStatus(input: unknown): Promise<ActionResult> {
         awayLabel: true,
       },
     })
-    if (!match) return fail('O‘yin topilmadi')
+    if (!match) return fail(t.match_not_found)
 
     if (!(await requireScorer(user.id, match.tournamentId))) {
-      return fail('Statusni o‘zgartirish huquqingiz yo‘q')
+      return fail(t.no_status_right)
     }
-    if (match.bracket === 'MANUAL') return fail('Eski o‘yinlar tahrirlanmaydi')
-    if (match.finalizedAt || match.isBye) return fail('Yakunlangan o‘yin statusini o‘zgartirib bo‘lmaydi')
+    if (match.bracket === 'MANUAL') return fail(t.legacy_locked)
+    if (match.finalizedAt || match.isBye) return fail(t.finalized_status_locked)
     if (status === 'live' && (!match.homeParticipantId || !match.awayParticipantId)) {
-      return fail('Ikkala tomon aniqlanmaguncha o‘yin boshlanmaydi')
+      return fail(t.sides_unknown_live)
     }
 
     await db.match.update({ where: { id: matchId }, data: { status } })
 
     if (status === 'live') {
-      await notifyMany(
+      await notifyManyKey(
         [match.homeUserId, match.awayUserId].filter((id): id is string => Boolean(id)),
         {
           type: 'TOURNAMENT_STATUS',
-          title: 'O‘yiningiz boshlandi',
-          body: `${match.homeLabel} — ${match.awayLabel}`,
+          key: 'match_started',
+          params: { home: match.homeLabel, away: match.awayLabel },
           link: `/results/${match.tournamentId}`,
         }
       )
@@ -207,17 +220,19 @@ export async function setMatchStatus(input: unknown): Promise<ActionResult> {
     return { ok: true }
   } catch (error) {
     console.error('setMatchStatus failed', error)
-    return fail('Statusni o‘zgartirishda xatolik')
+    return fail(t.status_failed)
   }
 }
 
 /** Set or clear a match's date and time. */
 export async function scheduleMatch(input: unknown): Promise<ActionResult> {
+  const { dict, locale } = await getI18n()
+  const t = dict.competition.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const parsed = scheduleMatchSchema.safeParse(input)
-  if (!parsed.success) return fail('Sana noto‘g‘ri', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(t.bad_date, fieldErrors(parsed.error, dict))
 
   const { matchId, scheduledAt } = parsed.data
 
@@ -236,17 +251,17 @@ export async function scheduleMatch(input: unknown): Promise<ActionResult> {
         awayLabel: true,
       },
     })
-    if (!match) return fail('O‘yin topilmadi')
+    if (!match) return fail(t.match_not_found)
 
     if (!(await requireScorer(user.id, match.tournamentId))) {
-      return fail('Jadvalni o‘zgartirish huquqingiz yo‘q')
+      return fail(t.no_schedule_right)
     }
-    if (match.bracket === 'MANUAL') return fail('Eski o‘yinlar tahrirlanmaydi')
+    if (match.bracket === 'MANUAL') return fail(t.legacy_locked)
     if (match.finalizedAt || match.isBye || match.status === 'cancelled') {
-      return fail('Bu o‘yinning vaqtini o‘zgartirib bo‘lmaydi')
+      return fail(t.cannot_reschedule)
     }
 
-    const limited = guard(`schedule-match:${user.id}`, 300, minutes(10))
+    const limited = guard(`schedule-match:${user.id}`, 300, minutes(10), locale)
     if (limited) return limited
 
     const when = scheduledAt ? fromTashkentInput(scheduledAt) : null
@@ -257,11 +272,11 @@ export async function scheduleMatch(input: unknown): Promise<ActionResult> {
         [match.homeUserId, match.awayUserId]
           .filter((id): id is string => Boolean(id))
           .map((userId) =>
-            notify({
+            notifyKey({
               userId,
               type: 'TOURNAMENT_STATUS',
-              title: 'O‘yin vaqti belgilandi',
-              body: `${match.homeLabel} — ${match.awayLabel}`,
+              key: 'match_scheduled',
+              params: { home: match.homeLabel, away: match.awayLabel },
               link: `/results/${match.tournamentId}?tab=schedule`,
             })
           )
@@ -272,6 +287,6 @@ export async function scheduleMatch(input: unknown): Promise<ActionResult> {
     return { ok: true }
   } catch (error) {
     console.error('scheduleMatch failed', error)
-    return fail('Vaqtni saqlashda xatolik')
+    return fail(t.schedule_failed)
   }
 }

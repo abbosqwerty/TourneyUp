@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export type RegistrableTeam = {
   id: string
@@ -36,6 +37,8 @@ export function TeamRegistrationPicker({
   onChange: (value: TeamSelection) => void
   disabled?: boolean
 }) {
+  const { dict } = useLanguage()
+  const r = dict.team.registration
   const min = teamSize ?? 1
   const max = teamSizeMax ?? teamSize ?? 50
   const eligible = useMemo(
@@ -49,12 +52,9 @@ export function TeamRegistrationPicker({
   if (eligible.length === 0) {
     return (
       <div className="space-y-2 rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-        <p>
-          Bu jamoaviy turnir ({sport}). Ro‘yxatdan o‘tish uchun {sport} jamoangiz bo‘lishi va siz uning egasi yoki
-          kapitani bo‘lishingiz kerak.
-        </p>
+        <p>{r.no_team(sport)}</p>
         <Link href="/teams" className="font-medium text-primary hover:underline">
-          Jamoa yaratish →
+          {r.create_team}
         </Link>
       </div>
     )
@@ -63,12 +63,11 @@ export function TeamRegistrationPicker({
   return (
     <div className="space-y-3">
       <p className="rounded-lg border border-border/50 bg-secondary/40 p-2.5 text-xs text-muted-foreground">
-        Jamoaviy turnir · tarkib: {min === max ? `${min} o‘yinchi` : `${min}–${max} o‘yinchi`}. Har bir o‘yinchi bitta
-        turnirda faqat bitta jamoa tarkibida bo‘ladi. Turnir boshlangach tarkib qulflanadi.
+        {r.rule(min === max ? r.players(min) : r.players_range(min, max))}
       </p>
 
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Jamoa</Label>
+        <Label className="text-xs text-muted-foreground">{r.team}</Label>
         <Select
           value={value.teamId}
           disabled={disabled}
@@ -80,12 +79,12 @@ export function TeamRegistrationPicker({
           }}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Jamoani tanlang" />
+            <SelectValue placeholder={r.choose_team} />
           </SelectTrigger>
           <SelectContent>
             {eligible.map((t) => (
               <SelectItem key={t.id} value={t.id}>
-                {t.name} · {t.members.length} a’zo
+                {t.name} · {dict.team.members(t.members.length)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -95,7 +94,7 @@ export function TeamRegistrationPicker({
       {team ? (
         <fieldset className="space-y-2">
           <legend className="flex w-full items-center justify-between text-xs text-muted-foreground">
-            <span>Tarkib</span>
+            <span>{r.roster}</span>
             <span className={sizeOk ? 'text-success' : 'text-destructive'}>
               {count} / {min === max ? min : `${min}–${max}`}
             </span>
@@ -126,7 +125,7 @@ export function TeamRegistrationPicker({
             })}
           </ul>
           {team.members.length < min ? (
-            <p className="text-xs text-destructive">Jamoada {min} ta a’zo yo‘q — avval o‘yinchilarni taklif qiling.</p>
+            <p className="text-xs text-destructive">{r.not_enough(min)}</p>
           ) : null}
         </fieldset>
       ) : null}

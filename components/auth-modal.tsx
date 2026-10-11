@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { LogoIcon } from '@/components/logo-icon'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export type AuthModalUser = {
   id: string
@@ -61,6 +62,7 @@ export function AuthModalProvider({
   const [options, setOptions] = useState<AuthModalOptions>({})
   const router = useRouter()
   const pathname = usePathname()
+  const { dict } = useLanguage()
 
   const openLoginModal = useCallback((opts?: AuthModalOptions) => {
     setOptions(opts ?? {})
@@ -88,22 +90,21 @@ export function AuthModalProvider({
                 Tourney<span className="text-primary">Up</span>
               </span>
             </div>
-            <DialogTitle className="text-xl font-bold">{options.title ?? 'Davom etish uchun kiring'}</DialogTitle>
+            <DialogTitle className="text-xl font-bold">{options.title ?? dict.chrome.auth_modal.title}</DialogTitle>
             <DialogDescription className="text-center text-sm text-muted-foreground">
-              {options.description ??
-                'Turnirlarga yozilish, kanallarga obuna bo‘lish va tadbirlarni saqlash uchun akkaunt kerak.'}
+              {options.description ?? dict.chrome.auth_modal.description}
             </DialogDescription>
           </DialogHeader>
 
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             <Button className="w-full gap-2" onClick={() => goTo('/login')}>
               <LogIn className="h-4 w-4" aria-hidden />
-              Kirish
+              {dict.nav.login}
               <ArrowRight className="h-4 w-4" aria-hidden />
             </Button>
             <Button variant="outline" className="w-full gap-2" onClick={() => goTo('/register')}>
               <UserPlus className="h-4 w-4" aria-hidden />
-              Ro‘yxatdan o‘tish
+              {dict.nav.register}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { dictionaries, type Dictionary } from '../i18n/dictionaries'
 
 export const TOURNAMENT_FORMATS = [
   'SINGLE_ELIMINATION',
@@ -11,6 +12,10 @@ export const TOURNAMENT_FORMATS = [
 
 export type TournamentFormat = (typeof TOURNAMENT_FORMATS)[number]
 
+/**
+ * Uzbek labels, kept for callers without a dictionary. Pages should use
+ * `dict.create.formats[format].label` / `.short` / `.hint` instead.
+ */
 export const FORMAT_LABELS: Record<TournamentFormat, string> = {
   SINGLE_ELIMINATION: 'Olimpiya tizimi (Single Elimination)',
   DOUBLE_ELIMINATION: 'Ikki mag‘lubiyatgacha (Double Elimination)',
@@ -105,31 +110,34 @@ export function defaultSwissRounds(entrants: number) {
 
 /**
  * Check a configuration against the actual number of entrants, just before
- * the draw. Returns an Uzbek error message or null.
+ * the draw. Returns an error message in the dictionary's language (Uzbek
+ * when no dictionary is passed) or null.
  */
 export function validateForEntrants(
   format: TournamentFormat,
   config: FormatConfig,
-  entrants: number
+  entrants: number,
+  dict: Pick<Dictionary, 'create'> = dictionaries.uz
 ): string | null {
-  if (entrants < 2) return 'Turnirni boshlash uchun kamida 2 ta tasdiqlangan ishtirokchi kerak'
+  const t = dict.create.format_validation
+  if (entrants < 2) return t.min_two
 
   if (format === 'GROUPS_KNOCKOUT') {
     const groups = config.groupCount ?? defaultGroupCount(entrants)
     if (groups > Math.floor(entrants / 2)) {
-      return `${entrants} ishtirokchi uchun ${groups} ta guruh juda ko‘p — har guruhda kamida 2 kishi bo‘lsin`
+      return t.too_many_groups(entrants, groups)
     }
     const smallest = Math.floor(entrants / groups)
     if (config.advancePerGroup > smallest) {
-      return `Har guruhdan ${config.advancePerGroup} kishi chiqishi uchun guruhlar juda kichik`
+      return t.groups_too_small(config.advancePerGroup)
     }
     if (groups * config.advancePerGroup < 2) {
-      return 'Pley-off uchun kamida 2 ta ishtirokchi chiqishi kerak'
+      return t.playoff_min
     }
   }
 
   if (format === 'SWISS' && config.swissRounds && config.swissRounds > entrants - 1) {
-    return `${entrants} ishtirokchi uchun ko‘pi bilan ${entrants - 1} tur o‘tkazish mumkin`
+    return t.swiss_max(entrants, entrants - 1)
   }
 
   return null

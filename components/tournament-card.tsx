@@ -18,12 +18,15 @@ import {
   GraduationCap,
   Dribbble,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Lock
 } from 'lucide-react'
 import type { Tournament } from '@/lib/types'
-import { TOURNAMENT_STATUS_CLASSES, TOURNAMENT_STATUS_LABELS } from '@/lib/constants'
+import { TOURNAMENT_STATUS_CLASSES } from '@/lib/constants'
+import { formatClock, formatDate, formatDayMonth } from '@/lib/time'
 import { useAuthModal } from '@/components/auth-modal'
-import { ParticipantSlots } from '@/components/participant-slots'
+import { ParticipantSlots, isTournamentFull } from '@/components/participant-slots'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 interface TournamentCardProps {
   tournament: Tournament
@@ -45,6 +48,8 @@ export function TournamentCard({
   isSaved = false
 }: TournamentCardProps) {
   const { currentUser, openLoginModal } = useAuthModal()
+  const { dict, locale } = useLanguage()
+  const t = dict.tournament
   const [posterIndex, setPosterIndex] = useState(0)
   const posterUrls = [tournament.posterUrl, ...(tournament.galleryUrls ?? [])].filter(Boolean)
   const activePoster = posterUrls[posterIndex] ?? ''
@@ -55,8 +60,8 @@ export function TournamentCard({
     e.stopPropagation()
     if (!currentUser) {
       openLoginModal({
-        title: 'Sign in to Save',
-        description: `Please sign in to save "${tournament.title}".`
+        title: t.save_login.title,
+        description: t.save_login.description_named(tournament.title),
       })
       return
     }
@@ -81,10 +86,7 @@ export function TournamentCard({
               </h3>
               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                 <Calendar className="h-3 w-3 text-primary" />
-                {new Date(tournament.date).toLocaleDateString('en-US', { 
-                  month: 'short', 
-                  day: 'numeric' 
-                })}
+                {formatDayMonth(tournament.date, locale)}
               </div>
               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                 <MapPin className="h-3 w-3 text-primary" />
@@ -106,7 +108,7 @@ export function TournamentCard({
           {activePoster ? (
             <img
               src={activePoster}
-              alt={`${tournament.title} afishasi`}
+              alt={t.card.poster_alt(tournament.title)}
               loading="lazy"
               className="absolute inset-0 h-full w-full object-cover"
             />
@@ -119,7 +121,7 @@ export function TournamentCard({
             <>
               <button
                 type="button"
-                aria-label="Oldingi poster"
+                aria-label={t.card.prev_poster}
                 className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/35 p-1.5 text-white backdrop-blur hover:bg-black/55"
                 onClick={(e) => {
                   e.preventDefault()
@@ -131,7 +133,7 @@ export function TournamentCard({
               </button>
               <button
                 type="button"
-                aria-label="Keyingi poster"
+                aria-label={t.card.next_poster}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/35 p-1.5 text-white backdrop-blur hover:bg-black/55"
                 onClick={(e) => {
                   e.preventDefault()
@@ -148,10 +150,8 @@ export function TournamentCard({
               </div>
             </>
           ) : null}
-          <div className="absolute top-3 left-3 flex gap-2">
-            <Badge className={cn(TOURNAMENT_STATUS_CLASSES[tournament.status])}>
-              {TOURNAMENT_STATUS_LABELS[tournament.status]}
-            </Badge>
+          <div className="absolute left-3 right-14 top-3 flex flex-wrap gap-2">
+            <StatusBadges tournament={tournament} />
           </div>
           {onSave && (
             <Button
@@ -159,7 +159,7 @@ export function TournamentCard({
               size="icon"
               className="absolute top-3 right-3 bg-background/60 backdrop-blur hover:bg-background/90 rounded-full"
               onClick={handleSaveClick}
-              aria-label={isSaved ? 'Saqlanganlardan olib tashlash' : 'Turnirni saqlash'}
+              aria-label={isSaved ? t.card.unsave : t.card.save}
               aria-pressed={isSaved}
             >
               <Bookmark className={cn("h-4 w-4", isSaved && "fill-primary text-primary")} aria-hidden />
@@ -177,7 +177,7 @@ export function TournamentCard({
             
             <div className="flex items-center gap-2 mt-3">
               <Avatar className="h-6 w-6">
-                <AvatarImage src={tournament.organizer.avatar} alt={`${tournament.organizer.name} logotipi`} />
+                <AvatarImage src={tournament.organizer.avatar} alt={t.card.logo_alt(tournament.organizer.name)} />
                 <AvatarFallback>{tournament.organizer.name[0]}</AvatarFallback>
               </Avatar>
               <span className="text-sm text-muted-foreground">{tournament.organizer.name}</span>
@@ -189,15 +189,11 @@ export function TournamentCard({
             <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="h-4 w-4 text-primary" />
-                {new Date(tournament.date).toLocaleDateString('en-US', { 
-                  month: 'short', 
-                  day: 'numeric',
-                  year: 'numeric'
-                })}
+                {formatDate(tournament.date, locale)}
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Clock className="h-4 w-4 text-primary" />
-                {tournament.time}
+                {formatClock(tournament.time, locale)}
               </div>
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
                 <MapPin className="h-4 w-4 text-primary" />
@@ -215,8 +211,8 @@ export function TournamentCard({
 
             {tournament.prizePool && (
               <div className="mt-4 flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Prize Pool</span>
-                <span className="font-bold text-primary">{tournament.prizePool}</span>
+                <span className="text-sm text-muted-foreground">{t.card.prize_pool}</span>
+                <span className="min-w-0 truncate font-bold text-primary">{displayFee(tournament.prizePool, t.card.free)}</span>
               </div>
             )}
           </div>
@@ -224,7 +220,7 @@ export function TournamentCard({
           <div className="mt-5">
             <Button asChild className="w-full">
               <Link href={`/tournament/${tournament.id}`}>
-                View Details
+                {t.card.view_details}
               </Link>
             </Button>
           </div>
@@ -241,7 +237,7 @@ export function TournamentCard({
         {activePoster ? (
           <img
             src={activePoster}
-            alt={`${tournament.title} afishasi`}
+            alt={t.card.poster_alt(tournament.title)}
             loading="lazy"
             className="absolute inset-0 h-full w-full object-cover"
           />
@@ -254,7 +250,7 @@ export function TournamentCard({
           <>
             <button
               type="button"
-              aria-label="Oldingi poster"
+              aria-label={t.card.prev_poster}
               className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/35 p-1.5 text-white backdrop-blur hover:bg-black/55"
               onClick={(e) => {
                 e.preventDefault()
@@ -266,7 +262,7 @@ export function TournamentCard({
             </button>
             <button
               type="button"
-              aria-label="Keyingi poster"
+              aria-label={t.card.next_poster}
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/35 p-1.5 text-white backdrop-blur hover:bg-black/55"
               onClick={(e) => {
                 e.preventDefault()
@@ -283,10 +279,8 @@ export function TournamentCard({
             </div>
           </>
         ) : null}
-        <div className="absolute top-3 left-3 flex gap-2">
-          <Badge className={cn(TOURNAMENT_STATUS_CLASSES[tournament.status])}>
-            {TOURNAMENT_STATUS_LABELS[tournament.status]}
-          </Badge>
+        <div className="absolute left-3 right-14 top-3 flex flex-wrap gap-2">
+          <StatusBadges tournament={tournament} />
         </div>
         {onSave && (
           <Button
@@ -294,7 +288,7 @@ export function TournamentCard({
             size="icon"
             className="absolute top-3 right-3 bg-background/60 backdrop-blur hover:bg-background/90 rounded-full"
             onClick={handleSaveClick}
-            aria-label={isSaved ? 'Saqlanganlardan olib tashlash' : 'Turnirni saqlash'}
+            aria-label={isSaved ? t.card.unsave : t.card.save}
             aria-pressed={isSaved}
           >
             <Bookmark className={cn("h-4 w-4", isSaved && "fill-primary text-primary")} aria-hidden />
@@ -315,7 +309,7 @@ export function TournamentCard({
 
           <div className="flex items-center gap-2 mt-2">
             <Avatar className="h-5 w-5">
-              <AvatarImage src={tournament.organizer.avatar} alt={`${tournament.organizer.name} logotipi`} />
+              <AvatarImage src={tournament.organizer.avatar} alt={t.card.logo_alt(tournament.organizer.name)} />
               <AvatarFallback>{tournament.organizer.name[0]}</AvatarFallback>
             </Avatar>
             <span className="text-xs text-muted-foreground line-clamp-1">
@@ -329,14 +323,11 @@ export function TournamentCard({
           <div className="grid grid-cols-2 gap-2 mt-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5 text-primary" />
-              {new Date(tournament.date).toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric' 
-              })}
+              {formatDayMonth(tournament.date, locale)}
             </div>
             <div className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 text-primary" />
-              {tournament.time}
+              {formatClock(tournament.time, locale)}
             </div>
             <div className="flex items-center gap-1.5 col-span-2">
               <MapPin className="h-3.5 w-3.5 text-primary" />
@@ -355,10 +346,47 @@ export function TournamentCard({
 
         <Button asChild className="w-full mt-4" size="sm">
           <Link href={`/tournament/${tournament.id}`}>
-            View Details
+            {t.card.view_details}
           </Link>
         </Button>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * "Free" is what the server stores for an empty fee/prize (older rows say
+ * "Bepul" or "0") — show that marker translated; any real amount stays as is.
+ */
+export function displayFee(value: string, free: string) {
+  return /^(free|bepul|бесплатно|0)$/i.test(value.trim()) ? free : value
+}
+
+/**
+ * Status chip plus a high-contrast "full" chip pinned to the poster. A full
+ * tournament that is still "registration open" shows only the full chip so the
+ * two never contradict each other.
+ */
+function StatusBadges({ tournament }: { tournament: Tournament }) {
+  const { dict } = useLanguage()
+  const full =
+    isTournamentFull(tournament.participants, tournament.maxParticipants) &&
+    tournament.status !== 'completed' &&
+    tournament.status !== 'cancelled'
+
+  return (
+    <>
+      {full && tournament.status === 'registration_open' ? null : (
+        <Badge className={cn(TOURNAMENT_STATUS_CLASSES[tournament.status])}>
+          {dict.status[tournament.status]}
+        </Badge>
+      )}
+      {full ? (
+        <Badge className="gap-1 bg-destructive text-white shadow-md ring-2 ring-white/80">
+          <Lock className="h-3 w-3" aria-hidden />
+          {dict.feed.full}
+        </Badge>
+      ) : null}
+    </>
   )
 }

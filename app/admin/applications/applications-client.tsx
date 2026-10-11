@@ -21,6 +21,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { approveOrganizationApplication, rejectOrganizationApplication } from '@/lib/org-actions'
 import type { ProvisionedCredentials } from '@/lib/org-types'
+import { formatDateLong, formatDateTime } from '@/lib/time'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 type Application = {
   id: string
@@ -39,12 +41,6 @@ type Application = {
   organization: { id: string; slug: string; owner: { username: string } } | null
 }
 
-const STATUS_LABELS = {
-  PENDING: 'Kutilmoqda',
-  APPROVED: 'Tasdiqlangan',
-  REJECTED: 'Rad etilgan',
-} as const
-
 function suggestUsername(orgName: string) {
   return orgName
     .toLowerCase()
@@ -55,6 +51,9 @@ function suggestUsername(orgName: string) {
 
 export function ApplicationsClient({ applications }: { applications: Application[] }) {
   const router = useRouter()
+  const { dict, locale } = useLanguage()
+  const t = dict.admin.applications
+  const STATUS_LABELS = t.status
   const [filter, setFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING')
   const [approving, setApproving] = useState<Application | null>(null)
   const [rejecting, setRejecting] = useState<Application | null>(null)
@@ -71,9 +70,9 @@ export function ApplicationsClient({ applications }: { applications: Application
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Tashkilot arizalari</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">{t.title}</h1>
         <p className="text-sm text-muted-foreground">
-          Arizani tasdiqlaganingizda tashkilot uchun akkaunt yaratiladi va parol bir marta ko‘rsatiladi.
+          {t.subtitle}
         </p>
       </div>
 
@@ -81,7 +80,7 @@ export function ApplicationsClient({ applications }: { applications: Application
         <TabsList>
           {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map((key) => (
             <TabsTrigger key={key} value={key}>
-              {key === 'ALL' ? 'Hammasi' : STATUS_LABELS[key]}
+              {key === 'ALL' ? dict.admin.all : STATUS_LABELS[key]}
               <span className="ml-1 text-xs text-muted-foreground">({counts[key]})</span>
             </TabsTrigger>
           ))}
@@ -91,7 +90,7 @@ export function ApplicationsClient({ applications }: { applications: Application
       {visible.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Bu bo‘limda ariza yo‘q.
+            {t.empty}
           </CardContent>
         </Card>
       ) : (
@@ -103,11 +102,7 @@ export function ApplicationsClient({ applications }: { applications: Application
                   <CardTitle className="text-base">{application.orgName}</CardTitle>
                   <CardDescription>
                     {application.contactName} ·{' '}
-                    {new Date(application.createdAt).toLocaleDateString('uz-UZ', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
+                    {formatDateLong(application.createdAt, locale)}
                   </CardDescription>
                 </div>
                 <Badge
@@ -165,25 +160,25 @@ export function ApplicationsClient({ applications }: { applications: Application
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" className="gap-2" onClick={() => setApproving(application)}>
                       <ShieldCheck className="h-4 w-4" aria-hidden />
-                      Tasdiqlash va akkaunt yaratish
+                      {t.approve_and_create}
                     </Button>
                     <Button size="sm" variant="outline" className="gap-2" onClick={() => setRejecting(application)}>
                       <X className="h-4 w-4" aria-hidden />
-                      Rad etish
+                      {t.reject}
                     </Button>
                   </div>
                 ) : (
                   <div className="space-y-1 rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
                     <p>
-                      {application.reviewedBy?.name ?? 'Admin'} ·{' '}
+                      {application.reviewedBy?.name ?? t.reviewer_fallback} ·{' '}
                       {application.reviewedAt
-                        ? new Date(application.reviewedAt).toLocaleString('uz-UZ')
+                        ? formatDateTime(application.reviewedAt, locale)
                         : '—'}
                     </p>
                     {application.reviewNote ? <p className="text-foreground">{application.reviewNote}</p> : null}
                     {application.organization ? (
                       <p className="flex items-center gap-1">
-                        Akkaunt: <code className="font-mono">@{application.organization.owner.username}</code>
+                        {t.account} <code className="font-mono">@{application.organization.owner.username}</code>
                         <ExternalLink className="h-3 w-3" aria-hidden />
                       </p>
                     ) : null}
@@ -229,16 +224,17 @@ function ApproveDialog({
   onProvisioned: (credentials: ProvisionedCredentials) => void
 }) {
   const [isPending, startTransition] = useTransition()
+  const { dict } = useLanguage()
+  const t = dict.admin.applications
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   return (
     <Dialog open={Boolean(application)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Tashkilotni tasdiqlash</DialogTitle>
+          <DialogTitle>{t.approve_title}</DialogTitle>
           <DialogDescription>
-            {application?.orgName} uchun ORGANIZATION akkaunti yaratiladi. Parol avtomatik generatsiya qilinadi
-            va faqat bir marta ko‘rsatiladi.
+            {t.approve_desc(application?.orgName ?? '')}
           </DialogDescription>
         </DialogHeader>
 
@@ -264,13 +260,13 @@ function ApproveDialog({
                 return
               }
 
-              toast.success('Tashkilot akkaunti yaratildi')
+              toast.success(t.account_created)
               onProvisioned(result.data)
             })
           }}
         >
           <div className="space-y-2">
-            <Label htmlFor="approve-username">Login (username)</Label>
+            <Label htmlFor="approve-username">{t.username_label}</Label>
             <Input
               id="approve-username"
               name="username"
@@ -281,23 +277,23 @@ function ApproveDialog({
             />
             {errors.username ? <p className="text-xs text-destructive">{errors.username}</p> : null}
             <p className="text-xs text-muted-foreground">
-              Email sifatida ariza emaili ishlatiladi: <code className="font-mono">{application?.email}</code>
+              {t.email_hint} <code className="font-mono">{application?.email}</code>
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="approve-note">Izoh (ixtiyoriy)</Label>
+            <Label htmlFor="approve-note">{t.note_label}</Label>
             <Textarea id="approve-note" name="note" rows={3} disabled={isPending} />
           </div>
         </form>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isPending}>
-            Bekor qilish
+            {dict.common.cancel}
           </Button>
           <Button type="submit" form="approve-form" className="gap-2" disabled={isPending}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            Tasdiqlash
+            {t.approve}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -315,14 +311,16 @@ function RejectDialog({
   onDone: () => void
 }) {
   const [isPending, startTransition] = useTransition()
+  const { dict } = useLanguage()
+  const t = dict.admin.applications
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   return (
     <Dialog open={Boolean(application)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Arizani rad etish</DialogTitle>
-          <DialogDescription>{application?.orgName} arizasi rad etiladi. Sabab yozib qoldiring.</DialogDescription>
+          <DialogTitle>{t.reject_title}</DialogTitle>
+          <DialogDescription>{t.reject_desc(application?.orgName ?? '')}</DialogDescription>
         </DialogHeader>
 
         <form
@@ -346,23 +344,23 @@ function RejectDialog({
                 return
               }
 
-              toast.success('Ariza rad etildi')
+              toast.success(t.rejected)
               onDone()
             })
           }}
         >
-          <Label htmlFor="reject-note">Sabab</Label>
+          <Label htmlFor="reject-note">{t.reason_label}</Label>
           <Textarea id="reject-note" name="note" rows={4} disabled={isPending} required />
           {errors.note ? <p className="text-xs text-destructive">{errors.note}</p> : null}
         </form>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isPending}>
-            Bekor qilish
+            {dict.common.cancel}
           </Button>
           <Button type="submit" form="reject-form" variant="destructive" className="gap-2" disabled={isPending}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-            Rad etish
+            {t.reject}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -378,37 +376,38 @@ export function CredentialsDialog({
   onClose: () => void
 }) {
   const [copied, setCopied] = useState(false)
+  const { dict } = useLanguage()
+  const t = dict.admin.credentials
 
   const text = credentials
-    ? `TourneyUp — ${credentials.organizationName}\nLogin: ${credentials.username}\nEmail: ${credentials.email}\nParol: ${credentials.password}`
+    ? `TourneyUp — ${credentials.organizationName}\n${t.login}: ${credentials.username}\n${t.email}: ${credentials.email}\n${t.password}: ${credentials.password}`
     : ''
 
   return (
     <Dialog open={Boolean(credentials)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Akkaunt ma‘lumotlari</DialogTitle>
+          <DialogTitle>{t.title}</DialogTitle>
           <DialogDescription>
-            Bu parol qayta ko‘rsatilmaydi — hoziroq tashkilotga yetkazing. Ular birinchi kirishda parolni
-            almashtirishga majbur qilinadi.
+            {t.desc}
           </DialogDescription>
         </DialogHeader>
 
         <dl className="space-y-3 rounded-md border border-border bg-muted/40 p-4 text-sm">
           <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground">Tashkilot</dt>
+            <dt className="text-muted-foreground">{t.organization}</dt>
             <dd className="font-medium">{credentials?.organizationName}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground">Login</dt>
+            <dt className="text-muted-foreground">{t.login}</dt>
             <dd className="font-mono">{credentials?.username}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground">Email</dt>
+            <dt className="text-muted-foreground">{t.email}</dt>
             <dd className="truncate font-mono">{credentials?.email}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground">Parol</dt>
+            <dt className="text-muted-foreground">{t.password}</dt>
             <dd className="font-mono text-base font-semibold">{credentials?.password}</dd>
           </div>
         </dl>
@@ -421,17 +420,17 @@ export function CredentialsDialog({
               try {
                 await navigator.clipboard.writeText(text)
                 setCopied(true)
-                toast.success('Nusxa olindi')
+                toast.success(t.copied)
                 setTimeout(() => setCopied(false), 2000)
               } catch {
-                toast.error('Nusxa olinmadi — qo‘lda ko‘chiring')
+                toast.error(t.copy_failed)
               }
             }}
           >
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            Nusxa olish
+            {t.copy}
           </Button>
-          <Button onClick={onClose}>Yopish</Button>
+          <Button onClick={onClose}>{dict.common.close}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -26,36 +26,28 @@ import {
   Gamepad2,
   Dribbble,
   GraduationCap,
-  ShieldCheck
+  ShieldCheck,
+  Lock
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useRouter } from 'next/navigation'
 import type { Tournament, TournamentDetail, TournamentStatusValue } from '@/lib/types'
-import { TOURNAMENT_STATUS_CLASSES, TOURNAMENT_STATUS_LABELS } from '@/lib/constants'
+import { TOURNAMENT_STATUS_CLASSES } from '@/lib/constants'
 import { toast } from 'sonner'
 import { ShareButton } from '@/components/share-button'
 import { registerParticipant, toggleSaveTournament, unregisterParticipant } from '@/lib/actions'
 import { useAuthModal } from '@/components/auth-modal'
-import { ParticipantSlots } from '@/components/participant-slots'
+import { ParticipantSlots, isTournamentFull } from '@/components/participant-slots'
+import { useLanguage } from '@/lib/i18n/language-context'
+import { formatClock, formatDate, formatDateLong } from '@/lib/time'
+import { displayFee } from '@/components/tournament-card'
 import { TeamRegistrationPicker, type RegistrableTeam, type TeamSelection } from '@/components/teams/team-registration'
-
-const REGISTRATION_STATUS_LABELS: Record<string, string> = {
-  pending: 'Tasdiq kutilmoqda',
-  approved: 'Tasdiqlangan',
-  rejected: 'Rad etilgan',
-}
 
 const categoryIcons = {
   sports: Dribbble,
   esports: Gamepad2,
   academic: GraduationCap,
 }
-
-const STAFF_LABELS = {
-  ADMIN: 'Admin',
-  ORGANIZER: 'Tournament organizer',
-  SUPPORT: 'Support',
-} as const
 
 export type TournamentAbilityProps = {
   canEditTournament: boolean
@@ -92,6 +84,14 @@ export default function TournamentClient({
 }) {
   const { openLoginModal } = useAuthModal()
   const router = useRouter()
+  const { dict, locale } = useLanguage()
+  const d = dict.tournament.detail
+  const free = dict.tournament.card.free
+  const registrationStatus = registration?.status ?? 'pending'
+  const registrationStatusLabel =
+    registrationStatus in d.registration_status
+      ? d.registration_status[registrationStatus as keyof typeof d.registration_status]
+      : d.registration_status.reviewing
   const currentUserId = currentUser?.id
   const canRegister = currentUser?.role === 'USER'
   const [saved, setSaved] = useState(isSaved)
@@ -109,8 +109,8 @@ export default function TournamentClient({
   const handleSave = async () => {
     if (!currentUserId) {
       openLoginModal({
-        title: 'Saqlash uchun kiring',
-        description: `"${tournament.title}" ni saqlash uchun akkauntingizga kiring.`,
+        title: dict.tournament.save_login.title,
+        description: dict.tournament.save_login.description_named(tournament.title),
       })
       return
     }
@@ -128,14 +128,14 @@ export default function TournamentClient({
   const handleRegister = async () => {
     if (!currentUserId) {
       openLoginModal({
-        title: 'Qo‘shilish uchun kiring',
-        description: `"${tournament.title}" turniriga yozilish uchun akkauntingizga kiring.`,
+        title: d.join_login_title,
+        description: d.join_login_description(tournament.title),
       })
       return
     }
 
     if (!canRegister) {
-      toast.error('Tashkilot va admin akkauntlari turnirga yozilmaydi')
+      toast.error(dict.tournament.errors.accounts_cannot_register)
       return
     }
 
@@ -154,7 +154,7 @@ export default function TournamentClient({
 
     setRegistered(true)
     setCurrentParticipants(prev => prev + 1)
-    toast.success('Arizangiz yuborildi — tashkilotchi tasdiqlashini kuting')
+    toast.success(d.applied)
     router.refresh()
   }
 
@@ -170,7 +170,7 @@ export default function TournamentClient({
 
     setRegistered(false)
     setCurrentParticipants((current) => Math.max(0, current - 1))
-    toast.success('Ro‘yxatdan o‘tish bekor qilindi')
+    toast.success(d.unregistered)
     router.refresh()
   }
 
@@ -180,16 +180,16 @@ export default function TournamentClient({
       <Button variant="ghost" asChild className="mb-4 -ml-2">
         <Link href="/feed" className="gap-2">
           <ChevronLeft className="h-4 w-4" />
-          Back to Tournaments
+          {d.back}
         </Link>
       </Button>
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="min-w-0 lg:col-span-2 space-y-6">
           {/* Hero Banner */}
           <Card className="overflow-hidden">
-            <div className="relative aspect-square md:aspect-video bg-gradient-to-br from-primary/30 via-secondary to-accent/30 group">
+            <div className="relative aspect-video bg-gradient-to-br from-primary/30 via-secondary to-accent/30 group">
                 {activePoster ? (
                   <img
                     src={activePoster}
@@ -205,11 +205,12 @@ export default function TournamentClient({
                 {/* Carousel Controls */}
                 {posterUrls.length > 1 && (
                   <>
-                    <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-between p-2 sm:p-4 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity z-20 [&>*]:pointer-events-auto">
                       <Button
                         variant="secondary"
                         size="icon"
                         className="h-8 w-8 rounded-full bg-background/80 hover:bg-background/90"
+                        aria-label={dict.tournament.card.prev_poster}
                         onClick={(e) => {
                           e.preventDefault()
                           setPosterIndex((current) => (current - 1 + posterUrls.length) % posterUrls.length)
@@ -221,6 +222,7 @@ export default function TournamentClient({
                         variant="secondary"
                         size="icon"
                         className="h-8 w-8 rounded-full bg-background/80 hover:bg-background/90"
+                        aria-label={dict.tournament.card.next_poster}
                         onClick={(e) => {
                           e.preventDefault()
                           setPosterIndex((current) => (current + 1) % posterUrls.length)
@@ -236,13 +238,21 @@ export default function TournamentClient({
                     </div>
                   </>
                 )}
-              <div className="absolute top-4 left-4 flex gap-2">
+              <div className="absolute left-4 right-28 top-4 flex flex-wrap gap-2">
                 <Badge className={TOURNAMENT_STATUS_CLASSES[tournament.status as TournamentStatusValue]}>
-                  {TOURNAMENT_STATUS_LABELS[tournament.status as TournamentStatusValue]}
+                  {dict.status[tournament.status as TournamentStatusValue]}
                 </Badge>
+                {isTournamentFull(currentParticipants, tournament.maxParticipants) &&
+                tournament.status !== 'completed' &&
+                tournament.status !== 'cancelled' ? (
+                  <Badge className="gap-1 bg-destructive text-white shadow-md ring-2 ring-white/80">
+                    <Lock className="h-3 w-3" aria-hidden />
+                    {dict.feed.full}
+                  </Badge>
+                ) : null}
                 {tournament.featured && (
                   <Badge variant="outline" className="border-primary text-primary bg-background/50">
-                    Featured
+                    {d.featured}
                   </Badge>
                 )}
               </div>
@@ -252,7 +262,7 @@ export default function TournamentClient({
                   variant={saved ? 'default' : 'secondary'}
                   size="icon"
                   onClick={handleSave}
-                  aria-label={saved ? 'Saqlanganlardan olib tashlash' : 'Turnirni saqlash'}
+                  aria-label={saved ? dict.tournament.card.unsave : dict.tournament.card.save}
                   aria-pressed={saved}
                 >
                   <Bookmark className="h-4 w-4" aria-hidden />
@@ -268,7 +278,7 @@ export default function TournamentClient({
               {/* Organizer */}
               <div className="flex items-center gap-3 mb-6">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={tournament.organizer.avatar} alt={`${tournament.organizer.name} logotipi`} />
+                  <AvatarImage src={tournament.organizer.avatar} alt={dict.tournament.card.logo_alt(tournament.organizer.name)} />
                   <AvatarFallback>{tournament.organizer.name[0]}</AvatarFallback>
                 </Avatar>
                 <div>
@@ -278,7 +288,7 @@ export default function TournamentClient({
                       <CheckCircle className="h-4 w-4 text-primary" />
                     )}
                   </div>
-                  <span className="text-sm text-muted-foreground">Organizer</span>
+                  <span className="text-sm text-muted-foreground">{d.organizer}</span>
                 </div>
               </div>
 
@@ -287,28 +297,24 @@ export default function TournamentClient({
                 <div className="text-center">
                   <Calendar className="h-5 w-5 mx-auto mb-2 text-primary" />
                   <p className="text-sm font-medium">
-                    {new Date(tournament.date).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
+                    {formatDate(tournament.date, locale)}
                   </p>
-                  <p className="text-xs text-muted-foreground">Start Date</p>
+                  <p className="text-xs text-muted-foreground">{d.start_date}</p>
                 </div>
                 <div className="text-center">
                   <Clock className="h-5 w-5 mx-auto mb-2 text-primary" />
-                  <p className="text-sm font-medium">{tournament.time}</p>
-                  <p className="text-xs text-muted-foreground">Start Time</p>
+                  <p className="text-sm font-medium">{formatClock(tournament.time, locale)}</p>
+                  <p className="text-xs text-muted-foreground">{d.start_time}</p>
                 </div>
                 <div className="text-center">
                   <MapPin className="h-5 w-5 mx-auto mb-2 text-primary" />
                   <p className="text-sm font-medium line-clamp-1">{tournament.location}</p>
-                  <p className="text-xs text-muted-foreground">Location</p>
+                  <p className="text-xs text-muted-foreground">{d.location}</p>
                 </div>
                 <div className="text-center">
                   <Users className="h-5 w-5 mx-auto mb-2 text-primary" />
                   <p className="text-sm font-medium">{currentParticipants}/{tournament.maxParticipants}</p>
-                  <p className="text-xs text-muted-foreground">Participants</p>
+                  <p className="text-xs text-muted-foreground">{d.participants}</p>
                 </div>
               </div>
             </CardContent>
@@ -319,7 +325,7 @@ export default function TournamentClient({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                About this Tournament
+                {d.about}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -334,7 +340,7 @@ export default function TournamentClient({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-primary" />
-                Rules
+                {d.rules}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -356,7 +362,7 @@ export default function TournamentClient({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-primary" />
-                Requirements
+                {d.requirements}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -374,8 +380,8 @@ export default function TournamentClient({
           {/* Related Tournaments */}
           {relatedTournaments.length > 0 && (
             <section>
-              <h2 className="text-lg font-semibold mb-4">Related Tournaments</h2>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <h2 className="text-lg font-semibold mb-4">{d.related}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {relatedTournaments.map((t) => (
                   <TournamentCard key={t.id} tournament={t} variant="compact" />
                 ))}
@@ -390,14 +396,14 @@ export default function TournamentClient({
           <Card id="register">
             <CardContent className="p-6">
               {/* Prize & Entry */}
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <p className="text-sm text-muted-foreground">Prize Pool</p>
-                  <p className="text-2xl font-bold text-primary">{tournament.prizePool || 'TBA'}</p>
+              <div className="flex justify-between items-center gap-3 mb-6">
+                <div className="min-w-0">
+                  <p className="text-sm text-muted-foreground">{d.prize_pool}</p>
+                  <p className="text-2xl font-bold text-primary break-words">{tournament.prizePool ? displayFee(tournament.prizePool, free) : d.tba}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Entry Fee</p>
-                  <p className="text-lg font-semibold">{tournament.entryFee || 'Free'}</p>
+                <div className="min-w-0 text-right">
+                  <p className="text-sm text-muted-foreground">{d.entry_fee}</p>
+                  <p className="text-lg font-semibold break-words">{tournament.entryFee ? displayFee(tournament.entryFee, free) : free}</p>
                 </div>
               </div>
 
@@ -417,23 +423,23 @@ export default function TournamentClient({
                   <p className="flex items-center gap-2 text-sm font-medium">
                     <ShieldCheck className="h-4 w-4 text-primary" aria-hidden />
                     {ability.isOwner
-                      ? 'Siz bu turnir egasisiz'
-                      : `Vaqtinchalik rol: ${STAFF_LABELS[ability.staffRole ?? 'SUPPORT']}`}
+                      ? d.owner_note
+                      : d.temp_role(d.staff_roles[ability.staffRole ?? 'SUPPORT'])}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {ability.canManageParticipants ? (
                       <Button size="sm" variant="outline" asChild>
-                        <Link href="/dashboard/participants">Ishtirokchilar</Link>
+                        <Link href="/dashboard/participants">{d.participants_link}</Link>
                       </Button>
                     ) : null}
                     {ability.canManageStaff ? (
                       <Button size="sm" variant="outline" asChild>
-                        <Link href={`/dashboard/tournaments/${tournament.id}/staff`}>Xodimlar</Link>
+                        <Link href={`/dashboard/tournaments/${tournament.id}/staff`}>{d.staff_link}</Link>
                       </Button>
                     ) : null}
                     {channelId ? (
                       <Button size="sm" variant="outline" asChild>
-                        <Link href={`/messages/${channelId}`}>Kanal</Link>
+                        <Link href={`/messages/${channelId}`}>{d.channel_link}</Link>
                       </Button>
                     ) : null}
                   </div>
@@ -447,31 +453,30 @@ export default function TournamentClient({
                     <div className="mb-2 flex items-center gap-2">
                       <AlertCircle className="h-5 w-5 text-muted-foreground" aria-hidden />
                       <span className="text-sm font-medium">
-                        {currentUser.role === 'ORGANIZATION' ? 'Tashkilot akkaunti' : 'Admin akkaunti'}
+                        {currentUser.role === 'ORGANIZATION' ? d.org_account : d.admin_account}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Bu akkaunt turnirga ishtirokchi bo‘lib yozilmaydi. Yozilish uchun oddiy foydalanuvchi
-                      akkauntidan foydalaning.
+                      {d.cannot_register_note}
                     </p>
                   </div>
                   <Button variant={saved ? 'default' : 'outline'} className="w-full gap-2" onClick={handleSave}>
                     <Bookmark className="h-4 w-4" />
-                    {saved ? 'Saqlangan' : 'Keyinroq uchun saqlash'}
+                    {saved ? d.saved : d.save_for_later}
                   </Button>
                 </div>
               ) : registered ? (
                 <div className="space-y-3">
                   <Button className="w-full gap-2 bg-success hover:bg-success/90 cursor-default" size="lg">
                     <CheckCircle className="h-5 w-5" />
-                    {registration?.teamName && teamEvent ? `${registration.teamName} yozilgan` : 'You are Registered'}
+                    <span className="truncate">{registration?.teamName && teamEvent ? d.team_registered(registration.teamName) : d.you_registered}</span>
                   </Button>
                   <p className="text-xs text-center text-muted-foreground">
-                    Ariza holati: {REGISTRATION_STATUS_LABELS[registration?.status ?? 'pending'] ?? 'Ko‘rib chiqilmoqda'}
+                    {d.application_status(registrationStatusLabel)}
                   </p>
                   {drawn ? (
                     <Button variant="outline" className="w-full" asChild>
-                      <Link href={`/results/${tournament.id}`}>Musobaqa sahifasi</Link>
+                      <Link href={`/results/${tournament.id}`}>{d.match_page}</Link>
                     </Button>
                   ) : registration?.canWithdraw !== false ? (
                     <Button
@@ -480,7 +485,7 @@ export default function TournamentClient({
                       onClick={handleCancelRegistration}
                       disabled={registering}
                     >
-                      {registering ? 'Bekor qilinmoqda…' : 'Ro‘yxatdan o‘tishni bekor qilish'}
+                      {registering ? d.cancelling : d.cancel_registration}
                     </Button>
                   ) : null}
                 </div>
@@ -499,10 +504,10 @@ export default function TournamentClient({
                   ) : (
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-muted-foreground">
-                        Team Name (optional)
+                        {d.team_name_optional}
                       </label>
                       <Input
-                        placeholder="e.g., TUIT Wolves or Squad Alpha"
+                        placeholder={d.team_name_placeholder}
                         value={teamName}
                         onChange={(e) => setTeamName(e.target.value)}
                         disabled={registering}
@@ -513,8 +518,7 @@ export default function TournamentClient({
 
                   {/* Approved participants join the tournament group automatically. */}
                   <p className="rounded-lg border border-border/50 bg-secondary/40 p-2.5 text-xs text-muted-foreground">
-                    Arizangiz tasdiqlangach turnir guruhiga avtomatik qo‘shilasiz — e’lonlar, jadval va
-                    tashkilotchilar bilan muloqot shu yerda bo‘ladi.
+                    {d.group_note}
                   </p>
 
                   <Button 
@@ -524,22 +528,24 @@ export default function TournamentClient({
                     disabled={registering || (teamEvent !== null && !teamSelection.teamId)}
                   >
                     <Trophy className="h-5 w-5" />
-                    {registering
-                      ? 'Registering...'
-                      : teamEvent
-                        ? 'Jamoani ro‘yxatdan o‘tkazish'
-                        : currentUser?.name
-                          ? `Register as ${currentUser.name}`
-                          : 'Register Now'}
+                    <span className="truncate">
+                      {registering
+                        ? d.registering
+                        : teamEvent
+                          ? d.register_team
+                          : currentUser?.name
+                            ? d.register_as(currentUser.name)
+                            : d.register_now}
+                    </span>
                   </Button>
                   <p className="text-xs text-center text-muted-foreground">
-                    Registration closes on {new Date(tournament.date).toLocaleDateString()}
+                    {d.registration_closes(formatDate(tournament.date, locale))}
                   </p>
                 </div>
               ) : tournament.status === 'upcoming' ? (
                 <div className="space-y-3">
                   <Button className="w-full" size="lg" disabled>
-                    Registration Closed
+                    {d.registration_closed}
                   </Button>
                   <Button 
                     variant={saved ? "default" : "outline"} 
@@ -547,17 +553,17 @@ export default function TournamentClient({
                     onClick={handleSave}
                   >
                     <Bookmark className="h-4 w-4" />
-                    {saved ? 'Saved' : 'Save for Later'}
+                    {saved ? d.saved : d.save_for_later}
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <Button className="w-full" size="lg" variant="secondary" disabled>
-                    {tournament.status === 'ongoing' ? 'In Progress' : tournament.status === 'cancelled' ? 'Bekor qilingan' : 'Tournament Ended'}
+                    {tournament.status === 'ongoing' ? d.in_progress : tournament.status === 'cancelled' ? dict.status.cancelled : d.ended}
                   </Button>
                   {drawn ? (
                     <Button variant="outline" className="w-full" asChild>
-                      <Link href={`/results/${tournament.id}`}>To‘r va natijalar</Link>
+                      <Link href={`/results/${tournament.id}`}>{d.bracket_results}</Link>
                     </Button>
                   ) : null}
                 </div>
@@ -567,7 +573,7 @@ export default function TournamentClient({
                 <Button variant="ghost" size="sm" className="mt-3 w-full gap-2 text-muted-foreground" asChild>
                   <Link href={`/messages/support/new?tournament=${tournament.id}`}>
                     <LifeBuoy className="h-4 w-4" aria-hidden />
-                    Turnir supportiga savol berish
+                    <span className="truncate">{d.ask_support}</span>
                   </Link>
                 </Button>
               ) : null}
@@ -579,17 +585,12 @@ export default function TournamentClient({
                 <div className="flex items-center gap-3">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <span>
-                    {new Date(tournament.date).toLocaleDateString('en-US', { 
-                      weekday: 'long',
-                      month: 'long', 
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
+                    {formatDateLong(tournament.date, locale)}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span>{tournament.time}</span>
+                  <span>{formatClock(tournament.time, locale)}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -598,7 +599,7 @@ export default function TournamentClient({
                 {tournament.prizePool && (
                   <div className="flex items-center gap-3">
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <span>{tournament.prizePool} prize pool</span>
+                    <span>{d.prize_pool_line(displayFee(tournament.prizePool, free))}</span>
                   </div>
                 )}
               </div>
@@ -608,10 +609,10 @@ export default function TournamentClient({
           {/* Organizer Card */}
           <Card>
             <CardContent className="p-6">
-              <h3 className="font-semibold mb-4">About the Organizer</h3>
+              <h3 className="font-semibold mb-4">{d.about_organizer}</h3>
               <div className="flex items-center gap-3">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src={tournament.organizer.avatar} alt={`${tournament.organizer.name} logotipi`} />
+                  <AvatarImage src={tournament.organizer.avatar} alt={dict.tournament.card.logo_alt(tournament.organizer.name)} />
                   <AvatarFallback>{tournament.organizer.name[0]}</AvatarFallback>
                 </Avatar>
                 <div>
@@ -621,11 +622,11 @@ export default function TournamentClient({
                       <CheckCircle className="h-4 w-4 text-primary" />
                     )}
                   </div>
-                  <span className="text-sm text-muted-foreground">Tournament Organizer</span>
+                  <span className="text-sm text-muted-foreground">{d.tournament_organizer}</span>
                 </div>
               </div>
               <Button variant="outline" className="w-full mt-4" asChild>
-                <Link href="/messages">Contact Organizer</Link>
+                <Link href="/messages">{d.contact_organizer}</Link>
               </Button>
             </CardContent>
           </Card>

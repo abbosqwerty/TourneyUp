@@ -5,12 +5,15 @@ import { getCurrentUser, getTournamentAbility } from '@/lib/session'
 import { safeParseJsonArray } from '@/lib/json'
 import { tournamentPoster } from '@/lib/media'
 import { listRegistrableTeams } from '@/lib/teams'
+import { getI18n } from '@/lib/i18n/server'
+import { formatDate } from '@/lib/time'
 import TournamentClient from './tournament-client'
 
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
+  const { dict, locale } = await getI18n()
 
   try {
     const tournament = await db.tournament.findUnique({
@@ -27,10 +30,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       },
     })
 
-    if (!tournament) return { title: 'Turnir topilmadi' }
+    if (!tournament) return { title: dict.tournament.detail.meta_not_found }
 
     const host = tournament.organization?.name ?? tournament.organizer.name
-    const description = `${tournament.sport} · ${tournament.date} · ${tournament.location}. Tashkilotchi: ${host}.`
+    const description = dict.tournament.detail.meta_description(tournament.sport, formatDate(tournament.date, locale), tournament.location, host)
     const poster = tournamentPoster(tournament)
 
     return {
@@ -45,7 +48,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       twitter: { card: 'summary_large_image', title: tournament.title, description },
     }
   } catch {
-    return { title: 'Turnir' }
+    return { title: dict.tournament.detail.meta_fallback }
   }
 }
 

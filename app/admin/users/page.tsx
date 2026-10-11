@@ -6,18 +6,16 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { getI18n } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Foydalanuvchilar', robots: { index: false } }
+export async function generateMetadata() {
+  const { dict } = await getI18n()
+  return { title: dict.admin.users.meta_title, robots: { index: false } }
+}
 
 const PAGE_SIZE = 25
-
-const ROLE_LABELS = {
-  USER: 'Foydalanuvchi',
-  ORGANIZATION: 'Tashkilot',
-  SUPER_ADMIN: 'Super admin',
-} as const
 
 export default async function AdminUsersPage({
   searchParams,
@@ -25,6 +23,9 @@ export default async function AdminUsersPage({
   searchParams: Promise<{ q?: string; page?: string; role?: string }>
 }) {
   const params = await searchParams
+  const { dict } = await getI18n()
+  const t = dict.admin.users
+  const ROLE_LABELS = t.roles
   const query = params.q?.trim() ?? ''
   const page = Math.max(1, Number(params.page ?? '1') || 1)
   const role: UserRole | undefined =
@@ -68,8 +69,8 @@ export default async function AdminUsersPage({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Foydalanuvchilarni olib bo‘lmadi</CardTitle>
-          <CardDescription>Baza bilan aloqa yo‘q.</CardDescription>
+          <CardTitle>{t.load_failed}</CardTitle>
+          <CardDescription>{dict.admin.db_unavailable_short}</CardDescription>
         </CardHeader>
       </Card>
     )
@@ -80,17 +81,17 @@ export default async function AdminUsersPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Foydalanuvchilar</h1>
-        <p className="text-sm text-muted-foreground">Jami {total} akkaunt</p>
+        <h1 className="text-2xl font-bold md:text-3xl">{t.title}</h1>
+        <p className="text-sm text-muted-foreground">{t.total(total)}</p>
       </div>
 
       <form className="flex flex-wrap gap-2" action="/admin/users">
         <Input
           name="q"
           defaultValue={query}
-          placeholder="Ism, username yoki email"
+          placeholder={t.search_placeholder}
           className="w-full sm:max-w-xs"
-          aria-label="Foydalanuvchilarni qidirish"
+          aria-label={t.search_label}
         />
         <div className="flex gap-2">
           {(['', 'USER', 'ORGANIZATION', 'SUPER_ADMIN'] as const).map((value) => (
@@ -106,25 +107,25 @@ export default async function AdminUsersPage({
                   query: { ...(query ? { q: query } : {}), ...(value ? { role: value } : {}) },
                 }}
               >
-                {value ? ROLE_LABELS[value] : 'Hammasi'}
+                {value ? ROLE_LABELS[value] : dict.admin.all}
               </Link>
             </Button>
           ))}
         </div>
         <Button type="submit" size="sm">
-          Qidirish
+          {t.search}
         </Button>
       </form>
 
       <Card>
         <CardContent className="divide-y divide-border p-0">
           {users.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">Natija topilmadi.</p>
+            <p className="py-12 text-center text-sm text-muted-foreground">{t.empty}</p>
           ) : (
             users.map((user) => (
               <div key={user.id} className="flex items-center gap-3 p-4">
                 <Avatar className="h-10 w-10 shrink-0">
-                  <AvatarImage src={user.avatar} alt={`${user.name} avatari`} />
+                  <AvatarImage src={user.avatar} alt={t.avatar_alt(user.name)} />
                   <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
@@ -135,7 +136,7 @@ export default async function AdminUsersPage({
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  {user.verified ? <Badge variant="secondary">Tasdiqlangan</Badge> : null}
+                  {user.verified ? <Badge variant="secondary">{t.verified}</Badge> : null}
                   <Badge variant={user.role === 'SUPER_ADMIN' ? 'destructive' : 'outline'}>
                     {ROLE_LABELS[user.role]}
                   </Badge>
@@ -155,7 +156,7 @@ export default async function AdminUsersPage({
                 query: { ...(query ? { q: query } : {}), ...(role ? { role } : {}), page: Math.max(1, page - 1) },
               }}
             >
-              Oldingi
+              {t.previous}
             </Link>
           </Button>
           <span className="text-sm text-muted-foreground">
@@ -172,7 +173,7 @@ export default async function AdminUsersPage({
                 },
               }}
             >
-              Keyingi
+              {t.next}
             </Link>
           </Button>
         </div>

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { changePassword } from '@/lib/auth-actions'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export function PasswordForm({
   mustChange,
@@ -20,6 +21,8 @@ export function PasswordForm({
   const [isPending, startTransition] = useTransition()
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
+  const { dict } = useLanguage()
+  const t = dict.account.password
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -42,7 +45,7 @@ export function PasswordForm({
         return
       }
 
-      toast.success('Parol almashtirildi')
+      toast.success(t.changed)
       // First-login flows land on the panel that matches the account type.
       router.replace(mustChange ? (role === 'ORGANIZATION' ? '/dashboard' : '/feed') : '/settings')
       router.refresh()
@@ -52,7 +55,7 @@ export function PasswordForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       <div className="space-y-2">
-        <Label htmlFor="currentPassword">Hozirgi parol</Label>
+        <Label htmlFor="currentPassword">{t.current}</Label>
         <Input
           id="currentPassword"
           name="currentPassword"
@@ -65,14 +68,14 @@ export function PasswordForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="newPassword">Yangi parol</Label>
+        <Label htmlFor="newPassword">{t.new}</Label>
         <Input
           id="newPassword"
           name="newPassword"
           type="password"
           autoComplete="new-password"
           minLength={8}
-          placeholder="Kamida 8 belgi"
+          placeholder={t.new_placeholder}
           disabled={isPending}
           required
         />
@@ -80,7 +83,7 @@ export function PasswordForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword">Yangi parolni takrorlang</Label>
+        <Label htmlFor="confirmPassword">{t.confirm}</Label>
         <Input
           id="confirmPassword"
           name="confirmPassword"
@@ -103,7 +106,7 @@ export function PasswordForm({
 
       <Button type="submit" className="w-full gap-2" disabled={isPending}>
         {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-        Parolni saqlash
+        {t.save}
       </Button>
     </form>
   )

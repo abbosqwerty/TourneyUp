@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '@prisma/client'
 import { db } from './db'
+import { getI18n } from './i18n/server'
 import { getCurrentUser } from './session'
 import {
   fieldErrors,
@@ -16,7 +17,7 @@ import {
 } from './schemas'
 import { fail, succeedWith, type ActionResult } from './action-result'
 import { guard, minutes } from './rate-limit'
-import { notify } from './notifications'
+import { notifyKey } from './notifications'
 import { slugify, syncTeamChannel, syncTournamentChannel } from './channels'
 import {
   activeRegistrations,
@@ -44,23 +45,23 @@ function isUniqueViolation(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
 }
 
-const NAME_TAKEN = { name: 'Sizda shu nomli jamoa allaqachon bor' }
-
 export async function createTeam(input: unknown): Promise<ActionResult<{ teamId: string }>> {
+  const { dict, locale } = await getI18n()
+  const t = dict.team.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
-  if (user.role !== 'USER') return fail('Jamoalarni faqat o‘yinchi akkauntlari yaratadi')
+  if (!user) return fail(dict.errors.login_required)
+  if (user.role !== 'USER') return fail(t.players_only)
 
-  const limited = guard(`create-team:${user.id}`, 10, minutes(60))
+  const limited = guard(`create-team:${user.id}`, 10, minutes(60), locale)
   if (limited) return limited
 
   const parsed = teamFieldsSchema.safeParse(input)
-  if (!parsed.success) return fail('Formada xatolar bor', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
   const data = parsed.data
 
   try {
     const owned = await db.team.count({ where: { ownerId: user.id, disbandedAt: null } })
-    if (owned >= MAX_OWNED_TEAMS) return fail(`Ko‘pi bilan ${MAX_OWNED_TEAMS} ta faol jamoaga egalik qilish mumkin`)
+    if (owned >= MAX_OWNED_TEAMS) return fail(t.max_owned(MAX_OWNED_TEAMS))
 
     const team = await db.$transaction(async (tx) => {
       const created = await tx.team.create({
@@ -83,28 +84,30 @@ export async function createTeam(input: unknown): Promise<ActionResult<{ teamId:
     revalidateTeam(team.id)
     return succeedWith({ teamId: team.id })
   } catch (error) {
-    if (isUniqueViolation(error)) return fail('Bu nom band', NAME_TAKEN)
+    if (isUniqueViolation(error)) return fail(t.name_taken, { name: t.name_taken_field })
     console.error('createTeam failed', error)
-    return fail('Jamoa yaratishda xatolik')
+    return fail(t.create_failed)
   }
 }
 
 export async function updateTeam(input: unknown): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.team.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const parsed = updateTeamSchema.safeParse(input)
-  if (!parsed.success) return fail('Formada xatolar bor', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
   const { teamId, ...data } = parsed.data
 
   const ability = await getTeamAbility(user.id, teamId)
-  if (!ability.canEdit) return fail('Jamoani tahrirlash huquqingiz yo‘q')
+  if (!ability.canEdit) return fail(t.no_edit_right)
 
   try {
     const team = await db.team.findUniqueOrThrow({ where: { id: teamId }, select: { sport: true } })
     // A team registered somewhere keeps its game until those tournaments end.
     if (team.sport !== data.sport && (await activeRegistrations(teamId)).length > 0) {
-      return fail('Jamoa faol turnirda — o‘yin turini o‘zgartirib bo‘lmaydi', { sport: 'Faol ro‘yxat bor' })
+      return fail(t.sport_locked, { sport: t.sport_locked_field })
     }
 
     await db.$transaction(async (tx) => {
@@ -124,24 +127,26 @@ export async function updateTeam(input: unknown): Promise<ActionResult> {
     revalidateTeam(teamId)
     return { ok: true }
   } catch (error) {
-    if (isUniqueViolation(error)) return fail('Bu nom band', NAME_TAKEN)
+    if (isUniqueViolation(error)) return fail(t.name_taken, { name: t.name_taken_field })
     console.error('updateTeam failed', error)
-    return fail('Saqlashda xatolik')
+    return fail(t.save_failed)
   }
 }
 
 export async function inviteMember(input: unknown): Promise<ActionResult<{ name: string }>> {
+  const { dict, locale } = await getI18n()
+  const t = dict.team.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const parsed = inviteMemberSchema.safeParse(input)
-  if (!parsed.success) return fail('Formada xatolar bor', fieldErrors(parsed.error))
+  if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
   const { teamId, userQuery } = parsed.data
 
   const ability = await getTeamAbility(user.id, teamId)
-  if (!ability.canInvite) return fail('Taklif yuborish huquqingiz yo‘q')
+  if (!ability.canInvite) return fail(t.no_invite_right)
 
-  const limited = guard(`team-invite:${user.id}`, 40, minutes(60))
+  const limited = guard(`team-invite:${user.id}`, 40, minutes(60), locale)
   if (limited) return limited
 
   try {
@@ -150,8 +155,8 @@ export async function inviteMember(input: unknown): Promise<ActionResult<{ name:
       where: { OR: [{ username: lookup }, { email: lookup }] },
       select: { id: true, name: true, role: true },
     })
-    if (!target) return fail('Foydalanuvchi topilmadi', { userQuery: 'Username yoki email topilmadi' })
-    if (target.role !== 'USER') return fail('Faqat o‘yinchilarni taklif qilish mumkin', { userQuery: 'Bu akkaunt o‘yinchi emas' })
+    if (!target) return fail(t.user_not_found, { userQuery: t.user_not_found_field })
+    if (target.role !== 'USER') return fail(t.players_only_invite, { userQuery: t.not_a_player_field })
 
     const [membership, pending, team, memberCount] = await Promise.all([
       db.teamMember.findUnique({ where: { teamId_userId: { teamId, userId: target.id } }, select: { leftAt: true } }),
@@ -162,9 +167,9 @@ export async function inviteMember(input: unknown): Promise<ActionResult<{ name:
       db.team.findUniqueOrThrow({ where: { id: teamId }, select: { name: true } }),
       db.teamMember.count({ where: { teamId, leftAt: null } }),
     ])
-    if (membership && !membership.leftAt) return fail('Bu foydalanuvchi allaqachon jamoada', { userQuery: 'Allaqachon a’zo' })
-    if (pending) return fail('Taklif allaqachon yuborilgan', { userQuery: 'Javob kutilmoqda' })
-    if (memberCount >= MAX_TEAM_MEMBERS) return fail(`Jamoada ko‘pi bilan ${MAX_TEAM_MEMBERS} a’zo bo‘ladi`)
+    if (membership && !membership.leftAt) return fail(t.already_member, { userQuery: t.already_member_field })
+    if (pending) return fail(t.already_invited, { userQuery: t.already_invited_field })
+    if (memberCount >= MAX_TEAM_MEMBERS) return fail(t.max_members(MAX_TEAM_MEMBERS))
 
     await db.teamInvite.create({
       data: {
@@ -174,11 +179,11 @@ export async function inviteMember(input: unknown): Promise<ActionResult<{ name:
         expiresAt: new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000),
       },
     })
-    await notify({
+    await notifyKey({
       userId: target.id,
       type: 'TEAM_INVITE',
-      title: 'Jamoaga taklif',
-      body: `${user.name} sizni “${team.name}” jamoasiga taklif qildi.`,
+      key: 'team_invite',
+      params: { user: user.name, team: team.name },
       link: '/teams',
     })
 
@@ -186,19 +191,21 @@ export async function inviteMember(input: unknown): Promise<ActionResult<{ name:
     return succeedWith({ name: target.name })
   } catch (error) {
     console.error('inviteMember failed', error)
-    return fail('Taklif yuborishda xatolik')
+    return fail(t.invite_failed)
   }
 }
 
 export async function revokeInvite(inviteId: string): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.team.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const invite = await db.teamInvite.findUnique({ where: { id: inviteId }, select: { teamId: true, status: true } })
-  if (!invite) return fail('Taklif topilmadi')
+  if (!invite) return fail(t.invite_not_found)
   const ability = await getTeamAbility(user.id, invite.teamId)
-  if (!ability.canInvite) return fail('Huquqingiz yo‘q')
-  if (invite.status !== 'PENDING') return fail('Bu taklif allaqachon yopilgan')
+  if (!ability.canInvite) return fail(t.no_right)
+  if (invite.status !== 'PENDING') return fail(t.invite_closed)
 
   await db.teamInvite.update({ where: { id: inviteId }, data: { status: 'REVOKED', respondedAt: new Date() } })
   revalidateTeam(invite.teamId)
@@ -207,11 +214,13 @@ export async function revokeInvite(inviteId: string): Promise<ActionResult> {
 
 /** Only the invited user can answer; joining and the chat access happen together. */
 export async function respondToInvite(input: unknown): Promise<ActionResult<{ teamId: string }>> {
+  const { dict } = await getI18n()
+  const t = dict.team.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const parsed = respondInviteSchema.safeParse(input)
-  if (!parsed.success) return fail('So‘rov noto‘g‘ri')
+  if (!parsed.success) return fail(t.bad_request)
   const { inviteId, accept } = parsed.data
 
   try {
@@ -227,13 +236,13 @@ export async function respondToInvite(input: unknown): Promise<ActionResult<{ te
           team: { select: { name: true, disbandedAt: true } },
         },
       })
-      if (!invite || invite.invitedUserId !== user.id) return fail('Taklif topilmadi')
-      if (invite.status !== 'PENDING') return fail('Bu taklif allaqachon yopilgan')
+      if (!invite || invite.invitedUserId !== user.id) return fail(t.invite_not_found)
+      if (invite.status !== 'PENDING') return fail(t.invite_closed)
       if (invite.expiresAt < new Date()) {
         await tx.teamInvite.update({ where: { id: inviteId }, data: { status: 'EXPIRED' } })
-        return fail('Taklif muddati tugagan')
+        return fail(t.invite_expired)
       }
-      if (invite.team.disbandedAt) return fail('Jamoa tarqatilgan')
+      if (invite.team.disbandedAt) return fail(t.team_disbanded)
 
       await tx.teamInvite.update({
         where: { id: inviteId },
@@ -242,7 +251,7 @@ export async function respondToInvite(input: unknown): Promise<ActionResult<{ te
       if (!accept) return succeedWith({ teamId: invite.teamId })
 
       const count = await tx.teamMember.count({ where: { teamId: invite.teamId, leftAt: null } })
-      if (count >= MAX_TEAM_MEMBERS) return fail('Jamoa to‘lgan')
+      if (count >= MAX_TEAM_MEMBERS) return fail(t.team_full)
 
       // A former member who rejoins gets their old row back as a plain member.
       await tx.teamMember.upsert({
@@ -253,11 +262,11 @@ export async function respondToInvite(input: unknown): Promise<ActionResult<{ te
       await syncTeamChannel(invite.teamId, tx)
 
       if (invite.invitedById) {
-        await notify({
+        await notifyKey({
           userId: invite.invitedById,
           type: 'TEAM_MEMBERSHIP',
-          title: 'Taklif qabul qilindi',
-          body: `${user.name} “${invite.team.name}” jamoasiga qo‘shildi.`,
+          key: 'team_invite_accepted',
+          params: { user: user.name, team: invite.team.name },
           link: `/teams/${invite.teamId}`,
         })
       }
@@ -268,7 +277,7 @@ export async function respondToInvite(input: unknown): Promise<ActionResult<{ te
     return result
   } catch (error) {
     console.error('respondToInvite failed', error)
-    return fail('Javob berishda xatolik')
+    return fail(t.respond_failed)
   }
 }
 
@@ -293,36 +302,38 @@ async function endMembership(teamId: string, userId: string) {
 }
 
 export async function removeMember(input: unknown): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.team.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const parsed = teamMemberSchema.safeParse(input)
-  if (!parsed.success) return fail('So‘rov noto‘g‘ri')
+  if (!parsed.success) return fail(t.bad_request)
   const { teamId, userId } = parsed.data
 
   const ability = await getTeamAbility(user.id, teamId)
-  if (!ability.canRemoveMembers) return fail('A’zolarni chiqarish huquqingiz yo‘q')
-  if (userId === user.id) return fail('O‘zingizni chiqarish uchun “Jamoadan chiqish”ni bosing')
+  if (!ability.canRemoveMembers) return fail(t.no_remove_right)
+  if (userId === user.id) return fail(t.remove_self)
 
   try {
     const target = await db.teamMember.findUnique({
       where: { teamId_userId: { teamId, userId } },
       select: { role: true, leftAt: true, user: { select: { name: true } } },
     })
-    if (!target || target.leftAt) return fail('Bu foydalanuvchi jamoada emas')
-    if (target.role === 'OWNER') return fail('Jamoa egasini chiqarib bo‘lmaydi')
-    if (target.role === 'CAPTAIN' && ability.role !== 'OWNER') return fail('Kapitanni faqat jamoa egasi chiqaradi')
+    if (!target || target.leftAt) return fail(t.not_in_team)
+    if (target.role === 'OWNER') return fail(t.cannot_remove_owner)
+    if (target.role === 'CAPTAIN' && ability.role !== 'OWNER') return fail(t.captain_owner_only)
     if ((await lockedRosterUserIds(teamId)).has(userId)) {
-      return fail('Bu o‘yinchi davom etayotgan turnir tarkibida — turnir tugaguncha chiqarib bo‘lmaydi')
+      return fail(t.player_locked)
     }
 
     await endMembership(teamId, userId)
     const team = await db.team.findUniqueOrThrow({ where: { id: teamId }, select: { name: true } })
-    await notify({
+    await notifyKey({
       userId,
       type: 'TEAM_MEMBERSHIP',
-      title: 'Jamoadan chiqarildingiz',
-      body: `Siz “${team.name}” jamoasidan chiqarildingiz.`,
+      key: 'team_removed',
+      params: { team: team.name },
       link: '/teams',
     })
 
@@ -330,19 +341,21 @@ export async function removeMember(input: unknown): Promise<ActionResult> {
     return { ok: true }
   } catch (error) {
     console.error('removeMember failed', error)
-    return fail('Chiqarishda xatolik')
+    return fail(t.remove_failed)
   }
 }
 
 export async function leaveTeam(teamId: string): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.team.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const ability = await getTeamAbility(user.id, teamId)
-  if (!ability.isMember) return fail('Siz bu jamoada emassiz')
-  if (ability.role === 'OWNER') return fail('Egasi jamoadan chiqishdan oldin egalikni boshqaga o‘tkazishi yoki jamoani tarqatishi kerak')
+  if (!ability.isMember) return fail(t.not_member)
+  if (ability.role === 'OWNER') return fail(t.owner_cannot_leave)
   if ((await lockedRosterUserIds(teamId)).has(user.id)) {
-    return fail('Siz davom etayotgan turnir tarkibidasiz — turnir tugaguncha chiqib bo‘lmaydi')
+    return fail(t.self_locked)
   }
 
   try {
@@ -351,28 +364,30 @@ export async function leaveTeam(teamId: string): Promise<ActionResult> {
     return { ok: true }
   } catch (error) {
     console.error('leaveTeam failed', error)
-    return fail('Chiqishda xatolik')
+    return fail(t.leave_failed)
   }
 }
 
 export async function setMemberRole(input: unknown): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.team.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const parsed = setTeamRoleSchema.safeParse(input)
-  if (!parsed.success) return fail('So‘rov noto‘g‘ri')
+  if (!parsed.success) return fail(t.bad_request)
   const { teamId, userId, role } = parsed.data
 
   const ability = await getTeamAbility(user.id, teamId)
-  if (!ability.canManageRoles) return fail('Rollarni faqat jamoa egasi boshqaradi')
+  if (!ability.canManageRoles) return fail(t.roles_owner_only)
 
   try {
     const target = await db.teamMember.findUnique({
       where: { teamId_userId: { teamId, userId } },
       select: { role: true, leftAt: true },
     })
-    if (!target || target.leftAt) return fail('Bu foydalanuvchi jamoada emas')
-    if (target.role === 'OWNER') return fail('Egasining rolini bu yerda o‘zgartirib bo‘lmaydi — egalikni o‘tkazing')
+    if (!target || target.leftAt) return fail(t.not_in_team)
+    if (target.role === 'OWNER') return fail(t.owner_role_locked)
 
     await db.$transaction(async (tx) => {
       await tx.teamMember.update({ where: { teamId_userId: { teamId, userId } }, data: { role } })
@@ -382,28 +397,30 @@ export async function setMemberRole(input: unknown): Promise<ActionResult> {
     return { ok: true }
   } catch (error) {
     console.error('setMemberRole failed', error)
-    return fail('Rolni saqlashda xatolik')
+    return fail(t.role_failed)
   }
 }
 
 export async function transferOwnership(input: unknown): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.team.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const parsed = teamMemberSchema.safeParse(input)
-  if (!parsed.success) return fail('So‘rov noto‘g‘ri')
+  if (!parsed.success) return fail(t.bad_request)
   const { teamId, userId } = parsed.data
 
   const ability = await getTeamAbility(user.id, teamId)
-  if (!ability.canTransfer) return fail('Egalikni faqat jamoa egasi o‘tkazadi')
-  if (userId === user.id) return fail('Siz allaqachon egasiz')
+  if (!ability.canTransfer) return fail(t.transfer_owner_only)
+  if (userId === user.id) return fail(t.already_owner)
 
   try {
     const target = await db.teamMember.findUnique({
       where: { teamId_userId: { teamId, userId } },
       select: { leftAt: true, user: { select: { name: true } } },
     })
-    if (!target || target.leftAt) return fail('Yangi ega jamoa a’zosi bo‘lishi kerak')
+    if (!target || target.leftAt) return fail(t.new_owner_member)
 
     const team = await db.$transaction(async (tx) => {
       await tx.teamMember.update({ where: { teamId_userId: { teamId, userId: user.id } }, data: { role: 'CAPTAIN' } })
@@ -413,19 +430,19 @@ export async function transferOwnership(input: unknown): Promise<ActionResult> {
       return updated
     })
 
-    await notify({
+    await notifyKey({
       userId,
       type: 'TEAM_MEMBERSHIP',
-      title: 'Siz jamoa egasisiz',
-      body: `${user.name} “${team.name}” jamoasi egaligini sizga o‘tkazdi.`,
+      key: 'team_ownership',
+      params: { user: user.name, team: team.name },
       link: `/teams/${teamId}`,
     })
     revalidateTeam(teamId)
     return { ok: true }
   } catch (error) {
-    if (isUniqueViolation(error)) return fail('Yangi egada shu nomli boshqa jamoa bor')
+    if (isUniqueViolation(error)) return fail(t.new_owner_name_taken)
     console.error('transferOwnership failed', error)
-    return fail('Egalikni o‘tkazishda xatolik')
+    return fail(t.transfer_failed)
   }
 }
 
@@ -434,17 +451,19 @@ export async function transferOwnership(input: unknown): Promise<ActionResult> {
  * past registrations, results and points still point at it.
  */
 export async function disbandTeam(teamId: string): Promise<ActionResult> {
+  const { dict } = await getI18n()
+  const t = dict.team.errors
   const user = await getCurrentUser()
-  if (!user) return fail('Avval tizimga kiring')
+  if (!user) return fail(dict.errors.login_required)
 
   const ability = await getTeamAbility(user.id, teamId)
-  if (!ability.canDisband) return fail('Jamoani faqat egasi tarqatadi')
+  if (!ability.canDisband) return fail(t.disband_owner_only)
 
   try {
     const active = await activeRegistrations(teamId)
     if (active.length > 0) {
       return fail(
-        `Jamoa ${active.length} ta faol turnirda (${active.map((r) => r.tournament.title).join(', ')}). Avval ro‘yxatdan chiqing yoki turnir tugashini kuting.`
+        t.disband_active(active.length, active.map((r) => r.tournament.title).join(', '))
       )
     }
 
@@ -458,6 +477,6 @@ export async function disbandTeam(teamId: string): Promise<ActionResult> {
     return { ok: true }
   } catch (error) {
     console.error('disbandTeam failed', error)
-    return fail('Jamoani tarqatishda xatolik')
+    return fail(t.disband_failed)
   }
 }

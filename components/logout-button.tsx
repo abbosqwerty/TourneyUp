@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Loader2, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { logout } from '@/lib/auth-actions'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 /**
  * Signs out via a server action and refreshes the router — no
@@ -24,6 +25,7 @@ export function LogoutButton({
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const { dict } = useLanguage()
 
   return (
     <Button
@@ -31,7 +33,7 @@ export function LogoutButton({
       size={size}
       className={className}
       disabled={isPending}
-      aria-label="Tizimdan chiqish"
+      aria-label={dict.chrome.logout_aria}
       onClick={() =>
         startTransition(async () => {
           const result = await logout()
@@ -45,7 +47,7 @@ export function LogoutButton({
       }
     >
       {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-      {withLabel ? <span className={size === 'icon' ? 'sr-only' : 'ml-1'}>Chiqish</span> : null}
+      {withLabel ? <span className={size === 'icon' ? 'sr-only' : 'ml-1'}>{dict.nav.logout}</span> : null}
     </Button>
   )
 }
