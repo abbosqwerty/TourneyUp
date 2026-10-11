@@ -108,3 +108,6 @@ export type RankingEntry = {
     points: number
   }[]
 }
+
+// Re‑export match view type for convenience
+export type { UserMatchView } from '@/lib/matches';
