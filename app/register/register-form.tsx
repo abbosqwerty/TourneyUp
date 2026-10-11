@@ -42,8 +42,7 @@ export function RegisterForm() {
       }
 
       toast.success('Akkaunt yaratildi — xush kelibsiz!')
-      router.replace(result.data.redirectTo)
-      router.refresh()
+      window.location.href = result.data.redirectTo
     })
   }
 

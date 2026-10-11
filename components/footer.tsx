@@ -1,33 +1,66 @@
+'use client'
+
 import Link from 'next/link'
 import { LogoIcon } from '@/components/logo-icon'
-
-/**
- * Only routes that actually exist. Every entry here was verified against
- * `app/` — a footer full of 404s reads as an abandoned site.
- */
-const footerLinks = {
-  platforma: [
-    { label: 'Turnirlar', href: '/feed' },
-    { label: 'Reyting', href: '/rankings' },
-    { label: 'Musobaqa', href: '/results' },
-  ],
-  akkaunt: [
-    { label: 'Kirish', href: '/login' },
-    { label: 'Ro‘yxatdan o‘tish', href: '/register' },
-    { label: 'Profil', href: '/profile' },
-  ],
-  tashkilotlar: [
-    { label: 'Ariza yuborish', href: '/organizations/apply' },
-    { label: 'Tashkilot paneli', href: '/dashboard' },
-    { label: 'Xabarlar', href: '/messages' },
-  ],
-  huquqiy: [
-    { label: 'Maxfiylik siyosati', href: '/privacy' },
-    { label: 'Foydalanish shartlari', href: '/terms' },
-  ],
-}
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export function Footer() {
+  const { dict, locale } = useLanguage()
+
+  const columns = [
+    {
+      title: locale === 'ru' ? 'Платформа' : locale === 'en' ? 'Platform' : 'Platforma',
+      links: [
+        { label: dict.nav.tournaments, href: '/feed' },
+        { label: dict.nav.rankings, href: '/rankings' },
+        { label: dict.nav.matches, href: '/results' },
+      ],
+    },
+    {
+      title: locale === 'ru' ? 'Аккаунт' : locale === 'en' ? 'Account' : 'Akkaunt',
+      links: [
+        { label: dict.nav.login, href: '/login' },
+        { label: dict.nav.register, href: '/register' },
+        { label: dict.nav.profile, href: '/profile' },
+      ],
+    },
+    {
+      title: locale === 'ru' ? 'Организаторам' : locale === 'en' ? 'Organizers' : 'Tashkilotlar',
+      links: [
+        { label: dict.auth.apply_link, href: '/organizations/apply' },
+        { label: dict.nav.dashboard, href: '/dashboard' },
+        { label: dict.nav.messages, href: '/messages' },
+      ],
+    },
+    {
+      title: locale === 'ru' ? 'Юридическое' : locale === 'en' ? 'Legal' : 'Huquqiy',
+      links: [
+        {
+          label: locale === 'ru' ? 'Политика конфиденциальности' : locale === 'en' ? 'Privacy Policy' : 'Maxfiylik siyosati',
+          href: '/privacy',
+        },
+        {
+          label: locale === 'ru' ? 'Условия использования' : locale === 'en' ? 'Terms of Service' : 'Foydalanish shartlari',
+          href: '/terms',
+        },
+      ],
+    },
+  ]
+
+  const brandDesc =
+    locale === 'ru'
+      ? 'Открывайте турниры, регистрируйтесь и следите за событиями через каналы организаторов.'
+      : locale === 'en'
+        ? 'Discover tournaments, register and follow updates through organizer channels.'
+        : 'Turnirlarni kashf qiling, ro‘yxatdan o‘ting va tashkilotlar kanallari orqali kuzatib boring.'
+
+  const copyrightText =
+    locale === 'ru'
+      ? 'Все права защищены.'
+      : locale === 'en'
+        ? 'All rights reserved.'
+        : 'Barcha huquqlar himoyalangan.'
+
   return (
     <footer className="border-t border-border bg-card">
       <div className="container mx-auto px-4 py-12">
@@ -41,16 +74,11 @@ export function Footer() {
               </span>
             </Link>
             <p className="mt-4 text-sm text-muted-foreground">
-              Turnirlarni kashf qiling, ro‘yxatdan o‘ting va tashkilotlar kanallari orqali kuzatib boring.
+              {brandDesc}
             </p>
           </div>
 
-          {[
-            { title: 'Platforma', links: footerLinks.platforma },
-            { title: 'Akkaunt', links: footerLinks.akkaunt },
-            { title: 'Tashkilotlar', links: footerLinks.tashkilotlar },
-            { title: 'Huquqiy', links: footerLinks.huquqiy },
-          ].map((column) => (
+          {columns.map((column) => (
             <div key={column.title}>
               <h4 className="mb-4 font-semibold">{column.title}</h4>
               <ul className="space-y-3">
@@ -72,7 +100,7 @@ export function Footer() {
         {/* Bottom */}
         <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} TourneyUp. Barcha huquqlar himoyalangan.
+            &copy; {new Date().getFullYear()} TourneyUp. {copyrightText}
           </p>
           <p className="text-sm text-muted-foreground">Tashkent, Uzbekistan</p>
         </div>
@@ -80,6 +108,3 @@ export function Footer() {
     </footer>
   )
 }
-
-
-

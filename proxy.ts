@@ -68,12 +68,6 @@ export default function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (hasSession && GUEST_ONLY.includes(pathname)) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/feed'
-    url.search = ''
-    return NextResponse.redirect(url)
-  }
 
   const nonce = crypto.randomUUID().replace(/-/g, '')
   const csp = contentSecurityPolicy(nonce, process.env.NODE_ENV !== 'production')

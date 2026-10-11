@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { LogoutButton } from '@/components/logout-button'
 import { DeleteAccountDialog } from './delete-account'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { LanguageToggle } from '@/components/language-toggle'
 
 export const dynamic = 'force-dynamic'
 
@@ -98,6 +99,7 @@ export default async function SettingsPage() {
         <CardContent className="flex items-center gap-3">
           <ThemeToggle />
           <span className="text-sm text-muted-foreground">Mavzuni almashtirish</span>
+          <LanguageToggle showLabel={true} size="default" variant="default" />
         </CardContent>
       </Card>
 

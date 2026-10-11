@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 import {
@@ -39,6 +39,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { logout } from '@/lib/auth-actions'
 import { NotificationBell } from '@/components/notification-bell'
+import { LogoIcon } from '@/components/logo-icon'
+
+// import { LanguageToggle } from '@/components/language-toggle' // removed as language toggle is only in Settings
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export type NavbarUser = {
   id: string
@@ -66,29 +70,35 @@ export function Navbar({
 }: NavbarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { dict } = useLanguage()
   const [isLoggingOut, startLogout] = useTransition()
+  const [mounted, setMounted] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const toggleTheme = () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
 
   const isOrganization = currentUser?.role === 'ORGANIZATION'
   const isAdmin = currentUser?.role === 'SUPER_ADMIN'
 
   const navLinks = [
-    { href: '/feed', label: 'Turnirlar', icon: Home, show: true },
-    { href: '/rankings', label: 'Reyting', icon: BarChart3, show: true },
-    { href: '/results', label: 'Musobaqa', icon: Activity, show: true, isLive: true },
-    { href: '/teams', label: 'Jamoalarim', icon: Shirt, show: currentUser?.role === 'USER' },
+    { href: '/feed', label: dict.nav.tournaments, icon: Home, show: true },
+    { href: '/rankings', label: dict.nav.rankings, icon: BarChart3, show: true },
+    { href: '/results', label: dict.nav.matches, icon: Activity, show: true, isLive: true },
+    { href: '/teams', label: dict.nav.teams, icon: Shirt, show: currentUser?.role === 'USER' },
     {
       href: '/messages',
-      label: 'Xabarlar',
+      label: dict.nav.messages,
       icon: MessageSquare,
       show: Boolean(currentUser),
       badge: unreadCount,
     },
-    { href: '/staff', label: 'Mening rolim', icon: Users, show: staffAssignmentCount > 0 },
-    { href: '/dashboard', label: 'Boshqaruv', icon: LayoutDashboard, show: isOrganization },
-    { href: '/admin', label: 'Admin', icon: Shield, show: isAdmin },
+    { href: '/staff', label: dict.nav.my_role, icon: Users, show: staffAssignmentCount > 0 },
+    { href: '/dashboard', label: dict.nav.dashboard, icon: LayoutDashboard, show: isOrganization },
+    { href: '/admin', label: dict.nav.admin, icon: Shield, show: isAdmin },
   ].filter((link) => link.show)
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
@@ -100,18 +110,14 @@ export function Navbar({
         toast.error(result.error)
         return
       }
-      setMobileMenuOpen(false)
-      router.replace('/')
-      router.refresh()
+      window.location.href = '/'
     })
 
   return (
     <header className="sticky top-0 z-50 w-full border-b theme-header border-border bg-background/95 text-foreground backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Trophy className="h-5 w-5 text-primary-foreground" />
-          </div>
+        <Link href="/" className="flex items-center gap-2.5">
+          <LogoIcon className="h-9 w-9" />
           <span className="text-xl font-bold tracking-tight">
             Tourney<span className="text-primary">Up</span>
           </span>
@@ -147,16 +153,22 @@ export function Navbar({
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
+
+
           {currentUser ? <NotificationBell unreadCount={notificationCount} /> : null}
 
-          <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Mavzuni almashtirish">
-            {resolvedTheme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={dict.nav.theme}>
+            {mounted ? (
+              resolvedTheme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />
+            ) : (
+              <span className="h-5 w-5" />
+            )}
           </Button>
 
           <Button variant="ghost" size="icon" asChild>
             <Link href="/feed">
               <Search className="h-5 w-5" />
-              <span className="sr-only">Turnir qidirish</span>
+              <span className="sr-only">{dict.common.search}</span>
             </Link>
           </Button>
 
@@ -164,7 +176,7 @@ export function Navbar({
             <Button size="sm" className="gap-2" asChild>
               <Link href="/create">
                 <Plus className="h-4 w-4" aria-hidden />
-                Turnir
+                {dict.nav.create}
               </Link>
             </Button>
           ) : null}
@@ -191,20 +203,20 @@ export function Navbar({
                 <DropdownMenuItem asChild>
                   <Link href="/profile" className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
-                    Profil
+                    {dict.nav.profile}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/saved" className="cursor-pointer">
                     <Bookmark className="mr-2 h-4 w-4" />
-                    Saqlanganlar
+                    {dict.nav.saved}
                   </Link>
                 </DropdownMenuItem>
                 {staffAssignmentCount > 0 ? (
                   <DropdownMenuItem asChild>
                     <Link href="/staff" className="cursor-pointer">
                       <Users className="mr-2 h-4 w-4" />
-                      Mening rollarim
+                      {dict.nav.my_role}
                     </Link>
                   </DropdownMenuItem>
                 ) : null}
@@ -212,7 +224,7 @@ export function Navbar({
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard" className="cursor-pointer">
                       <LayoutDashboard className="mr-2 h-4 w-4" />
-                      Tashkilot paneli
+                      {dict.nav.dashboard}
                     </Link>
                   </DropdownMenuItem>
                 ) : null}
@@ -220,7 +232,7 @@ export function Navbar({
                   <DropdownMenuItem asChild>
                     <Link href="/admin" className="cursor-pointer">
                       <Shield className="mr-2 h-4 w-4" />
-                      Super admin
+                      {dict.nav.admin}
                     </Link>
                   </DropdownMenuItem>
                 ) : null}
@@ -228,7 +240,7 @@ export function Navbar({
                 <DropdownMenuItem asChild>
                   <Link href="/settings" className="cursor-pointer">
                     <Settings className="mr-2 h-4 w-4" />
-                    Sozlamalar
+                    {dict.nav.settings}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -238,104 +250,28 @@ export function Navbar({
                   className="cursor-pointer text-destructive focus:text-destructive"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  Chiqish
+                  {dict.nav.logout}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
             <div className="flex items-center gap-2">
               <Button size="sm" variant="ghost" asChild>
-                <Link href="/register">Ro‘yxatdan o‘tish</Link>
+                <Link href="/register">{dict.nav.register}</Link>
               </Button>
               <Button size="sm" asChild>
-                <Link href="/login">Kirish</Link>
+                <Link href="/login">{dict.nav.login}</Link>
               </Button>
             </div>
           )}
         </div>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-expanded={mobileMenuOpen}
-          aria-label={mobileMenuOpen ? 'Menyuni yopish' : 'Menyuni ochish'}
-        >
-          {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          <span className="sr-only">Menyuni ochish</span>
-        </Button>
-      </div>
-
-      {mobileMenuOpen ? (
-        <div className="border-t border-border bg-background md:hidden">
-          <nav className="container mx-auto space-y-2 px-4 py-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={cn(
-                  'flex items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition-colors',
-                  isActive(link.href)
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                )}
-              >
-                <span className="flex items-center gap-3">
-                  <link.icon className="h-5 w-5" aria-hidden />
-                  {link.label}
-                </span>
-                {'badge' in link && link.badge ? (
-                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground">
-                    {link.badge > 99 ? '99+' : link.badge}
-                  </span>
-                ) : null}
-              </Link>
-            ))}
-
-            <div className="space-y-2 border-t border-border pt-2">
-              <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={toggleTheme}>
-                {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                {resolvedTheme === 'dark' ? 'Yorug‘ rejim' : 'Tungi rejim'}
-              </Button>
-
-              {currentUser ? (
-                <>
-                  <Button variant="ghost" size="sm" className="w-full justify-start gap-2" asChild>
-                    <Link href="/profile" onClick={() => setMobileMenuOpen(false)}>
-                      <User className="h-4 w-4" />
-                      Profil
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" size="sm" className="w-full justify-start gap-2" asChild>
-                    <Link href="/settings" onClick={() => setMobileMenuOpen(false)}>
-                      <Settings className="h-4 w-4" />
-                      Sozlamalar
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start gap-2 text-destructive"
-                    onClick={handleLogout}
-                    disabled={isLoggingOut}
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Chiqish
-                  </Button>
-                </>
-              ) : (
-                <Button size="sm" className="w-full" asChild>
-                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                    Kirish
-                  </Link>
-                </Button>
-              )}
-            </div>
-          </nav>
+        {/* Mobile top right: Language toggle and notification bell only. Navigation is handled by bottom bar */}
+                {/* Mobile top right: Notification bell only */}
+        <div className="flex items-center gap-1.5 md:hidden">
+          {currentUser ? <NotificationBell unreadCount={notificationCount} /> : null}
         </div>
-      ) : null}
+      </div>
     </header>
   )
 }

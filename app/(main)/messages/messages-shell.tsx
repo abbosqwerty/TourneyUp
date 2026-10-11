@@ -88,10 +88,23 @@ export function MessagesShell({ data, isPlayer, children }: { data: SidebarData;
     return channel ? (channel.type as Section) : null
   }
 
+  const sectionCounts = useMemo(() => {
+    return {
+      ORGANIZATION: data.channels.filter((c) => c.type === 'ORGANIZATION').length,
+      TOURNAMENT: data.channels.filter((c) => c.type === 'TOURNAMENT').length,
+      TEAM: data.channels.filter((c) => c.type === 'TEAM').length,
+      SUPPORT: data.myTickets.length + data.staffQueue.length,
+    }
+  }, [data])
+
   const [chosen, setChosen] = useState<Section | null>(null)
   const fallback: Section =
     SECTIONS.find((s) => counts[s.key] > 0)?.key ??
-    (data.channels.some((c) => c.type === 'TOURNAMENT') ? 'TOURNAMENT' : 'ORGANIZATION')
+    (data.channels.some((c) => c.type === 'TEAM')
+      ? 'TEAM'
+      : data.channels.some((c) => c.type === 'TOURNAMENT')
+        ? 'TOURNAMENT'
+        : 'ORGANIZATION')
   const section = chosen ?? sectionOfPath() ?? fallback
 
   return (
@@ -113,7 +126,7 @@ export function MessagesShell({ data, isPlayer, children }: { data: SidebarData;
                   )}
                 >
                   <Icon className="h-4 w-4" aria-hidden />
-                  <span className="truncate">{label}</span>
+                  <span className="truncate">{label}{sectionCounts[key] > 0 ? ` (${sectionCounts[key]})` : ''}</span>
                   {counts[key] > 0 ? (
                     <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" aria-label={`${counts[key]} o‘qilmagan`} />
                   ) : null}

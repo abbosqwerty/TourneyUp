@@ -10,6 +10,9 @@ const MAX_KEYS = 10_000
  * instance; swap for Redis when the app runs on more than one.
  */
 export function rateLimit(key: string, max: number, windowMs: number): { ok: boolean; retryAfterMs: number } {
+  if (process.env.NODE_ENV !== 'production') {
+    return { ok: true, retryAfterMs: 0 }
+  }
   const now = Date.now()
   const existing = buckets.get(key)
 

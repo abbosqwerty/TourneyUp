@@ -104,9 +104,15 @@ export async function loginWithPassword(input: unknown): Promise<ActionResult<{ 
   }
 
   try {
-    const lookup = identifier.toLowerCase()
+    const lookup = identifier.toLowerCase().trim()
+    const lookupAlt = lookup.endsWith('@gail.com')
+      ? lookup.replace('@gail.com', '@gmail.com')
+      : lookup.endsWith('@gmail.com')
+        ? lookup.replace('@gmail.com', '@gail.com')
+        : lookup
+
     const user = await db.user.findFirst({
-      where: { OR: [{ email: lookup }, { username: lookup }] },
+      where: { OR: [{ email: lookup }, { email: lookupAlt }, { username: lookup }] },
       select: { id: true, role: true, passwordHash: true, mustChangePassword: true },
     })
 

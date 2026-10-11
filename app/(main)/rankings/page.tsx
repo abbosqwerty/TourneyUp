@@ -60,19 +60,61 @@ async function load({ period, sport, userId }: { period: LeaderboardPeriod; spor
   const top = board.slice(0, PAGE_SIZE)
   const mine = userId ? board.find((row) => row.userId === userId) : undefined
 
-  const [users, wins] = await Promise.all([
+  const topUserIds = top.map((row) => row.userId)
+
+  const [users, directWins, rosterLinks] = await Promise.all([
     db.user.findMany({
-      where: { id: { in: top.map((row) => row.userId) } },
+      where: { id: { in: topUserIds } },
       select: { id: true, name: true, username: true, avatar: true, university: true },
     }),
-    db.match.groupBy({
-      by: ['winnerUserId'],
-      where: { winnerUserId: { in: top.map((row) => row.userId) }, status: 'completed', isBye: false },
-      _count: { _all: true },
+    // Individual wins + team captain wins (where winnerUserId is set)
+    db.match.findMany({
+      where: { winnerUserId: { in: topUserIds }, status: 'completed', isBye: false },
+      select: { id: true, winnerUserId: true },
+    }),
+    // Roster memberships — needed to count team wins for non-captain members
+    db.participantRosterMember.findMany({
+      where: { userId: { in: topUserIds } },
+      select: { userId: true, participantId: true },
     }),
   ])
+
+  // Find team wins via roster: matches won by a participant the user is rostered on
+  const rosterParticipantIds = [...new Set(rosterLinks.map((r) => r.participantId))]
+  const teamWinMatches =
+    rosterParticipantIds.length > 0
+      ? await db.match.findMany({
+          where: { winnerParticipantId: { in: rosterParticipantIds }, status: 'completed', isBye: false },
+          select: { id: true, winnerParticipantId: true },
+        })
+      : []
+
+  // Build participantId → userId[] lookup
+  const pidToUsers = new Map<string, string[]>()
+  for (const link of rosterLinks) {
+    const arr = pidToUsers.get(link.participantId) ?? []
+    arr.push(link.userId)
+    pidToUsers.set(link.participantId, arr)
+  }
+
+  // Deduplicate by match ID per user to avoid double-counting captains
+  const winMatchIds = new Map<string, Set<string>>() // userId → set of match IDs
+  for (const m of directWins) {
+    if (!m.winnerUserId) continue
+    const set = winMatchIds.get(m.winnerUserId) ?? new Set()
+    set.add(m.id)
+    winMatchIds.set(m.winnerUserId, set)
+  }
+  for (const m of teamWinMatches) {
+    if (!m.winnerParticipantId) continue
+    for (const uid of pidToUsers.get(m.winnerParticipantId) ?? []) {
+      const set = winMatchIds.get(uid) ?? new Set()
+      set.add(m.id)
+      winMatchIds.set(uid, set)
+    }
+  }
+
   const userById = new Map(users.map((u) => [u.id, u]))
-  const winsById = new Map(wins.map((w) => [w.winnerUserId, w._count._all]))
 
   // The game filter offers the standard list plus any game that has points.
   const sports = [...new Set([...sportCategories.filter((c) => c.match).map((c) => c.match), ...sportsWithPoints])].sort()
@@ -86,7 +128,7 @@ async function load({ period, sport, userId }: { period: LeaderboardPeriod; spor
           rank: row.rank,
           user: { id: u.id, name: u.name, username: u.username, avatar: u.avatar, university: u.university ?? undefined },
           points: row.points,
-          wins: winsById.get(u.id) ?? 0,
+          wins: winMatchIds.get(u.id)?.size ?? 0,
         },
       ]
     }),

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Trophy } from 'lucide-react'
+import { LogoIcon } from '@/components/logo-icon'
 
 /**
  * Shared frame for /login, /register and /organizations/apply.
@@ -27,10 +27,10 @@ export function AuthShell({
         <div className="flex flex-col items-center space-y-2 text-center">
           <Link
             href="/"
-            className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary transition-transform hover:scale-105"
+            className="flex h-12 w-12 items-center justify-center rounded-xl transition-transform hover:scale-105"
             aria-label="Bosh sahifaga qaytish"
           >
-            <Trophy className="h-6 w-6 text-primary-foreground" />
+            <LogoIcon className="h-12 w-12" />
           </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Tourney<span className="text-primary">Up</span>

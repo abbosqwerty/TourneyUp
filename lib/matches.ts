@@ -154,19 +154,58 @@ export async function countMatches(options: {
 }
 
 /**
- * A user's own history, read from the denormalised `homeUserId`/`awayUserId`
- * columns so no join through `Participant` is needed.
+ * Find all participant IDs a user is part of — either directly (individual
+ * tournaments) or via a team roster (team tournaments). This lets match
+ * history and win/loss counts include team matches for every roster member,
+ * not just the captain whose userId is denormalised on the Match row.
+ */
+async function participantIdsForUser(userId: string): Promise<string[]> {
+  const [direct, roster] = await Promise.all([
+    db.participant.findMany({ where: { userId }, select: { id: true } }),
+    db.participantRosterMember.findMany({ where: { userId }, select: { participantId: true } }),
+  ])
+  const ids = new Set([...direct.map((p) => p.id), ...roster.map((r) => r.participantId)])
+  return [...ids]
+}
+
+/**
+ * A user's own match history. Checks both the denormalised userId columns
+ * (individual tournaments) AND the roster table (team tournaments) so every
+ * team member sees the team's matches.
  */
 export async function listUserMatches(userId: string, take = 20): Promise<UserMatchView[]> {
+  const participantIds = await participantIdsForUser(userId)
+
   const rows = await db.match.findMany({
-    where: { OR: [{ homeUserId: userId }, { awayUserId: userId }], isBye: false, status: { not: 'cancelled' } },
+    where: {
+      OR: [
+        { homeUserId: userId },
+        { awayUserId: userId },
+        ...(participantIds.length > 0
+          ? [
+              { homeParticipantId: { in: participantIds } },
+              { awayParticipantId: { in: participantIds } },
+            ]
+          : []),
+      ],
+      isBye: false,
+      status: { not: 'cancelled' },
+    },
     include: matchInclude,
     orderBy: [{ scheduledAt: 'desc' }, { createdAt: 'desc' }],
     take,
   })
 
-  return rows.map((row) => {
-    const isHome = row.homeUserId === userId
+  const pSet = new Set(participantIds)
+
+  // Deduplicate (a captain may match on both userId and participantId).
+  const seen = new Set<string>()
+  return rows.flatMap((row) => {
+    if (seen.has(row.id)) return []
+    seen.add(row.id)
+
+    const isHome =
+      row.homeUserId === userId || (row.homeParticipant?.id != null && pSet.has(row.homeParticipant.id))
     const mine = isHome ? row.homeScore : row.awayScore
     const theirs = isHome ? row.awayScore : row.homeScore
 
@@ -175,33 +214,62 @@ export async function listUserMatches(userId: string, take = 20): Promise<UserMa
       result = mine > theirs ? 'win' : mine < theirs ? 'loss' : 'draw'
     }
 
-    return {
-      id: row.id,
-      tournamentId: row.tournamentId,
-      tournamentTitle: row.tournament.title,
-      sport: row.tournament.sport,
-      stage: row.stage,
-      opponent: isHome ? row.awayLabel : row.homeLabel,
-      result,
-      score: mine !== null && theirs !== null ? `${mine}–${theirs}` : '—',
-      scheduledAt: row.scheduledAt?.toISOString() ?? null,
-    }
+    return [
+      {
+        id: row.id,
+        tournamentId: row.tournamentId,
+        tournamentTitle: row.tournament.title,
+        sport: row.tournament.sport,
+        stage: row.stage,
+        opponent: isHome ? row.awayLabel : row.homeLabel,
+        result,
+        score: mine !== null && theirs !== null ? `${mine}–${theirs}` : '—',
+        scheduledAt: row.scheduledAt?.toISOString() ?? null,
+      },
+    ]
   })
 }
 
-/** Win/loss/draw tally for a profile, counted in SQL. */
+/**
+ * Win/loss/draw tally for a profile. Includes team matches the user
+ * participated in via the roster, not just those where userId is on the Match.
+ */
 export async function userRecord(userId: string) {
+  const participantIds = await participantIdsForUser(userId)
+
+  const participantWhere =
+    participantIds.length > 0
+      ? [
+          { homeParticipantId: { in: participantIds } },
+          { awayParticipantId: { in: participantIds } },
+        ]
+      : []
+
+  const winnerParticipantWhere =
+    participantIds.length > 0 ? [{ winnerParticipantId: { in: participantIds } }] : []
+
   const [wins, completed, draws] = await Promise.all([
-    db.match.count({ where: { winnerUserId: userId, status: 'completed', isBye: false } }),
     db.match.count({
-      where: { status: 'completed', isBye: false, OR: [{ homeUserId: userId }, { awayUserId: userId }] },
+      where: {
+        status: 'completed',
+        isBye: false,
+        OR: [{ winnerUserId: userId }, ...winnerParticipantWhere],
+      },
+    }),
+    db.match.count({
+      where: {
+        status: 'completed',
+        isBye: false,
+        OR: [{ homeUserId: userId }, { awayUserId: userId }, ...participantWhere],
+      },
     }),
     db.match.count({
       where: {
         status: 'completed',
         isBye: false,
         winnerUserId: null,
-        OR: [{ homeUserId: userId }, { awayUserId: userId }],
+        winnerParticipantId: null,
+        OR: [{ homeUserId: userId }, { awayUserId: userId }, ...participantWhere],
       },
     }),
   ])

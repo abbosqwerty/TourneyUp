@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useLanguage } from '@/lib/i18n/language-context'
 import { loginWithPassword } from '@/lib/auth-actions'
 
 export function LoginForm({ nextPath }: { nextPath?: string }) {
@@ -46,22 +47,24 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
 
       // `next` only ever carries a same-site path from the middleware.
       const safeNext = nextPath?.startsWith('/') && !nextPath.startsWith('//') ? nextPath : null
-      router.replace(result.data.mustChangePassword ? result.data.redirectTo : (safeNext ?? result.data.redirectTo))
-      router.refresh()
+      const target = result.data.mustChangePassword ? result.data.redirectTo : (safeNext ?? result.data.redirectTo)
+      window.location.href = target
     })
   }
+
+  const { dict } = useLanguage()
 
   return (
     <Card className="border-border bg-card/80 shadow-lg backdrop-blur-md">
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div className="space-y-2">
-            <Label htmlFor="identifier">Email yoki username</Label>
+            <Label htmlFor="identifier">{dict.auth.identifier_label}</Label>
             <Input
               id="identifier"
               name="identifier"
               autoComplete="username"
-              placeholder="abbosq yoki abbosq@tuit.uz"
+              placeholder="abbosq yoki abbosazizmurodovich@gmail.com"
               aria-invalid={Boolean(errors.identifier)}
               disabled={isPending}
               required
@@ -70,7 +73,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Parol</Label>
+            <Label htmlFor="password">{dict.auth.password_label}</Label>
             <div className="relative">
               <Input
                 id="password"
@@ -106,23 +109,87 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
 
           <Button type="submit" className="w-full gap-2" disabled={isPending}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
-            {isPending ? 'Kirilmoqda…' : 'Kirish'}
+            {isPending ? dict.auth.logging_in : dict.auth.login_button}
           </Button>
         </form>
 
-        {process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === 'true' ? (
-          <div className="mt-6 space-y-2 rounded-md border border-border bg-muted/50 p-3 text-xs text-muted-foreground">
-            <p className="font-semibold text-foreground">Demo akkauntlar</p>
-            <p>
-              Oddiy user: <code className="font-mono">abbosq</code> · Tashkilot:{' '}
-              <code className="font-mono">tashkent_sports</code> · Super admin:{' '}
-              <code className="font-mono">superadmin</code>
-            </p>
-            <p>
-              Parol: <code className="font-mono">TourneyUp2026!</code>
-            </p>
+        <div className="mt-6 space-y-2 rounded-md border border-border bg-muted/40 p-3 text-xs">
+          <div className="flex items-center justify-between">
+            <p className="font-semibold text-foreground">{dict.auth.quick_demo}</p>
+            <span className="text-[11px] text-muted-foreground font-mono">{dict.auth.demo_password} TourneyUp2026!</span>
           </div>
-        ) : null}
+          <div className="flex flex-col gap-1.5 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isPending}
+              onClick={() => {
+                setErrors({})
+                setFormError(null)
+                startTransition(async () => {
+                  const res = await loginWithPassword({ identifier: 'demouser1', password: 'TourneyUp2026!' })
+                  if (!res.ok) {
+                    setFormError(res.error)
+                    toast.error(res.error)
+                    return
+                  }
+                  toast.success('Xush kelibsiz!')
+                  window.location.href = res.data.redirectTo
+                })
+              }}
+              className="justify-start text-xs font-medium"
+            >
+              🎮 Demo O‘yinchi (demouser1)
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isPending}
+              onClick={() => {
+                setErrors({})
+                setFormError(null)
+                startTransition(async () => {
+                  const res = await loginWithPassword({ identifier: 'abbosq', password: 'TourneyUp2026!' })
+                  if (!res.ok) {
+                    setFormError(res.error)
+                    toast.error(res.error)
+                    return
+                  }
+                  toast.success('Xush kelibsiz!')
+                  window.location.href = res.data.redirectTo
+                })
+              }}
+              className="justify-start text-xs font-medium"
+            >
+              👤 Abbos (O‘yinchi — abbosq)
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isPending}
+              onClick={() => {
+                setErrors({})
+                setFormError(null)
+                startTransition(async () => {
+                  const res = await loginWithPassword({ identifier: 'tashkent_sports', password: 'TourneyUp2026!' })
+                  if (!res.ok) {
+                    setFormError(res.error)
+                    toast.error(res.error)
+                    return
+                  }
+                  toast.success('Xush kelibsiz!')
+                  window.location.href = res.data.redirectTo
+                })
+              }}
+              className="justify-start text-xs font-medium"
+            >
+              🏢 Tashkent Sports (Tashkilotchi)
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )

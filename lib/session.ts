@@ -26,7 +26,7 @@ export async function createSession(userId: string, userAgent?: string | null) {
   const jar = await cookies()
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // ensures cookie works reliably on http://localhost
     sameSite: 'lax',
     path: '/',
     expires: expiresAt,

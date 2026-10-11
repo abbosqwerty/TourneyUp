@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { RankingEntry } from '@/lib/types'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 interface RankingTableProps {
   rankings: RankingEntry[]
@@ -23,6 +24,7 @@ export function TopThreePodium({
   timeframe?: 'weekly' | 'monthly' | 'global'
   sportName?: string 
 }) {
+  const { dict } = useLanguage()
   const top3 = rankings.slice(0, 3)
   const [first, second, third] = [top3[0], top3[1], top3[2]]
 
@@ -30,12 +32,12 @@ export function TopThreePodium({
 
   const periodLabel = 
     timeframe === 'weekly' 
-      ? 'This Week' 
+      ? dict.rankings.weekly 
       : timeframe === 'monthly' 
-        ? 'This Month' 
-        : 'All Time'
+        ? dict.rankings.monthly 
+        : dict.rankings.all_time
 
-  const sportLabel = sportName && sportName !== 'all' ? ` ${sportName}` : ''
+  const sportLabel = sportName && sportName !== 'all' ? ` · ${sportName}` : ''
 
   return (
     <div className="flex flex-col items-center w-full">
@@ -185,7 +187,7 @@ export function TopThreePodium({
       {/* Leaderboard Highlight Banner */}
       <div className="text-center mt-6 mb-4">
         <p className="text-sm sm:text-base font-medium text-foreground">
-          <span className="font-extrabold text-foreground">{first.user.name}</span> Is On Top Of The{sportLabel} Leader Board {periodLabel}
+          <span className="font-extrabold text-foreground">{first.user.name}</span> — {periodLabel}{sportLabel} {dict.rankings.leader_suffix}
         </p>
       </div>
     </div>
@@ -196,13 +198,15 @@ export function TopThreePodium({
 // Leaderboard Table matching template (Name, Place, Points)
 // ----------------------------------------------------
 export function RankingTable({ rankings, showUniversity = true, currentUserId }: RankingTableProps) {
+  const { dict } = useLanguage()
+
   return (
     <div className="w-full max-w-2xl mx-auto rounded-3xl bg-card border border-border overflow-hidden shadow-sm">
       {/* Header Row */}
       <div className="grid grid-cols-12 px-6 py-4 bg-secondary/50 text-xs sm:text-sm font-semibold text-muted-foreground border-b border-border/40">
-        <span className="col-span-7">Name</span>
-        <span className="col-span-2 text-center">Place</span>
-        <span className="col-span-3 text-right">Points</span>
+        <span className="col-span-7">{dict.rankings.name}</span>
+        <span className="col-span-2 text-center">{dict.rankings.place}</span>
+        <span className="col-span-3 text-right">{dict.rankings.points}</span>
       </div>
 
       {/* Rows */}

@@ -16,6 +16,7 @@ import { RankingTable, TopThreePodium } from '@/components/ranking-table'
 import { Search, Trophy, Calendar, Award, Flame, Loader2 } from 'lucide-react'
 import type { RankingEntry } from '@/lib/types'
 import type { LeaderboardPeriod } from '@/lib/points/leaderboard'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 type Timeframe = 'weekly' | 'monthly' | 'global'
 
@@ -44,6 +45,7 @@ export default function RankingsClient({
   sport,
   sports,
 }: RankingsClientProps) {
+  const { dict } = useLanguage()
   const router = useRouter()
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
@@ -65,8 +67,8 @@ export default function RankingsClient({
   const setSelectedSport = (value: string) => navigate({ sport: value === 'all' ? '' : value })
 
   const sportCategories = useMemo(
-    () => [{ id: 'all', name: 'All Games' }, ...sports.map((name) => ({ id: name, name }))],
-    [sports]
+    () => [{ id: 'all', name: dict.rankings.all_games }, ...sports.map((name) => ({ id: name, name }))],
+    [sports, dict.rankings.all_games]
   )
 
   const displayRankings = useMemo(() => {
@@ -89,11 +91,11 @@ export default function RankingsClient({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 max-w-2xl mx-auto w-full">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
-            Leaderboard
+            {dict.rankings.title}
             {isPending ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden /> : null}
           </h1>
           <p className="text-muted-foreground text-sm">
-            Tourney Points (T) earned in finished tournaments
+            {dict.rankings.subtitle}
           </p>
         </div>
 
@@ -107,7 +109,7 @@ export default function RankingsClient({
                 </span>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Your Rank</p>
+                <p className="text-xs text-muted-foreground">{dict.rankings.your_rank}</p>
                 <p className="font-bold text-sm">{myActiveEntry.points.toLocaleString()} T</p>
               </div>
             </CardContent>
@@ -117,8 +119,8 @@ export default function RankingsClient({
             <CardContent className="p-3.5 flex items-center gap-3">
               <Trophy className="h-5 w-5 text-primary" />
               <div>
-                <p className="text-xs font-semibold">Join the Leaderboard</p>
-                <p className="text-[11px] text-muted-foreground">Compete in tournaments to earn points and rank up</p>
+                <p className="text-xs font-semibold">{dict.rankings.join_leaderboard}</p>
+                <p className="text-[11px] text-muted-foreground">{dict.rankings.join_desc}</p>
               </div>
             </CardContent>
           </Card>
@@ -137,15 +139,15 @@ export default function RankingsClient({
             <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-secondary/60 p-1">
               <TabsTrigger value="weekly" className="rounded-xl text-xs sm:text-sm font-semibold gap-1.5">
                 <Flame className="h-3.5 w-3.5" />
-                Weekly
+                {dict.rankings.weekly}
               </TabsTrigger>
               <TabsTrigger value="monthly" className="rounded-xl text-xs sm:text-sm font-semibold gap-1.5">
                 <Calendar className="h-3.5 w-3.5" />
-                Monthly
+                {dict.rankings.monthly}
               </TabsTrigger>
               <TabsTrigger value="global" className="rounded-xl text-xs sm:text-sm font-semibold gap-1.5">
                 <Award className="h-3.5 w-3.5" />
-                All Time
+                {dict.rankings.all_time}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -155,7 +157,7 @@ export default function RankingsClient({
         <div className="flex flex-col sm:flex-row gap-2.5">
           <Select value={selectedSport} onValueChange={setSelectedSport}>
             <SelectTrigger className="w-full sm:w-48 rounded-xl bg-card border-border">
-              <SelectValue placeholder="Sport tanlang" />
+              <SelectValue placeholder={dict.rankings.select_sport} />
             </SelectTrigger>
             <SelectContent>
               {sportCategories.map((cat) => (
@@ -169,7 +171,7 @@ export default function RankingsClient({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search players..."
+              placeholder={dict.rankings.search_players}
               className="pl-10 rounded-xl bg-card"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -191,10 +193,10 @@ export default function RankingsClient({
         {displayRankings.length === 0 ? (
           <div className="max-w-2xl mx-auto rounded-3xl border border-border bg-card p-12 text-center shadow-xs">
             <p className="text-sm font-medium text-foreground">
-              Ushbu yo‘nalish bo‘yicha o‘yinchilar topilmadi.
+              {dict.rankings.no_players_found}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Boshqa sport turini tanlang yoki qidiruvni tozalang.
+              {dict.rankings.try_other_sport}
             </p>
           </div>
         ) : (

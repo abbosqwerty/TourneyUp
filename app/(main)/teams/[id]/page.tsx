@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { getTeamAbility, lockedRosterUserIds } from '@/lib/teams'
+import { syncTeamChannel } from '@/lib/channels'
 import { mediaUrl } from '@/lib/media'
 import { DbErrorCard } from '@/components/db-error-card'
 import { TeamDetailClient, type TeamDetail } from './team-detail-client'
@@ -78,6 +79,17 @@ async function load(teamId: string, withInvites: boolean): Promise<TeamDetail | 
   ])
   if (!team) return null
 
+  let channelId = team.channel?.id ?? null
+  if (!channelId && !team.disbandedAt) {
+    try {
+      await syncTeamChannel(teamId)
+      const ch = await db.channel.findUnique({ where: { teamId }, select: { id: true } })
+      channelId = ch?.id ?? null
+    } catch (e) {
+      console.error('Failed to sync team channel on load:', e)
+    }
+  }
+
   return {
     id: team.id,
     name: team.name,
@@ -87,7 +99,7 @@ async function load(teamId: string, withInvites: boolean): Promise<TeamDetail | 
     logo: mediaUrl(team.logoMediaId),
     disbanded: team.disbandedAt !== null,
     createdAt: team.createdAt.toISOString(),
-    channelId: team.channel?.id ?? null,
+    channelId,
     members: team.members.map((m) => ({
       ...m.user,
       role: m.role,

@@ -330,6 +330,20 @@ export type ChannelListEntry = Awaited<ReturnType<typeof listChannelsForUser>>[n
 
 /** Channels the user belongs to, newest activity first. */
 export async function listChannelsForUser(userId: string) {
+  try {
+    const activeTeams = await db.teamMember.findMany({
+      where: { userId, leftAt: null, team: { disbandedAt: null } },
+      select: { teamId: true, team: { select: { channel: { select: { id: true } } } } },
+    })
+    for (const t of activeTeams) {
+      if (!t.team?.channel) {
+        await syncTeamChannel(t.teamId)
+      }
+    }
+  } catch (err) {
+    console.error('Error auto-syncing team channels:', err)
+  }
+
   const memberships = await db.channelMember.findMany({
     where: { userId },
     select: {

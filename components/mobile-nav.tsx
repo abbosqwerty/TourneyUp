@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Activity, BarChart3, Home, MessageSquare, Plus, Shirt, Trophy, User, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 interface MobileNavProps {
   role?: 'USER' | 'ORGANIZATION' | 'SUPER_ADMIN' | null
@@ -13,20 +14,21 @@ interface MobileNavProps {
 
 export function MobileNav({ role = null, unreadCount = 0, staffAssignmentCount = 0 }: MobileNavProps) {
   const pathname = usePathname()
+  const { dict } = useLanguage()
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   const isOrganization = role === 'ORGANIZATION'
 
   const navItems = [
-    { href: '/feed', label: 'Lenta', icon: Home, show: true },
-    { href: '/results', label: 'Musobaqa', icon: Activity, show: true, hasLiveDot: true },
-    { href: '/create', label: 'Yaratish', icon: Plus, show: isOrganization, isAction: true },
-    { href: '/rankings', label: 'Reyting', icon: BarChart3, show: !isOrganization },
-    { href: '/teams', label: 'Jamoa', icon: Shirt, show: role === 'USER' },
-    { href: '/messages', label: 'Xabarlar', icon: MessageSquare, show: Boolean(role), badge: unreadCount },
-    { href: '/staff', label: 'Rolim', icon: Users, show: staffAssignmentCount > 0 },
-    { href: '/dashboard', label: 'Panel', icon: Trophy, show: isOrganization },
-    { href: '/profile', label: 'Profil', icon: User, show: Boolean(role) },
+    { href: '/feed', label: dict.nav.feed, icon: Home, show: true },
+    { href: '/results', label: dict.nav.matches, icon: Activity, show: true, hasLiveDot: true },
+    { href: '/create', label: dict.nav.create, icon: Plus, show: isOrganization, isAction: true },
+    { href: '/rankings', label: dict.nav.rankings, icon: BarChart3, show: !isOrganization },
+    { href: '/teams', label: dict.nav.teams, icon: Shirt, show: role === 'USER' },
+    { href: '/messages', label: dict.nav.messages, icon: MessageSquare, show: Boolean(role), badge: unreadCount },
+    { href: '/staff', label: dict.nav.my_role, icon: Users, show: staffAssignmentCount > 0 },
+    { href: '/dashboard', label: dict.nav.dashboard, icon: Trophy, show: isOrganization },
+    { href: '/profile', label: dict.nav.profile, icon: User, show: Boolean(role) },
   ].filter((item) => item.show)
 
   return (
