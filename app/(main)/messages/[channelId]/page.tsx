@@ -11,7 +11,19 @@ import { ChannelThread, type ThreadPost } from './channel-thread'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { robots: { index: false } }
+/** The channel's name in the tab — only for viewers who may read it, so private groups don't leak. */
+export async function generateMetadata({ params }: { params: Promise<{ channelId: string }> }) {
+  const { channelId } = await params
+  const { dict } = await getI18n()
+  const user = await getCurrentUser()
+  const [channel, access] = user
+    ? await Promise.all([
+        db.channel.findUnique({ where: { id: channelId }, select: { title: true } }),
+        getChannelAccess(channelId, user.id),
+      ])
+    : [null, null]
+  return { title: channel && access?.canRead ? channel.title : dict.chat.meta.title, robots: { index: false } }
+}
 
 const POST_PAGE_SIZE = 80
 
