@@ -16,6 +16,7 @@ import { createTeam, respondToInvite } from '@/lib/team-actions'
 import { useLanguage } from '@/lib/i18n/language-context'
 import type { TeamCard } from '@/lib/teams'
 import { cn } from '@/lib/utils'
+import { sportLabel } from '@/lib/sports'
 
 type Invite = {
   id: string
@@ -157,7 +158,7 @@ function TeamCardView({ team }: { team: TeamCard }) {
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold">{team.name}</p>
             <p className="truncate text-xs text-muted-foreground">
-              {team.sport} · {categories[team.category] ?? team.category}
+              {sportLabel(dict, team.sport)} · {categories[team.category] ?? team.category}
             </p>
           </div>
           <Badge className={cn('gap-1', role.className)}>
@@ -216,7 +217,7 @@ function InviteCard({ invite }: { invite: Invite }) {
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{invite.team.name}</p>
           <p className="truncate text-xs text-muted-foreground">
-            {invite.team.sport} · {dict.team.members(invite.team.memberCount)}
+            {sportLabel(dict, invite.team.sport)} · {dict.team.members(invite.team.memberCount)}
             {invite.invitedBy ? ` · ${t.invited_by(invite.invitedBy)}` : ''}
           </p>
         </div>

@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { MatchesClient } from './matches-client'
 import { LeaderboardClient } from './leaderboard-client'
 import { getCompetitionView } from '@/lib/competition/view'
+import { sportLabel } from '@/lib/sports'
 
 export const dynamic = 'force-dynamic'
 
@@ -82,7 +83,7 @@ export default async function TournamentMatchesPage({ params }: { params: Promis
         <div>
           <h1 className="text-2xl font-bold md:text-3xl">{tournament.title}</h1>
           <p className="text-sm text-muted-foreground">
-            {tournament.sport} · {dict.create.formats[tournament.format].label} · {t.entering_results}
+            {sportLabel(dict, tournament.sport)} · {dict.create.formats[tournament.format].label} · {t.entering_results}
           </p>
         </div>
         <Button variant="outline" size="sm" asChild>

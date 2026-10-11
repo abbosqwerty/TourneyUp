@@ -28,6 +28,7 @@ import { ParticipantSlots } from '@/components/participant-slots'
 import { displayFee } from '@/components/tournament-card'
 import { useLanguage } from '@/lib/i18n/language-context'
 import { formatDayMonth } from '@/lib/time'
+import { sportLabel } from '@/lib/sports'
 
 export interface StoryData {
   id: string
@@ -311,7 +312,7 @@ function InstagramStoryModal({ stories, initialIndex, onClose }: StoryViewerProp
                   <CheckCircle className="h-3.5 w-3.5 text-primary" />
                 </div>
                 <span className="text-[10px] text-muted-foreground font-medium">
-                  {currentStory.sport || h.sport_fallback}
+                  {sportLabel(dict, currentStory.sport) || h.sport_fallback}
                 </span>
               </div>
             </div>

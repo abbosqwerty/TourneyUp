@@ -44,6 +44,7 @@ import {
 import { TOURNAMENT_STATUS_CLASSES, TOURNAMENT_STATUS_LABELS } from '@/lib/constants'
 import { useLanguage } from '@/lib/i18n/language-context'
 import type { TeamAbility } from '@/lib/teams'
+import { sportLabel } from '@/lib/sports'
 /** Any server action result — only `ok` and `error` are read here. */
 type Outcome = { ok: true } | { ok: false; error: string }
 
@@ -106,7 +107,7 @@ export function TeamDetailClient({ team, ability, currentUserId }: { team: TeamD
             {team.disbanded ? <Badge variant="outline">{dict.teams.disbanded}</Badge> : null}
           </div>
           <p className="text-sm text-muted-foreground">
-            {team.sport} · {categories[team.category] ?? team.category} · {dict.team.members(team.members.length)}
+            {sportLabel(dict, team.sport)} · {categories[team.category] ?? team.category} · {dict.team.members(team.members.length)}
           </p>
           {team.description ? <p className="mt-1 text-sm">{team.description}</p> : null}
         </div>

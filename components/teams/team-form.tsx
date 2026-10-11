@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ImageUploader, type UploadedImage } from '@/components/image-uploader'
 import { SPORT_NAMES } from '@/lib/constants'
 import { useLanguage } from '@/lib/i18n/language-context'
+import { sportLabel } from '@/lib/sports'
 type FormResult =
   | { ok: true; data?: unknown }
   | { ok: false; error: string; fieldErrors?: Record<string, string> }
@@ -90,7 +91,7 @@ export function TeamForm({
             <SelectContent>
               {SPORT_NAMES.map((name) => (
                 <SelectItem key={name} value={name}>
-                  {name}
+                  {sportLabel(dict, name)}
                 </SelectItem>
               ))}
             </SelectContent>

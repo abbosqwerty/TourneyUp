@@ -18,6 +18,7 @@ import { useLanguage } from '@/lib/i18n/language-context'
 import type { Dictionary } from '@/lib/i18n/dictionaries'
 import type { Locale } from '@/lib/i18n/types'
 import { renderSystemPost } from '@/lib/stored-text'
+import { sportLabel } from '@/lib/sports'
 
 export type SidebarChannel = {
   id: string
@@ -69,8 +70,8 @@ export function relativeTime(iso: string | null, dict: Dictionary, locale: Local
 }
 
 function channelSubtitle(c: SidebarChannel, dict: Dictionary) {
-  if (c.type === 'TOURNAMENT') return c.sport
-  if (c.type === 'TEAM') return `${c.sport} · ${dict.chat.shell.members(c.memberCount ?? 0)}`
+  if (c.type === 'TOURNAMENT') return sportLabel(dict, c.sport)
+  if (c.type === 'TEAM') return `${sportLabel(dict, c.sport)} · ${dict.chat.shell.members(c.memberCount ?? 0)}`
   return `@${c.handle}`
 }
 

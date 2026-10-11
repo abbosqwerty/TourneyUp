@@ -42,6 +42,7 @@ import { useLanguage } from '@/lib/i18n/language-context'
 import { renderSystemPost } from '@/lib/stored-text'
 import { cn } from '@/lib/utils'
 import { formatDate, formatDateTime } from '@/lib/time'
+import { sportLabel } from '@/lib/sports'
 
 export type ThreadPost = {
   id: string
@@ -179,7 +180,7 @@ export function ChannelThread({
             </span>
             {channel.tournament ? (
               <span>
-                {channel.tournament.sport} · {formatDate(channel.tournament.date, locale)}
+                {sportLabel(dict, channel.tournament.sport)} · {formatDate(channel.tournament.date, locale)}
                 {channel.tournament.endDate ? ` – ${formatDate(channel.tournament.endDate, locale)}` : ''} · {t.participants(channel.tournament.participants)}
               </span>
             ) : null}
@@ -230,7 +231,7 @@ export function ChannelThread({
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 md:p-4" aria-live="polite">
         {channel.description && posts.length < 3 ? (
           <p className="mx-auto max-w-md text-center text-xs text-muted-foreground">
-            {channel.team && channel.description === `${channel.team.sport} jamoasi` ? t.team_description(channel.team.sport) : channel.description}
+            {channel.team && channel.description === `${channel.team.sport} jamoasi` ? t.team_description(sportLabel(dict, channel.team.sport)) : channel.description}
           </p>
         ) : null}
         {posts.length === 0 ? (

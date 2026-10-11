@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getI18n } from '@/lib/i18n/server'
+import { sportLabel } from '@/lib/sports'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,7 +59,7 @@ export default async function AdminTournamentsPage() {
                 <div className="min-w-0 space-y-1">
                   <CardTitle className="text-base">{tournament.title}</CardTitle>
                   <CardDescription className="truncate">
-                    {tournament.organization?.name ?? tournament.organizer.name} · {tournament.sport}
+                    {tournament.organization?.name ?? tournament.organizer.name} · {sportLabel(dict, tournament.sport)}
                   </CardDescription>
                 </div>
                 <Badge

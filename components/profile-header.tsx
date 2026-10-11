@@ -38,6 +38,7 @@ import { useLanguage } from '@/lib/i18n/language-context'
 import { logout } from '@/lib/auth-actions'
 import { LOCALES } from '@/lib/i18n/types'
 import { formatMonthYear } from '@/lib/time'
+import { sportLabel } from '@/lib/sports'
 
 interface ProfileHeaderProps {
   user: User
@@ -274,7 +275,7 @@ export function ProfileHeader({ user, isOwnProfile = false }: ProfileHeaderProps
                   className="p-3 rounded-xl border border-border bg-card/60 hover:border-primary/50 transition-colors min-w-0"
                 >
                   <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="text-xs sm:text-sm font-semibold truncate">{sportRank.sport}</span>
+                    <span className="text-xs sm:text-sm font-semibold truncate">{sportLabel(dict, sportRank.sport)}</span>
                     <Badge 
                       className={cn(
                         "text-[10px] px-1.5 py-0.5 shrink-0 bg-gradient-to-r border-0",

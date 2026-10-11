@@ -8,6 +8,7 @@ import { listRegistrableTeams } from '@/lib/teams'
 import { getI18n } from '@/lib/i18n/server'
 import { formatDate } from '@/lib/time'
 import TournamentClient from './tournament-client'
+import { sportLabel } from '@/lib/sports'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     if (!tournament) return { title: dict.tournament.detail.meta_not_found }
 
     const host = tournament.organization?.name ?? tournament.organizer.name
-    const description = dict.tournament.detail.meta_description(tournament.sport, formatDate(tournament.date, locale), tournament.location, host)
+    const description = dict.tournament.detail.meta_description(sportLabel(dict, tournament.sport), formatDate(tournament.date, locale), tournament.location, host)
     const poster = tournamentPoster(tournament)
 
     return {

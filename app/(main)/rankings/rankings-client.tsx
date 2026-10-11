@@ -17,6 +17,7 @@ import { Search, Trophy, Calendar, Award, Flame, Loader2 } from 'lucide-react'
 import type { RankingEntry } from '@/lib/types'
 import type { LeaderboardPeriod } from '@/lib/points/leaderboard'
 import { useLanguage } from '@/lib/i18n/language-context'
+import { sportLabel } from '@/lib/sports'
 
 type Timeframe = 'weekly' | 'monthly' | 'global'
 
@@ -67,8 +68,8 @@ export default function RankingsClient({
   const setSelectedSport = (value: string) => navigate({ sport: value === 'all' ? '' : value })
 
   const sportCategories = useMemo(
-    () => [{ id: 'all', name: dict.rankings.all_games }, ...sports.map((name) => ({ id: name, name }))],
-    [sports, dict.rankings.all_games]
+    () => [{ id: 'all', name: dict.rankings.all_games }, ...sports.map((name) => ({ id: name, name: sportLabel(dict, name) }))],
+    [sports, dict]
   )
 
   const displayRankings = useMemo(() => {

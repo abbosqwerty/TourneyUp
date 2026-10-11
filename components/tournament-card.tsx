@@ -27,6 +27,7 @@ import { formatClock, formatDate, formatDayMonth } from '@/lib/time'
 import { useAuthModal } from '@/components/auth-modal'
 import { ParticipantSlots, isTournamentFull } from '@/components/participant-slots'
 import { useLanguage } from '@/lib/i18n/language-context'
+import { sportLabel } from '@/lib/sports'
 
 interface TournamentCardProps {
   tournament: Tournament
@@ -295,7 +296,7 @@ export function TournamentCard({
           </Button>
         )}
         <Badge variant="secondary" className="absolute bottom-3 left-3">
-          {tournament.sport}
+          {sportLabel(dict, tournament.sport)}
         </Badge>
       </div>
       

@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { getI18n } from '@/lib/i18n/server'
 import { formatClock, formatDate } from '@/lib/time'
+import { sportLabel } from '@/lib/sports'
 
 function PixelMark() {
   return (
@@ -183,7 +184,7 @@ export default async function LandingPage() {
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between gap-2 mb-3">
                         <Badge variant="secondary" className="min-w-0 truncate text-xs uppercase">
-                          {tour.sport}
+                          {sportLabel(dict, tour.sport)}
                         </Badge>
                         <span className="shrink-0 whitespace-nowrap text-xs font-semibold text-primary">
                           {tour.prizePool || t.featured.prize_pool}

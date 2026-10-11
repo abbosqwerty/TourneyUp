@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { getI18n } from '@/lib/i18n/server'
 import { formatDate } from '@/lib/time'
 import { StaffClient } from './staff-client'
+import { sportLabel } from '@/lib/sports'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,7 +67,7 @@ export default async function TournamentStaffPage({ params }: { params: Promise<
       <div>
         <h1 className="text-2xl font-bold md:text-3xl">{tournament.title}</h1>
         <p className="text-sm text-muted-foreground">
-          {tournament.sport} · {formatDate(tournament.date, locale)} · {d.staff.manage_subtitle}
+          {sportLabel(dict, tournament.sport)} · {formatDate(tournament.date, locale)} · {d.staff.manage_subtitle}
         </p>
       </div>
 

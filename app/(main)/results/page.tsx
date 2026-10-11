@@ -11,6 +11,7 @@ import { getI18n } from '@/lib/i18n/server'
 import { COMPETITION_TABS, type CompetitionTab } from '@/lib/competition/list'
 import { CompetitionFilters } from './competition-filters'
 import { CompetitionPager } from './competition-pager'
+import { sportLabel } from '@/lib/sports'
 
 export const dynamic = 'force-dynamic'
 
@@ -108,7 +109,7 @@ export default async function CompetitionListPage({ searchParams }: { searchPara
                     ) : null}
                   </div>
                   <p className="truncate text-xs text-muted-foreground">
-                    {[t.sport, categories[t.category] ?? t.category, t.organizer].filter(Boolean).join(' · ')}
+                    {[sportLabel(dict, t.sport), categories[t.category] ?? t.category, t.organizer].filter(Boolean).join(' · ')}
                   </p>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     <span>{c.formats_short[t.format]}</span>

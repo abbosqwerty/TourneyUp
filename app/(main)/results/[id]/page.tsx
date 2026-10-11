@@ -23,6 +23,7 @@ import { LeaderboardTable } from '@/components/competition/leaderboard-table'
 import { formatScore } from '@/lib/competition/leaderboard'
 import { cn } from '@/lib/utils'
 import { ScheduleControl } from './schedule-control'
+import { sportLabel } from '@/lib/sports'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,7 +98,7 @@ export default async function TournamentCompetitionPage({
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {[tournament.sport, t.formats[view.format], tournament.organization?.name ?? tournament.organizer.name]
+            {[sportLabel(dict, tournament.sport), t.formats[view.format], tournament.organization?.name ?? tournament.organizer.name]
               .filter(Boolean)
               .join(' · ')}
           </p>

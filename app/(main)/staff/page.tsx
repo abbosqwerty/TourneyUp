@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate } from '@/lib/time'
+import { sportLabel } from '@/lib/sports'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,7 +80,7 @@ export default async function StaffPage() {
                     <CardDescription className="flex flex-wrap items-center gap-2">
                       <span className="flex items-center gap-1">
                         <Trophy className="h-3.5 w-3.5" aria-hidden />
-                        {grant.tournament.sport}
+                        {sportLabel(dict, grant.tournament.sport)}
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3.5 w-3.5" aria-hidden />

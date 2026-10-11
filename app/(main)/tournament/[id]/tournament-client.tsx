@@ -42,6 +42,7 @@ import { useLanguage } from '@/lib/i18n/language-context'
 import { formatClock, formatDate, formatDateLong } from '@/lib/time'
 import { displayFee } from '@/components/tournament-card'
 import { TeamRegistrationPicker, type RegistrableTeam, type TeamSelection } from '@/components/teams/team-registration'
+import { sportLabel } from '@/lib/sports'
 
 const categoryIcons = {
   sports: Dribbble,
@@ -269,7 +270,7 @@ export default function TournamentClient({
                 </Button>
               </div>
               <Badge variant="secondary" className="absolute bottom-4 left-4 text-sm">
-                {tournament.sport}
+                {sportLabel(dict, tournament.sport)}
               </Badge>
             </div>
             <CardContent className="p-6">
@@ -494,7 +495,7 @@ export default function TournamentClient({
                   {teamEvent ? (
                     <TeamRegistrationPicker
                       teams={teamEvent.teams}
-                      sport={tournament.sport}
+                      sport={sportLabel(dict, tournament.sport)}
                       teamSize={teamEvent.teamSize}
                       teamSizeMax={teamEvent.teamSizeMax}
                       value={teamSelection}

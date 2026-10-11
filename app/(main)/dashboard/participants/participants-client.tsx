@@ -38,6 +38,7 @@ import { useRouter } from 'next/navigation'
 import { NoParticipants } from '@/components/empty-state'
 import { useLanguage } from '@/lib/i18n/language-context'
 import { formatDateLong, formatDayMonth } from '@/lib/time'
+import { sportLabel } from '@/lib/sports'
 
 const statusColors = {
   pending: 'bg-warning/20 text-warning border-warning/30',
@@ -353,7 +354,7 @@ export default function ParticipantsClient({
                   </div>
                   <div>
                     <p className="font-medium text-sm line-clamp-1">{tournament.title}</p>
-                    <p className="text-xs text-muted-foreground">{tournament.sport}</p>
+                    <p className="text-xs text-muted-foreground">{sportLabel(dict, tournament.sport)}</p>
                   </div>
                 </div>
                 <div className="space-y-2 text-sm">
