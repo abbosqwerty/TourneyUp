@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { Inter, Geist_Mono } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
+import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -62,6 +63,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           {children}
           <Toaster richColors position="top-center" />
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   )
