@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Activity, BarChart3, Home, MessageSquare, Plus, Shirt, Trophy, User, Users } from 'lucide-react'
+import { Activity, BarChart3, Home, MessageSquare, Plus, Shirt, Trophy, User, Users, LogIn, UserPlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/lib/i18n/language-context'
 
@@ -19,7 +19,7 @@ export function MobileNav({ role = null, unreadCount = 0, staffAssignmentCount =
 
   const isOrganization = role === 'ORGANIZATION'
 
-  const navItems = [
+    const navItems = [
     { href: '/feed', label: dict.nav.feed, icon: Home, show: true },
     { href: '/results', label: dict.nav.matches, icon: Activity, show: true, hasLiveDot: true },
     { href: '/create', label: dict.nav.create, icon: Plus, show: isOrganization, isAction: true },
@@ -29,7 +29,9 @@ export function MobileNav({ role = null, unreadCount = 0, staffAssignmentCount =
     { href: '/staff', label: dict.nav.my_role, icon: Users, show: staffAssignmentCount > 0 },
     { href: '/dashboard', label: dict.nav.dashboard, icon: Trophy, show: isOrganization },
     { href: '/profile', label: dict.nav.profile, icon: User, show: Boolean(role) },
-  ].filter((item) => item.show)
+    { href: '/login', label: dict.auth.login_button, icon: LogIn, show: !role },
+    { href: '/register', label: dict.auth.register_button, icon: UserPlus, show: !role },
+  ].filter((item) => item.show);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden">
