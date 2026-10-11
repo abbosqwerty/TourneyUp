@@ -8,6 +8,8 @@ import { FORMAT_LABELS } from '@/lib/competition/config'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MatchesClient } from './matches-client'
+import { LeaderboardClient } from './leaderboard-client'
+import { getCompetitionView } from '@/lib/competition/view'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +22,15 @@ export default async function TournamentMatchesPage({ params }: { params: Promis
 
   const tournament = await db.tournament.findUnique({
     where: { id },
-    select: { id: true, title: true, sport: true, status: true, format: true, drawGeneratedAt: true },
+    select: {
+      id: true,
+      title: true,
+      sport: true,
+      status: true,
+      format: true,
+      drawGeneratedAt: true,
+      resultsFinalizedAt: true,
+    },
   })
   if (!tournament) notFound()
 
@@ -46,9 +56,12 @@ export default async function TournamentMatchesPage({ params }: { params: Promis
     )
   }
 
-  const matches = tournament.drawGeneratedAt
-    ? (await listMatches({ tournamentId: id, take: 2000 })).filter((m) => m.bracket !== 'MANUAL')
-    : []
+  const isLeaderboard = tournament.format === 'LEADERBOARD'
+  const matches =
+    tournament.drawGeneratedAt && !isLeaderboard
+      ? (await listMatches({ tournamentId: id, take: 2000 })).filter((m) => m.bracket !== 'MANUAL')
+      : []
+  const board = tournament.drawGeneratedAt && isLeaderboard ? await getCompetitionView(id) : null
 
   return (
     <div className="container mx-auto max-w-4xl space-y-6 px-4 py-6">
@@ -78,6 +91,18 @@ export default async function TournamentMatchesPage({ params }: { params: Promis
             o‘tkazing — tasdiqlangan ishtirokchilar bilan qur’a tashlanadi.
           </CardContent>
         </Card>
+      ) : board?.leaderboard ? (
+        <LeaderboardClient
+          tournamentId={id}
+          // Alphabetical rows stay put while results re-rank the public table.
+          rows={[...board.leaderboard.rows]
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .map((row) => ({ participantId: row.entrant, label: row.label, rounds: row.rounds }))}
+          rounds={board.leaderboard.rounds}
+          kind={board.config.scoreKind}
+          finalized={tournament.resultsFinalizedAt !== null}
+          isClosed={tournament.status === 'cancelled'}
+        />
       ) : (
         <MatchesClient matches={matches} isClosed={tournament.status === 'cancelled'} />
       )}

@@ -5,7 +5,7 @@ datasource db {
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 // ============================================================
@@ -62,6 +62,8 @@ enum TournamentFormat {
   ROUND_ROBIN
   GROUPS_KNOCKOUT
   SWISS
+  /// Everyone competes at once (races, battle royale); ranked by points or time.
+  LEADERBOARD
 }
 
 /// Who a registration represents.
@@ -368,6 +370,7 @@ model Tournament {
   participants    Participant[]
   matches         Match[]
   groups          CompetitionGroup[]
+  leaderboard     LeaderboardEntry[]
   resultRevisions MatchResultRevision[]
   pointAwards     PointAward[]
   pointAudits     PointAuditLog[]
@@ -419,6 +422,7 @@ model Participant {
   awayMatches Match[]                   @relation("MatchAwaySide")
   wonMatches  Match[]                   @relation("MatchWinnerSide")
   pointAwards PointAward[]
+  leaderboard LeaderboardEntry[]
   /// Set for team registrations.
   teamId      String?
   team        Team?                     @relation(fields: [teamId], references: [id], onDelete: SetNull)
@@ -643,6 +647,26 @@ model CompetitionGroup {
   matches Match[]
 
   @@unique([tournamentId, order])
+}
+
+/// One entrant's result in one round of a LEADERBOARD tournament. Rows are
+/// written at the draw (status `pending`) and filled in by staff.
+model LeaderboardEntry {
+  id            String      @id @default(cuid())
+  tournamentId  String
+  tournament    Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  round         Int
+  /// Points (higher is better) or time in milliseconds (lower is better).
+  value         Int?
+  /// pending | done | dnf (did not finish / did not start)
+  status        String      @default("pending")
+  recordedById  String?
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([tournamentId, participantId, round])
+  @@index([tournamentId, round])
 }
 
 /// Audit trail of every change to an already-finalized result.

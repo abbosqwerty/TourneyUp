@@ -33,7 +33,8 @@ import { toast } from 'sonner'
 import { ImageUploader, type UploadedImage } from '@/components/image-uploader'
 import { createTournament } from '@/lib/actions'
 import { Switch } from '@/components/ui/switch'
-import { FORMAT_LABELS, TOURNAMENT_FORMATS, type TournamentFormat } from '@/lib/competition/config'
+import { cn } from '@/lib/utils'
+import { FORMAT_LABELS, TOURNAMENT_FORMATS, suggestFormat, type TournamentFormat } from '@/lib/competition/config'
 
 type FormatState = {
   format: TournamentFormat
@@ -48,6 +49,8 @@ type FormatState = {
   swissRounds: string
   winPoints: string
   drawPoints: string
+  scoreKind: 'points' | 'time'
+  leaderboardRounds: string
 }
 
 const INITIAL_FORMAT: FormatState = {
@@ -63,6 +66,8 @@ const INITIAL_FORMAT: FormatState = {
   swissRounds: '',
   winPoints: '3',
   drawPoints: '1',
+  scoreKind: 'points',
+  leaderboardRounds: '1',
 }
 
 const FORMAT_HINTS: Record<TournamentFormat, string> = {
@@ -71,6 +76,8 @@ const FORMAT_HINTS: Record<TournamentFormat, string> = {
   ROUND_ROBIN: 'Everyone plays everyone once. Standings decide the placings.',
   GROUPS_KNOCKOUT: 'Round-robin groups, then the best of each group play a knockout bracket.',
   SWISS: 'Fixed number of rounds; each round pairs players with similar scores, no rematches.',
+  LEADERBOARD:
+    'No head-to-head games: everyone competes in every round (race, heat, battle-royale match) and a live table ranks them by total points or time.',
 }
 
 const sportCategories = [
@@ -162,6 +169,22 @@ export default function CreateTournamentClient() {
   const [formatState, setFormatState] = useState<FormatState>(INITIAL_FORMAT)
   const setFormat = <K extends keyof FormatState>(field: K, value: FormatState[K]) =>
     setFormatState((prev) => ({ ...prev, [field]: value }))
+  // Picking a sport pre-selects the format that fits it, until the organizer
+  // chooses a format by hand.
+  const [formatTouched, setFormatTouched] = useState(false)
+  const [suggestedFor, setSuggestedFor] = useState<string | null>(null)
+  const suggestFor = (sportId: string) => {
+    if (formatTouched) return
+    const name = sportCategories.find((c) => c.id === sportId)?.name ?? sportId
+    const { format, config } = suggestFormat(name)
+    setFormatState((prev) => ({
+      ...prev,
+      format,
+      scoreKind: config.scoreKind ?? prev.scoreKind,
+      leaderboardRounds: config.leaderboardRounds ? String(config.leaderboardRounds) : prev.leaderboardRounds,
+    }))
+    setSuggestedFor(sportId === 'other' ? null : name)
+  }
 
   const [formData, setFormData] = useState({
     title: '',
@@ -193,10 +216,12 @@ export default function CreateTournamentClient() {
       prizePool: preset.prizePool,
       entryFee: preset.entryFee,
     })
+    suggestFor(preset.sport)
   }
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    if (field === 'sport') suggestFor(value)
     setErrors(prev => {
       if (!prev[field]) return prev
       const next = { ...prev }
@@ -228,6 +253,8 @@ export default function CreateTournamentClient() {
         swissRounds: f.swissRounds,
         winPoints: f.winPoints,
         drawPoints: f.drawPoints,
+        scoreKind: f.scoreKind,
+        leaderboardRounds: f.leaderboardRounds,
       },
       posterMediaId: poster?.id ?? '',
       galleryMediaIds: gallery.flatMap((image) => (image ? [image.id] : [])),
@@ -462,7 +489,13 @@ export default function CreateTournamentClient() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <Field>
                       <FieldLabel htmlFor="format">Format</FieldLabel>
-                      <Select value={formatState.format} onValueChange={(v) => setFormat('format', v as TournamentFormat)}>
+                      <Select
+                        value={formatState.format}
+                        onValueChange={(v) => {
+                          setFormatTouched(true)
+                          setFormat('format', v as TournamentFormat)
+                        }}
+                      >
                         <SelectTrigger id="format">
                           <SelectValue />
                         </SelectTrigger>
@@ -492,7 +525,43 @@ export default function CreateTournamentClient() {
                       </Select>
                     </Field>
                   </div>
-                  <p className="text-xs text-muted-foreground">{FORMAT_HINTS[formatState.format]}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {FORMAT_HINTS[formatState.format]}
+                    {suggestedFor && !formatTouched ? (
+                      <span className="text-primary"> Recommended for {suggestedFor}.</span>
+                    ) : null}
+                  </p>
+
+                  {formatState.format === 'LEADERBOARD' ? (
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="scoreKind">Ranked by</FieldLabel>
+                        <Select
+                          value={formatState.scoreKind}
+                          onValueChange={(v) => setFormat('scoreKind', v as FormatState['scoreKind'])}
+                        >
+                          <SelectTrigger id="scoreKind">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="time">Time — fastest wins (races, swimming)</SelectItem>
+                            <SelectItem value="points">Points — highest total wins (battle royale)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="leaderboardRounds">Rounds / heats</FieldLabel>
+                        <Input
+                          id="leaderboardRounds"
+                          type="number"
+                          min={1}
+                          max={20}
+                          value={formatState.leaderboardRounds}
+                          onChange={(e) => setFormat('leaderboardRounds', e.target.value)}
+                        />
+                      </Field>
+                    </div>
+                  ) : null}
 
                   {formatState.participantType === 'TEAM' ? (
                     <div className="grid sm:grid-cols-2 gap-4">
@@ -523,7 +592,7 @@ export default function CreateTournamentClient() {
                     </div>
                   ) : null}
 
-                  <div className="grid sm:grid-cols-2 gap-4">
+                  <div className={cn('grid sm:grid-cols-2 gap-4', formatState.format === 'LEADERBOARD' && 'hidden')}>
                     <Field>
                       <FieldLabel htmlFor="seeding">Draw</FieldLabel>
                       <Select value={formatState.seeding} onValueChange={(v) => setFormat('seeding', v as FormatState['seeding'])}>

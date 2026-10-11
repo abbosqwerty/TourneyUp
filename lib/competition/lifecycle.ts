@@ -8,7 +8,14 @@ import {
   type FormatConfig,
   type TournamentFormat,
 } from './config'
-import { placements, planInitial, progress } from './engine'
+import { participatedEntrants, placements, planInitial, progress } from './engine'
+import {
+  leaderboardComplete,
+  leaderboardParticipants,
+  leaderboardPlacements,
+  type EntryStatus,
+  type LeaderboardEntryData,
+} from './leaderboard'
 import { drawOrder } from './seeding'
 import { matchKey, type Bracket, type EngineMatch, type Plan, type Rng, type Slot } from './types'
 
@@ -76,6 +83,8 @@ export type EngineState = {
   entrants: string[]
   participants: Map<string, ParticipantRow>
   matches: EngineMatch[]
+  /** LEADERBOARD format only: one row per entrant per round. */
+  leaderboard: LeaderboardEntryData[]
   idByKey: Map<string, string>
   keyById: Map<string, string>
   groupIdByIndex: Map<number, string>
@@ -83,7 +92,7 @@ export type EngineState = {
 
 /** Read everything the engine needs. MANUAL (pre-engine) fixtures are ignored. */
 export async function loadEngineState(client: Tx | typeof db, tournamentId: string): Promise<EngineState> {
-  const [tournament, groups, rows, participantRows] = await Promise.all([
+  const [tournament, groups, rows, participantRows, entryRows] = await Promise.all([
     client.tournament.findUniqueOrThrow({
       where: { id: tournamentId },
       select: { format: true, formatConfigJson: true },
@@ -115,6 +124,10 @@ export async function loadEngineState(client: Tx | typeof db, tournamentId: stri
     client.participant.findMany({
       where: { tournamentId },
       select: { id: true, name: true, teamName: true, userId: true, seed: true, registeredAt: true },
+    }),
+    client.leaderboardEntry.findMany({
+      where: { tournamentId },
+      select: { participantId: true, round: true, value: true, status: true },
     }),
   ])
 
@@ -150,6 +163,7 @@ export async function loadEngineState(client: Tx | typeof db, tournamentId: stri
     if (m.home) inDraw.add(m.home)
     if (m.away) inDraw.add(m.away)
   }
+  for (const e of entryRows) inDraw.add(e.participantId)
 
   const ordered = orderParticipants(participantRows.filter((p) => inDraw.has(p.id)))
 
@@ -159,6 +173,12 @@ export async function loadEngineState(client: Tx | typeof db, tournamentId: stri
     entrants: ordered.map((p) => p.id),
     participants: new Map(participantRows.map((p) => [p.id, p])),
     matches,
+    leaderboard: entryRows.map((e) => ({
+      entrant: e.participantId,
+      round: e.round,
+      value: e.value,
+      status: e.status as EntryStatus,
+    })),
     idByKey,
     keyById,
     groupIdByIndex: new Map(groups.map((g) => [g.order, g.id])),
@@ -229,25 +249,32 @@ export type AdvanceResult = { justCompleted: boolean; complete: boolean }
  * a match that has already been played — a result correction that would
  * change a later, played match is rejected and the transaction rolls back.
  */
+async function markComplete(tx: Tx, tournamentId: string, complete: boolean): Promise<AdvanceResult> {
+  if (!complete) return { justCompleted: false, complete: false }
+  const tournament = await tx.tournament.findUniqueOrThrow({
+    where: { id: tournamentId },
+    select: { resultsFinalizedAt: true },
+  })
+  if (tournament.resultsFinalizedAt) return { justCompleted: false, complete: true }
+
+  const now = new Date()
+  await tx.tournament.update({
+    where: { id: tournamentId },
+    data: { resultsFinalizedAt: now, status: 'completed', closedAt: now },
+  })
+  return { justCompleted: true, complete: true }
+}
+
 async function advance(tx: Tx, tournamentId: string): Promise<AdvanceResult> {
   for (let pass = 0; pass < 64; pass++) {
     const state = await loadEngineState(tx, tournamentId)
+    if (state.format === 'LEADERBOARD') {
+      return markComplete(tx, tournamentId, leaderboardComplete(state.leaderboard))
+    }
     const step = progress(state.format, state.config, state.entrants, state.matches)
 
     if (step.updates.length === 0 && !step.create) {
-      if (!step.complete) return { justCompleted: false, complete: false }
-      const tournament = await tx.tournament.findUniqueOrThrow({
-        where: { id: tournamentId },
-        select: { resultsFinalizedAt: true },
-      })
-      if (tournament.resultsFinalizedAt) return { justCompleted: false, complete: true }
-
-      const now = new Date()
-      await tx.tournament.update({
-        where: { id: tournamentId },
-        data: { resultsFinalizedAt: now, status: 'completed', closedAt: now },
-      })
-      return { justCompleted: true, complete: true }
+      return markComplete(tx, tournamentId, step.complete)
     }
 
     const now = new Date()
@@ -371,10 +398,20 @@ export async function startCompetition(tournamentId: string, rng: Rng = randomIn
     const plan = planInitial(tournament.format, config, entrants)
 
     await writePlan(tx, tournamentId, plan, new Map(eligible.map((p) => [p.id, p])))
+    if (tournament.format === 'LEADERBOARD') {
+      await tx.leaderboardEntry.createMany({
+        data: entrants.flatMap((participantId) =>
+          Array.from({ length: config.leaderboardRounds }, (_, i) => ({ tournamentId, participantId, round: i + 1 }))
+        ),
+      })
+    }
     await tx.tournament.update({ where: { id: tournamentId }, data: { drawGeneratedAt: new Date() } })
     await advance(tx, tournamentId)
 
-    return { created: true, matchCount: plan.matches.length }
+    return {
+      created: true,
+      matchCount: tournament.format === 'LEADERBOARD' ? entrants.length * config.leaderboardRounds : plan.matches.length,
+    }
   }, TX_OPTIONS)
 }
 
@@ -529,7 +566,87 @@ export async function recordResult(input: ResultInput, actorId: string): Promise
 /** Final placements and the stored state they came from (null while running). */
 export async function computeFinalPlacements(client: Tx | typeof db, tournamentId: string) {
   const state = await loadEngineState(client, tournamentId)
+  if (state.format === 'LEADERBOARD') {
+    const result = leaderboardPlacements(state.config, state.entrants, state.leaderboard)
+    return result ? { state, placements: result, participated: leaderboardParticipants(state.leaderboard) } : null
+  }
   if (state.matches.length === 0) return null
   const result = placements(state.format, state.config, state.entrants, state.matches)
-  return result ? { state, placements: result } : null
+  return result ? { state, placements: result, participated: participatedEntrants(state.matches) } : null
+}
+
+export type LeaderboardResultInput = {
+  tournamentId: string
+  round: number
+  /** `value` null with `dnf` false clears the result back to pending. */
+  results: { participantId: string; value: number | null; dnf: boolean }[]
+  /** Required when the tournament is already finalized. */
+  reason?: string | null
+}
+
+export type LeaderboardRecordResult = AdvanceResult & {
+  changed: boolean
+  corrected: boolean
+  affectedUserIds: string[]
+}
+
+/**
+ * Save one round of a LEADERBOARD tournament in one go (staff type the whole
+ * heat, then press save). Unchanged rows are skipped, so re-submitting is a
+ * no-op. Completing the last pending row finalizes the tournament.
+ */
+export async function recordLeaderboardRound(
+  input: LeaderboardResultInput,
+  actorId: string
+): Promise<LeaderboardRecordResult> {
+  return db.$transaction(async (tx) => {
+    const tournament = await lockTournament(tx, input.tournamentId)
+    if (tournament.format !== 'LEADERBOARD') throw new CompetitionError('Bu turnir reyting formatida emas')
+    if (tournament.status === 'cancelled') throw new CompetitionError('Turnir bekor qilingan')
+    if (tournament.status !== 'ongoing' && tournament.status !== 'completed') {
+      throw new CompetitionError('Natija faqat boshlangan turnirga kiritiladi')
+    }
+
+    const existing = await tx.leaderboardEntry.findMany({
+      where: { tournamentId: input.tournamentId, round: input.round },
+      select: { id: true, participantId: true, value: true, status: true, participant: { select: { userId: true } } },
+    })
+    if (existing.length === 0) throw new CompetitionError('Bunday bosqich yo‘q')
+    const byParticipant = new Map(existing.map((e) => [e.participantId, e]))
+
+    const changes = input.results.flatMap((r) => {
+      const row = byParticipant.get(r.participantId)
+      if (!row) return []
+      const status: EntryStatus = r.dnf ? 'dnf' : r.value === null ? 'pending' : 'done'
+      const value = status === 'done' ? r.value : null
+      return row.status === status && row.value === value ? [] : [{ row, status, value }]
+    })
+
+    const corrected = tournament.resultsFinalizedAt !== null
+    if (changes.length === 0) {
+      return { changed: false, corrected: false, justCompleted: false, complete: corrected, affectedUserIds: [] }
+    }
+    if (corrected) {
+      const reason = input.reason?.trim()
+      if (!reason || reason.length < 5) throw new CompetitionError('Natijani o‘zgartirish sababini yozing (kamida 5 belgi)')
+      if (changes.some((c) => c.status === 'pending')) {
+        throw new CompetitionError('Yakunlangan turnirda natijani o‘chirib bo‘lmaydi — qiymat yoki DNF kiriting')
+      }
+    }
+
+    for (const change of changes) {
+      await tx.leaderboardEntry.update({
+        where: { id: change.row.id },
+        data: { status: change.status, value: change.value, recordedById: actorId },
+      })
+    }
+
+    const advanced = await advance(tx, input.tournamentId)
+    return {
+      changed: true,
+      corrected,
+      ...advanced,
+      affectedUserIds: changes.map((c) => c.row.participant.userId).filter((id): id is string => Boolean(id)),
+    }
+  }, TX_OPTIONS)
 }

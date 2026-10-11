@@ -52,6 +52,9 @@ export function planInitial(format: TournamentFormat, config: FormatConfig, entr
     }
     case 'SWISS':
       return { groups: [], matches: swissMatches(swissFirstRound(entrants), 1) }
+    case 'LEADERBOARD':
+      // No games: results live in LeaderboardEntry rows (see leaderboard.ts).
+      return { groups: [], matches: [] }
   }
 }
 
@@ -266,6 +269,9 @@ export function placements(
       rest.forEach((row, i) => out.set(row.entrant, qualified + 1 + i))
       return out
     }
+    case 'LEADERBOARD':
+      // Decided from leaderboard entries, not matches — see lifecycle.ts.
+      return null
   }
 }
 

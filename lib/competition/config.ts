@@ -6,6 +6,7 @@ export const TOURNAMENT_FORMATS = [
   'ROUND_ROBIN',
   'GROUPS_KNOCKOUT',
   'SWISS',
+  'LEADERBOARD',
 ] as const
 
 export type TournamentFormat = (typeof TOURNAMENT_FORMATS)[number]
@@ -16,6 +17,7 @@ export const FORMAT_LABELS: Record<TournamentFormat, string> = {
   ROUND_ROBIN: 'Doiraviy (Round Robin)',
   GROUPS_KNOCKOUT: 'Guruh + Pley-off',
   SWISS: 'Shveytsariya tizimi (Swiss)',
+  LEADERBOARD: 'Reyting jadvali (poyga, battle royale)',
 }
 
 export const FORMAT_SHORT_LABELS: Record<TournamentFormat, string> = {
@@ -24,11 +26,30 @@ export const FORMAT_SHORT_LABELS: Record<TournamentFormat, string> = {
   ROUND_ROBIN: 'Round Robin',
   GROUPS_KNOCKOUT: 'Guruh + Pley-off',
   SWISS: 'Swiss',
+  LEADERBOARD: 'Reyting',
+}
+
+/**
+ * Format that fits a sport best — the create form pre-selects it. Anything
+ * not listed is a head-to-head game, where a bracket is the safe default.
+ */
+const SPORT_FORMATS: [RegExp, TournamentFormat, Partial<FormatConfig>][] = [
+  [/run|marathon|marafon|yugur|swim|suz|cycl|velo|athlet|atlet|ski|race|poyga|triathlon/i, 'LEADERBOARD', { scoreKind: 'time', leaderboardRounds: 1 }],
+  [/pubg|fortnite|apex|warzone|free ?fire|battle|royale/i, 'LEADERBOARD', { scoreKind: 'points', leaderboardRounds: 4 }],
+  [/chess|shaxmat|checkers|shashka/i, 'SWISS', {}],
+  [/football|futbol|soccer|basket|volley|voley|hockey|xokkey|handball|gandbol/i, 'GROUPS_KNOCKOUT', {}],
+]
+
+export function suggestFormat(sport: string): { format: TournamentFormat; config: Partial<FormatConfig> } {
+  for (const [pattern, format, config] of SPORT_FORMATS) {
+    if (pattern.test(sport)) return { format, config }
+  }
+  return { format: 'SINGLE_ELIMINATION', config: {} }
 }
 
 /** Formats in which a match must have a winner. */
 export function drawsAllowed(format: TournamentFormat, bracket: string) {
-  if (format === 'ROUND_ROBIN' || format === 'SWISS') return true
+  if (format === 'ROUND_ROBIN' || format === 'SWISS' || format === 'LEADERBOARD') return true
   return format === 'GROUPS_KNOCKOUT' && bracket === 'GROUP'
 }
 
@@ -53,6 +74,10 @@ export const formatConfigSchema = z.object({
   winPoints: z.coerce.number().min(0).max(10).default(3),
   drawPoints: z.coerce.number().min(0).max(10).default(1),
   lossPoints: z.coerce.number().min(0).max(10).default(0),
+  /** Leaderboard: what a result is — points (higher wins) or a time (lower wins). */
+  scoreKind: z.enum(['points', 'time']).default('points'),
+  /** Leaderboard: rounds / heats / matches every entrant plays. */
+  leaderboardRounds: z.coerce.number().int().min(1).max(20).default(1),
 })
 
 export type FormatConfig = z.infer<typeof formatConfigSchema>

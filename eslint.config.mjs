@@ -4,7 +4,7 @@ import typescriptConfig from 'eslint-config-next/typescript'
 
 const config = [
   {
-    ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts', 'prisma/seed.js'],
+    ignores: ['.next/**', 'node_modules/**', 'deploy/**', 'next-env.d.ts', 'prisma/seed.js'],
   },
   ...coreWebVitals,
   ...typescriptConfig,

@@ -3,11 +3,17 @@
 import { revalidatePath } from 'next/cache'
 import { db } from './db'
 import { getCurrentUser, getTournamentAbility } from './session'
-import { fieldErrors, recordMatchResultSchema, scheduleMatchSchema, setMatchStatusSchema } from './schemas'
+import {
+  fieldErrors,
+  recordLeaderboardSchema,
+  recordMatchResultSchema,
+  scheduleMatchSchema,
+  setMatchStatusSchema,
+} from './schemas'
 import { fail, type ActionResult } from './action-result'
 import { guard, minutes } from './rate-limit'
 import { notify, notifyMany } from './notifications'
-import { CompetitionError, recordResult } from './competition/lifecycle'
+import { CompetitionError, recordLeaderboardRound, recordResult } from './competition/lifecycle'
 import { onTournamentResultsChanged } from './competition/hooks'
 
 /**
@@ -101,6 +107,48 @@ export async function recordMatchResult(input: unknown): Promise<ActionResult> {
     if (error instanceof CompetitionError) return fail(error.message)
     console.error('recordMatchResult failed', error)
     return fail('Natijani saqlashda xatolik')
+  }
+}
+
+/**
+ * Save one round of a LEADERBOARD tournament (a race, a heat, a battle-royale
+ * match). The table re-ranks itself; the last result finalizes the event.
+ */
+export async function recordLeaderboardResults(input: unknown): Promise<ActionResult> {
+  const user = await getCurrentUser()
+  if (!user) return fail('Avval tizimga kiring')
+
+  const parsed = recordLeaderboardSchema.safeParse(input)
+  if (!parsed.success) return fail('Formada xatolar bor', fieldErrors(parsed.error))
+  const { tournamentId, round, results, reason } = parsed.data
+
+  if (!(await requireScorer(user.id, tournamentId))) return fail('Natija kiritish huquqingiz yo‘q')
+
+  const limited = guard(`record-match:${user.id}`, 200, minutes(10))
+  if (limited) return limited
+
+  try {
+    const result = await recordLeaderboardRound({ tournamentId, round, results, reason: reason || null }, user.id)
+    if (result.changed) {
+      const tournament = await db.tournament.findUnique({ where: { id: tournamentId }, select: { title: true } })
+      await notifyMany(result.affectedUserIds, {
+        type: 'TOURNAMENT_STATUS',
+        title: result.corrected ? 'Natijangiz tuzatildi' : 'Natijangiz kiritildi',
+        body: `“${tournament?.title ?? 'Turnir'}”, ${round}-bosqich. Reyting jadvalida o‘rningizni ko‘ring.`,
+        link: `/results/${tournamentId}`,
+      })
+      await onTournamentResultsChanged(tournamentId, {
+        justCompleted: result.justCompleted,
+        corrected: result.corrected && result.complete,
+        actorId: user.id,
+      })
+    }
+    revalidateMatchViews(tournamentId)
+    return { ok: true }
+  } catch (error) {
+    if (error instanceof CompetitionError) return fail(error.message)
+    console.error('recordLeaderboardResults failed', error)
+    return fail('Natijalarni saqlashda xatolik')
   }
 }
 

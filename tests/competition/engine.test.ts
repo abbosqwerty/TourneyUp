@@ -33,7 +33,8 @@ describe('seeding', () => {
 })
 
 describe('every format runs to completion', () => {
-  for (const format of TOURNAMENT_FORMATS) {
+  // LEADERBOARD has no matches; tests/competition/leaderboard.test.ts covers it.
+  for (const format of TOURNAMENT_FORMATS.filter((f) => f !== 'LEADERBOARD')) {
     for (const n of SIZES) {
       const config = format === 'GROUPS_KNOCKOUT' && n < 4 ? { groupCount: 1, advancePerGroup: 2 } : {}
       it(`${format} with ${n} entrants`, () => {

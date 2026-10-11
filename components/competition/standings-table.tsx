@@ -1,9 +1,35 @@
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import type { StandingView } from '@/lib/competition/view'
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
+
+/** Places gained or lost since the previous round. */
+export function Movement({ move }: { move: number | null }) {
+  if (move === null) return null
+  if (move === 0) {
+    return (
+      <span className="inline-block w-6 text-center text-xs text-muted-foreground" title="O‘rni o‘zgarmadi">
+        –
+      </span>
+    )
+  }
+  const up = move > 0
+  return (
+    <span
+      className={cn(
+        'inline-flex w-6 items-center justify-center text-[11px] font-semibold tabular-nums',
+        up ? 'text-success' : 'text-destructive'
+      )}
+      title={up ? `${move} pog‘ona ko‘tarildi` : `${-move} pog‘ona tushdi`}
+    >
+      {up ? <ChevronUp className="h-3 w-3" aria-hidden /> : <ChevronDown className="h-3 w-3" aria-hidden />}
+      {Math.abs(move)}
+    </span>
+  )
+}
 
 /**
  * Standings for round robin, a group, or Swiss. `qualify` highlights the
@@ -27,7 +53,7 @@ export function StandingsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-10">#</TableHead>
+              <TableHead className="w-16">#</TableHead>
               <TableHead>Ishtirokchi</TableHead>
               <TableHead className="text-center" title="O‘yinlar">O‘</TableHead>
               <TableHead className="text-center" title="G‘alaba">G‘</TableHead>
@@ -41,7 +67,12 @@ export function StandingsTable({
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.entrant} className={cn(row.rank <= qualify && 'bg-primary/5')}>
-                <TableCell className={cn('font-medium', row.rank <= qualify && 'text-primary')}>{row.rank}</TableCell>
+                <TableCell className={cn('font-medium', row.rank <= qualify && 'text-primary')}>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-5 tabular-nums">{row.rank}</span>
+                    <Movement move={row.move} />
+                  </span>
+                </TableCell>
                 <TableCell>
                   <div className="flex min-w-0 items-center gap-2">
                     <Avatar className="h-6 w-6">

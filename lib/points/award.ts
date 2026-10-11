@@ -1,7 +1,6 @@
 import type { PointChangeReason, Prisma } from '@prisma/client'
 import { db } from '../db'
 import { computeFinalPlacements } from '../competition/lifecycle'
-import { participatedEntrants } from '../competition/engine'
 import { basePoints, finalPoints, POINTS_CONFIG } from './score'
 
 /**
@@ -55,7 +54,7 @@ async function desiredAwards(tx: Tx, tournamentId: string): Promise<DesiredAward
   const final = await computeFinalPlacements(tx, tournamentId)
   if (!final) return []
 
-  const played = participatedEntrants(final.state.matches)
+  const played = final.participated
   const fieldSize = Math.max(1, played.size)
   const entrants = final.state.entrants.map((id) => ({ id, userId: final.state.participants.get(id)?.userId ?? null }))
   const players = await playersOf(tx, entrants)

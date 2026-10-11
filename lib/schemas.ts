@@ -97,6 +97,8 @@ export const formatConfigInputSchema = z
     winPoints: z.coerce.number().min(0).max(10).optional(),
     drawPoints: z.coerce.number().min(0).max(10).optional(),
     lossPoints: z.coerce.number().min(0).max(10).optional(),
+    scoreKind: z.enum(['points', 'time']).optional(),
+    leaderboardRounds: optionalInt(1, 20),
   })
   .partial()
 
@@ -227,6 +229,23 @@ export const recordMatchResultSchema = z
     if (data.homeScore === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['homeScore'], message: 'Hisobni kiriting' })
     if (data.awayScore === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['awayScore'], message: 'Hisobni kiriting' })
   })
+
+/** One round of a LEADERBOARD tournament; `value` is points or milliseconds. */
+export const recordLeaderboardSchema = z.object({
+  tournamentId: z.string().min(1),
+  round: z.coerce.number().int().min(1).max(20),
+  results: z
+    .array(
+      z.object({
+        participantId: z.string().min(1),
+        value: z.number().int().min(0).max(2_000_000_000).nullable(),
+        dnf: z.boolean(),
+      })
+    )
+    .min(1)
+    .max(1000),
+  reason: trimmed(500).optional().or(z.literal('')),
+})
 
 /** Only the live/scheduled toggle — completion goes through the result form. */
 export const setMatchStatusSchema = z.object({

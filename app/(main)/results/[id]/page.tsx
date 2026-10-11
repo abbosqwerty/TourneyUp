@@ -17,6 +17,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { BracketView } from '@/components/competition/bracket-view'
 import { MatchCard, MatchListRow } from '@/components/competition/match-card'
 import { StandingsTable } from '@/components/competition/standings-table'
+import { LeaderboardTable } from '@/components/competition/leaderboard-table'
+import { formatScore } from '@/lib/competition/leaderboard'
 import { cn } from '@/lib/utils'
 import { ScheduleControl } from './schedule-control'
 
@@ -136,8 +138,20 @@ export default async function TournamentCompetitionPage({
           </nav>
 
           {tab === 'overview' ? <Overview view={view} /> : null}
-          {tab === 'history' ? <History matches={view.matches} /> : null}
-          {tab === 'schedule' ? <Schedule matches={view.matches} canScore={canScore && isOpen} /> : null}
+          {tab === 'history' ? (
+            view.leaderboard ? <LeaderboardRounds view={view} /> : <History matches={view.matches} />
+          ) : null}
+          {tab === 'schedule' ? (
+            view.leaderboard ? (
+              <Empty icon={Clock}>
+                {view.leaderboard.doneRounds < view.leaderboard.rounds
+                  ? `${view.leaderboard.rounds} bosqichdan ${view.leaderboard.doneRounds} tasi yakunlandi. Keyingi bosqich natijalari kiritilishi bilan jadval yangilanadi.`
+                  : 'Barcha bosqichlar yakunlandi.'}
+              </Empty>
+            ) : (
+              <Schedule matches={view.matches} canScore={canScore && isOpen} />
+            )
+          ) : null}
         </>
       )}
     </div>
@@ -258,6 +272,82 @@ function Overview({ view }: { view: CompetitionView }) {
           <SwissRounds matches={matches} />
         </>
       ) : null}
+
+      {view.leaderboard ? (
+        <div className="space-y-3">
+          <RoundProgress done={view.leaderboard.doneRounds} total={view.leaderboard.rounds} />
+          <LeaderboardTable
+            rows={view.leaderboard.rows}
+            rounds={view.leaderboard.rounds}
+            kind={view.config.scoreKind}
+            caption={view.config.scoreKind === 'time' ? 'Reyting — eng tez vaqt' : 'Reyting — umumiy ochko'}
+          />
+          <p className="text-xs text-muted-foreground">
+            {view.config.scoreKind === 'time'
+              ? 'Har bosqich vaqti qo‘shib boriladi; kam vaqt — yuqori o‘rin. DNF — masofani yakunlamagan.'
+              : 'Har bosqich ochkolari qo‘shib boriladi; teng bo‘lsa eng yaxshi bosqich natijasi hal qiladi.'}{' '}
+            ↑↓ — oldingi bosqichga nisbatan o‘rin o‘zgarishi.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function RoundProgress({ done, total }: { done: number; total: number }) {
+  if (total <= 1) return null
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex flex-1 gap-1" aria-hidden>
+        {Array.from({ length: total }, (_, i) => (
+          <span key={i} className={cn('h-1.5 flex-1 rounded-full', i < done ? 'bg-primary' : 'bg-secondary')} />
+        ))}
+      </div>
+      <span className="shrink-0 text-xs text-muted-foreground">
+        {done}/{total} bosqich
+      </span>
+    </div>
+  )
+}
+
+/** Per-round results of a LEADERBOARD tournament, latest round first. */
+function LeaderboardRounds({ view }: { view: CompetitionView }) {
+  const board = view.leaderboard!
+  const kind = view.config.scoreKind
+  const rounds = Array.from({ length: board.rounds }, (_, i) => i + 1)
+    .filter((r) => board.rows.some((row) => row.rounds[r - 1] !== null))
+    .reverse()
+
+  if (rounds.length === 0) return <Empty>Hali natija kiritilmagan.</Empty>
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {rounds.map((round) => {
+        const results = board.rows
+          .map((row) => ({ row, cell: row.rounds[round - 1] }))
+          .filter((r) => r.cell !== null)
+          .sort((a, b) => {
+            if (a.cell === 'DNF') return 1
+            if (b.cell === 'DNF') return -1
+            return kind === 'time' ? (a.cell as number) - (b.cell as number) : (b.cell as number) - (a.cell as number)
+          })
+        return (
+          <section key={round} className="overflow-hidden rounded-lg border border-border">
+            <p className="border-b border-border bg-secondary/40 px-3 py-2 text-sm font-semibold">{round}-bosqich</p>
+            <ol className="divide-y divide-border">
+              {results.map(({ row, cell }, i) => (
+                <li key={row.entrant} className="flex items-center gap-3 px-3 py-2 text-sm">
+                  <span className="w-5 text-muted-foreground tabular-nums">{cell === 'DNF' ? '–' : i + 1}</span>
+                  <span className="min-w-0 flex-1 truncate">{row.label}</span>
+                  <span className={cn('tabular-nums', cell === 'DNF' ? 'text-destructive' : 'font-medium')}>
+                    {cell === 'DNF' ? 'DNF' : formatScore(kind, cell as number)}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )
+      })}
     </div>
   )
 }
