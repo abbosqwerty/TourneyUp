@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <rect width="100" height="100" rx="24" fill="#0f172a"/>
+  <!-- Chess Knight / Crown emblem -->
+  <path d="M50 20L56 34H44L50 20Z" fill="#f59e0b"/>
+  <path d="M34 38L38 28L44 38H34Z" fill="#f59e0b"/>
+  <path d="M66 38L62 28L56 38H66Z" fill="#f59e0b"/>
+  <path d="M30 42H70V48C70 58 62 66 50 66C38 66 30 58 30 48V42Z" fill="#1e293b" stroke="#f59e0b" stroke-width="3"/>
+  <rect x="36" y="70" width="28" height="6" rx="2" fill="#f59e0b"/>
+  <rect x="28" y="78" width="44" height="6" rx="3" fill="#f59e0b"/>
+</svg>
