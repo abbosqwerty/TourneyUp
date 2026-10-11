@@ -13,6 +13,7 @@ export type StoryGroupProps = {
   stories: {
     id: string
     mediaUrl: string
+    mediaType: string
     caption: string | null
     createdAt: string
     seen: boolean

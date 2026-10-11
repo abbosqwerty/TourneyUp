@@ -28,7 +28,7 @@ export default async function NotificationsPage() {
   const unread = items.filter((item) => !item.read).length
 
   return (
-    <div className="container mx-auto max-w-2xl space-y-4 px-4 py-6">
+    <div className="container mx-auto max-w-2xl space-y-4 px-4 py-6 theme-notif bg-background text-foreground">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold md:text-3xl">Bildirishnomalar</h1>
@@ -99,3 +99,4 @@ export default async function NotificationsPage() {
     </div>
   )
 }
+

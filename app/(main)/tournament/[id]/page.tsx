@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { getCurrentUser, getTournamentAbility } from '@/lib/session'
 import { safeParseJsonArray } from '@/lib/json'
 import { tournamentPoster } from '@/lib/media'
+import { listRegistrableTeams } from '@/lib/teams'
 import TournamentClient from './tournament-client'
 
 export const dynamic = 'force-dynamic'
@@ -92,11 +93,20 @@ export default async function TournamentDetailsPage({ params }: { params: Promis
     featured: tournamentRaw.featured,
   }
 
-  const [userRegistration, saved, relatedRaw] = await Promise.all([
+  const isTeamEvent = tournamentRaw.participantType === 'TEAM'
+  const [userRegistration, saved, relatedRaw, registrableTeams] = await Promise.all([
+    // Your own registration, a team you lead, or a roster you are in.
     user
-      ? db.participant.findUnique({
-          where: { tournamentId_userId: { tournamentId: id, userId: user.id } },
-          select: { id: true, status: true },
+      ? db.participant.findFirst({
+          where: {
+            tournamentId: id,
+            OR: [
+              { userId: user.id },
+              { roster: { some: { userId: user.id } } },
+              { team: { members: { some: { userId: user.id, leftAt: null, role: { in: ['OWNER', 'CAPTAIN'] } } } } },
+            ],
+          },
+          select: { id: true, status: true, teamName: true, userId: true, team: { select: { members: { where: { userId: user.id, leftAt: null }, select: { role: true } } } } },
         })
       : null,
     user
@@ -114,7 +124,15 @@ export default async function TournamentDetailsPage({ params }: { params: Promis
         _count: { select: { participants: true } },
       },
     }),
+    user && isTeamEvent && user.role === 'USER' ? listRegistrableTeams(user.id) : Promise.resolve([]),
   ])
+
+  // Only the registering account or a team lead may withdraw.
+  const canWithdraw = Boolean(
+    userRegistration &&
+      (userRegistration.userId === user?.id ||
+        userRegistration.team?.members.some((m) => m.role === 'OWNER' || m.role === 'CAPTAIN'))
+  )
 
   const related = relatedRaw.map((t) => ({
     id: t.id,
@@ -142,6 +160,26 @@ export default async function TournamentDetailsPage({ params }: { params: Promis
       tournament={tournament}
       isSaved={Boolean(saved)}
       isUserRegistered={Boolean(userRegistration)}
+      registration={
+        userRegistration
+          ? { status: userRegistration.status, teamName: userRegistration.teamName, canWithdraw }
+          : null
+      }
+      teamEvent={
+        isTeamEvent
+          ? {
+              teamSize: tournamentRaw.teamSize,
+              teamSizeMax: tournamentRaw.teamSizeMax,
+              teams: registrableTeams.map((t) => ({
+                id: t.id,
+                name: t.name,
+                sport: t.sport,
+                members: t.members.map((m) => ({ id: m.id, name: m.name, username: m.username, role: m.role })),
+              })),
+            }
+          : null
+      }
+      drawn={tournamentRaw.drawGeneratedAt !== null}
       relatedTournaments={related}
       participantsCount={tournamentRaw._count.participants}
       ability={{

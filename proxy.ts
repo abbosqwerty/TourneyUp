@@ -20,6 +20,7 @@ const PROTECTED_PREFIXES = [
   '/notifications',
   '/staff',
   '/settings',
+  '/teams',
 ]
 
 const GUEST_ONLY = ['/login', '/register']

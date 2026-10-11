@@ -28,17 +28,35 @@ const OPTIONS: { value: Status; label: string }[] = [
 ]
 
 const CLOSING: Status[] = ['completed', 'cancelled']
+const CONFIRM: Status[] = ['ongoing', ...CLOSING]
 
 /**
- * Status control with a confirmation step on the closing transitions,
- * because closing a tournament also revokes every temporary staff grant.
+ * Which statuses the organizer may pick from here. The server enforces the
+ * same rules; this only hides the choices that would be refused. Once the
+ * draw exists, `completed` is set automatically by the last result.
+ */
+function allowedOptions(current: Status, drawn: boolean) {
+  return OPTIONS.filter((option) => {
+    if (option.value === current) return true
+    if (current === 'cancelled') return false
+    if (current === 'completed') return option.value === 'cancelled'
+    if (drawn) return option.value === 'cancelled'
+    return option.value !== 'completed'
+  })
+}
+
+/**
+ * Status control with a confirmation step on the transitions that cannot be
+ * undone: starting (writes the draw) and closing (revokes staff grants).
  */
 export function TournamentStatusSelect({
   tournamentId,
   status,
+  drawn = false,
 }: {
   tournamentId: string
   status: Status
+  drawn?: boolean
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -57,9 +75,11 @@ export function TournamentStatusSelect({
         return
       }
       toast.success(
-        CLOSING.includes(next)
-          ? 'Turnir yopildi — vaqtinchalik ruxsatlar olib tashlandi'
-          : 'Status yangilandi'
+        next === 'ongoing'
+          ? 'Turnir boshlandi — qur’a tashlandi'
+          : CLOSING.includes(next)
+            ? 'Turnir yopildi — vaqtinchalik ruxsatlar olib tashlandi'
+            : 'Status yangilandi'
       )
       router.refresh()
     })
@@ -73,7 +93,7 @@ export function TournamentStatusSelect({
         onValueChange={(value) => {
           const next = value as Status
           if (next === current) return
-          if (CLOSING.includes(next)) {
+          if (CONFIRM.includes(next)) {
             setConfirming(next)
             return
           }
@@ -85,7 +105,7 @@ export function TournamentStatusSelect({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {OPTIONS.map((option) => (
+          {allowedOptions(current, drawn).map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {option.label}
             </SelectItem>
@@ -97,11 +117,18 @@ export function TournamentStatusSelect({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {confirming === 'cancelled' ? 'Turnirni bekor qilish' : 'Turnirni yakunlash'}
+              {confirming === 'ongoing'
+                ? 'Turnirni boshlash'
+                : confirming === 'cancelled'
+                  ? 'Turnirni bekor qilish'
+                  : 'Turnirni yakunlash'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Bu amal barcha vaqtinchalik rollarni (admin, organizer, support) olib tashlaydi va turnir
-              kanalini arxivlaydi. Ishtirokchilar kanalni o‘qiy oladi, lekin yangi xabar yozilmaydi.
+              {confirming === 'ongoing'
+                ? 'Ro‘yxatdan o‘tish yopiladi va tasdiqlangan (to‘lovi qabul qilingan) ishtirokchilar bilan qur’a avtomatik tashlanadi. Shundan keyin ishtirokchilar tarkibi va format o‘zgarmaydi.'
+                : confirming === 'cancelled'
+                  ? 'Barcha vaqtinchalik rollar olib tashlanadi, turnir kanali arxivlanadi va bu turnir bergan Tourney Points qaytarib olinadi.'
+                  : 'Bu amal barcha vaqtinchalik rollarni (admin, organizer, support) olib tashlaydi va turnir kanalini arxivlaydi.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

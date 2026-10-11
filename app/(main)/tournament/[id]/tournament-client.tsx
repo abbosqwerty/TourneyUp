@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -8,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { TournamentCard } from '@/components/tournament-card'
-import { 
+import {
+  LifeBuoy,
   Calendar, 
   MapPin, 
   Users, 
@@ -17,6 +19,7 @@ import {
   CheckCircle,
   Bookmark,
   ChevronLeft,
+  ChevronRight,
   DollarSign,
   FileText,
   AlertCircle,
@@ -31,9 +34,16 @@ import type { Tournament, TournamentDetail, TournamentStatusValue } from '@/lib/
 import { TOURNAMENT_STATUS_CLASSES, TOURNAMENT_STATUS_LABELS } from '@/lib/constants'
 import { toast } from 'sonner'
 import { ShareButton } from '@/components/share-button'
-import { registerParticipant, toggleSaveTournament } from '@/lib/actions'
+import { registerParticipant, toggleSaveTournament, unregisterParticipant } from '@/lib/actions'
 import { useAuthModal } from '@/components/auth-modal'
 import { ParticipantSlots } from '@/components/participant-slots'
+import { TeamRegistrationPicker, type RegistrableTeam, type TeamSelection } from '@/components/teams/team-registration'
+
+const REGISTRATION_STATUS_LABELS: Record<string, string> = {
+  pending: 'Tasdiq kutilmoqda',
+  approved: 'Tasdiqlangan',
+  rejected: 'Rad etilgan',
+}
 
 const categoryIcons = {
   sports: Dribbble,
@@ -64,10 +74,16 @@ export default function TournamentClient({
   ability,
   channelId,
   currentUser,
+  registration,
+  teamEvent,
+  drawn,
 }: {
   tournament: TournamentDetail
   isSaved: boolean
   isUserRegistered: boolean
+  registration: { status: string; teamName: string | null; canWithdraw: boolean } | null
+  teamEvent: { teamSize: number | null; teamSizeMax: number | null; teams: RegistrableTeam[] } | null
+  drawn: boolean
   relatedTournaments: Tournament[]
   participantsCount: number
   ability: TournamentAbilityProps
@@ -79,9 +95,13 @@ export default function TournamentClient({
   const currentUserId = currentUser?.id
   const canRegister = currentUser?.role === 'USER'
   const [saved, setSaved] = useState(isSaved)
+  const [posterIndex, setPosterIndex] = useState(0)
+  const posterUrls = [tournament.posterUrl, ...(tournament.galleryUrls ?? [])].filter(Boolean)
+  const activePoster = posterUrls[posterIndex] ?? ''
   const [registered, setRegistered] = useState(isUserRegistered)
   const [registering, setRegistering] = useState(false)
   const [teamName, setTeamName] = useState('')
+  const [teamSelection, setTeamSelection] = useState<TeamSelection>({ teamId: '', rosterUserIds: [] })
   const [currentParticipants, setCurrentParticipants] = useState(participantsCount)
 
   const CategoryIcon = categoryIcons[tournament.category as keyof typeof categoryIcons] || Trophy
@@ -120,10 +140,11 @@ export default function TournamentClient({
     }
 
     setRegistering(true)
-    const result = await registerParticipant({
-      tournamentId: tournament.id,
-      teamName: teamName.trim() || undefined,
-    })
+    const result = await registerParticipant(
+      teamEvent
+        ? { tournamentId: tournament.id, teamId: teamSelection.teamId, rosterUserIds: teamSelection.rosterUserIds }
+        : { tournamentId: tournament.id, teamName: teamName.trim() || undefined }
+    )
     setRegistering(false)
 
     if (!result.ok) {
@@ -137,8 +158,24 @@ export default function TournamentClient({
     router.refresh()
   }
 
+  const handleCancelRegistration = async () => {
+    setRegistering(true)
+    const result = await unregisterParticipant(tournament.id)
+    setRegistering(false)
+
+    if (!result.ok) {
+      toast.error(result.error)
+      return
+    }
+
+    setRegistered(false)
+    setCurrentParticipants((current) => Math.max(0, current - 1))
+    toast.success('Ro‘yxatdan o‘tish bekor qilindi')
+    router.refresh()
+  }
+
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-4 py-6 theme-detail bg-background text-foreground">
       {/* Back Button */}
       <Button variant="ghost" asChild className="mb-4 -ml-2">
         <Link href="/feed" className="gap-2">
@@ -152,10 +189,53 @@ export default function TournamentClient({
         <div className="lg:col-span-2 space-y-6">
           {/* Hero Banner */}
           <Card className="overflow-hidden">
-            <div className="relative h-48 md:h-64 bg-gradient-to-br from-primary/30 via-secondary to-accent/30">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <CategoryIcon className="h-24 w-24 text-primary/30" />
-              </div>
+            <div className="relative aspect-square md:aspect-video bg-gradient-to-br from-primary/30 via-secondary to-accent/30 group">
+                {activePoster ? (
+                  <img
+                    src={activePoster}
+                    alt={tournament.title}
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <CategoryIcon className="h-24 w-24 text-primary/30" />
+                  </div>
+                )}
+                
+                {/* Carousel Controls */}
+                {posterUrls.length > 1 && (
+                  <>
+                    <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8 rounded-full bg-background/80 hover:bg-background/90"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setPosterIndex((current) => (current - 1 + posterUrls.length) % posterUrls.length)
+                        }}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8 rounded-full bg-background/80 hover:bg-background/90"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setPosterIndex((current) => (current + 1) % posterUrls.length)
+                        }}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1.5 z-10">
+                      {posterUrls.map((url, index) => (
+                        <span key={url} className={cn('h-2 w-2 rounded-full transition-all', index === posterIndex ? 'bg-white scale-125' : 'bg-white/50')} />
+                      ))}
+                    </div>
+                  </>
+                )}
               <div className="absolute top-4 left-4 flex gap-2">
                 <Badge className={TOURNAMENT_STATUS_CLASSES[tournament.status as TournamentStatusValue]}>
                   {TOURNAMENT_STATUS_LABELS[tournament.status as TournamentStatusValue]}
@@ -384,41 +464,73 @@ export default function TournamentClient({
                 <div className="space-y-3">
                   <Button className="w-full gap-2 bg-success hover:bg-success/90 cursor-default" size="lg">
                     <CheckCircle className="h-5 w-5" />
-                    You are Registered
+                    {registration?.teamName && teamEvent ? `${registration.teamName} yozilgan` : 'You are Registered'}
                   </Button>
                   <p className="text-xs text-center text-muted-foreground">
-                    Your registration status is: Pending Approval
+                    Ariza holati: {REGISTRATION_STATUS_LABELS[registration?.status ?? 'pending'] ?? 'Ko‘rib chiqilmoqda'}
                   </p>
+                  {drawn ? (
+                    <Button variant="outline" className="w-full" asChild>
+                      <Link href={`/results/${tournament.id}`}>Musobaqa sahifasi</Link>
+                    </Button>
+                  ) : registration?.canWithdraw !== false ? (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleCancelRegistration}
+                      disabled={registering}
+                    >
+                      {registering ? 'Bekor qilinmoqda…' : 'Ro‘yxatdan o‘tishni bekor qilish'}
+                    </Button>
+                  ) : null}
                 </div>
               ) : tournament.status === 'registration_open' ? (
                 <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Team Name (optional)
-                    </label>
-                    <Input
-                      placeholder="e.g., TUIT Wolves or Squad Alpha"
-                      value={teamName}
-                      onChange={(e) => setTeamName(e.target.value)}
+                  {teamEvent ? (
+                    <TeamRegistrationPicker
+                      teams={teamEvent.teams}
+                      sport={tournament.sport}
+                      teamSize={teamEvent.teamSize}
+                      teamSizeMax={teamEvent.teamSizeMax}
+                      value={teamSelection}
+                      onChange={setTeamSelection}
                       disabled={registering}
-                      className="text-sm"
                     />
-                  </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Team Name (optional)
+                      </label>
+                      <Input
+                        placeholder="e.g., TUIT Wolves or Squad Alpha"
+                        value={teamName}
+                        onChange={(e) => setTeamName(e.target.value)}
+                        disabled={registering}
+                        className="text-sm"
+                      />
+                    </div>
+                  )}
 
-                  {/* Registering subscribes you to the tournament channel. */}
+                  {/* Approved participants join the tournament group automatically. */}
                   <p className="rounded-lg border border-border/50 bg-secondary/40 p-2.5 text-xs text-muted-foreground">
-                    Yozilganingizdan keyin turnir kanaliga avtomatik obuna bo‘lasiz — barcha rasmiy e‘lonlar
-                    shu yerda chiqadi.
+                    Arizangiz tasdiqlangach turnir guruhiga avtomatik qo‘shilasiz — e’lonlar, jadval va
+                    tashkilotchilar bilan muloqot shu yerda bo‘ladi.
                   </p>
 
                   <Button 
                     className="w-full gap-2" 
                     size="lg" 
                     onClick={handleRegister}
-                    disabled={registering}
+                    disabled={registering || (teamEvent !== null && !teamSelection.teamId)}
                   >
                     <Trophy className="h-5 w-5" />
-                    {registering ? 'Registering...' : currentUser?.name ? `Register as ${currentUser.name}` : 'Register Now'}
+                    {registering
+                      ? 'Registering...'
+                      : teamEvent
+                        ? 'Jamoani ro‘yxatdan o‘tkazish'
+                        : currentUser?.name
+                          ? `Register as ${currentUser.name}`
+                          : 'Register Now'}
                   </Button>
                   <p className="text-xs text-center text-muted-foreground">
                     Registration closes on {new Date(tournament.date).toLocaleDateString()}
@@ -439,10 +551,26 @@ export default function TournamentClient({
                   </Button>
                 </div>
               ) : (
-                <Button className="w-full" size="lg" variant="secondary" disabled>
-                  {tournament.status === 'ongoing' ? 'In Progress' : 'Tournament Ended'}
-                </Button>
+                <div className="space-y-2">
+                  <Button className="w-full" size="lg" variant="secondary" disabled>
+                    {tournament.status === 'ongoing' ? 'In Progress' : tournament.status === 'cancelled' ? 'Bekor qilingan' : 'Tournament Ended'}
+                  </Button>
+                  {drawn ? (
+                    <Button variant="outline" className="w-full" asChild>
+                      <Link href={`/results/${tournament.id}`}>To‘r va natijalar</Link>
+                    </Button>
+                  ) : null}
+                </div>
               )}
+
+              {currentUser && tournament.status !== 'completed' && tournament.status !== 'cancelled' ? (
+                <Button variant="ghost" size="sm" className="mt-3 w-full gap-2 text-muted-foreground" asChild>
+                  <Link href={`/messages/support/new?tournament=${tournament.id}`}>
+                    <LifeBuoy className="h-4 w-4" aria-hidden />
+                    Turnir supportiga savol berish
+                  </Link>
+                </Button>
+              ) : null}
 
               <Separator className="my-6" />
 
@@ -506,3 +634,4 @@ export default function TournamentClient({
     </div>
   )
 }
+

@@ -9,7 +9,7 @@ const footerLinks = {
   platforma: [
     { label: 'Turnirlar', href: '/feed' },
     { label: 'Reyting', href: '/rankings' },
-    { label: 'Natijalar', href: '/results' },
+    { label: 'Musobaqa', href: '/results' },
   ],
   akkaunt: [
     { label: 'Kirish', href: '/login' },
@@ -19,7 +19,7 @@ const footerLinks = {
   tashkilotlar: [
     { label: 'Ariza yuborish', href: '/organizations/apply' },
     { label: 'Tashkilot paneli', href: '/dashboard' },
-    { label: 'Kanallar', href: '/messages' },
+    { label: 'Xabarlar', href: '/messages' },
   ],
   huquqiy: [
     { label: 'Maxfiylik siyosati', href: '/privacy' },

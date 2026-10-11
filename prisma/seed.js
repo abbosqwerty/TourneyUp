@@ -32,9 +32,20 @@ async function main() {
   await prisma.channelPost.deleteMany()
   await prisma.channelMember.deleteMany()
   await prisma.channel.deleteMany()
+  await prisma.supportMessage.deleteMany()
+  await prisma.supportTicket.deleteMany()
+  await prisma.pointAuditLog.deleteMany()
+  await prisma.pointAward.deleteMany()
+  await prisma.matchResultRevision.deleteMany()
+  await prisma.match.deleteMany()
+  await prisma.competitionGroup.deleteMany()
+  await prisma.participantRosterMember.deleteMany()
   await prisma.tournamentStaff.deleteMany()
   await prisma.savedTournament.deleteMany()
   await prisma.participant.deleteMany()
+  await prisma.teamInvite.deleteMany()
+  await prisma.teamMember.deleteMany()
+  await prisma.team.deleteMany()
   await prisma.organizationApplication.deleteMany()
   await prisma.tournament.deleteMany()
   await prisma.organization.deleteMany()
@@ -56,8 +67,8 @@ async function main() {
       bio: 'Competitive gamer and table tennis champion. TUIT computer science student pursuing my passion for sports and esports.',
       university: 'Tashkent University of Information Technologies',
       location: 'Tashkent, Uzbekistan',
-      globalRank: 42,
-      totalPoints: 8750,
+      globalRank: 0,
+      totalPoints: 0,
       joinedDate: '2024-06-15'
     },
     {
@@ -68,8 +79,8 @@ async function main() {
       bio: 'Chess Candidate Master and competitive Valorant player. National chess tournament winner.',
       university: 'Tashkent State University of Economics',
       location: 'Samarkand, Uzbekistan',
-      globalRank: 1,
-      totalPoints: 15200,
+      globalRank: 0,
+      totalPoints: 0,
       joinedDate: '2023-09-01'
     },
     {
@@ -80,8 +91,8 @@ async function main() {
       bio: 'WIUT basketball team point guard. Intramural league MVP and streamer on the side.',
       university: 'Westminster International University in Tashkent',
       location: 'Tashkent, Uzbekistan',
-      globalRank: 2,
-      totalPoints: 14100,
+      globalRank: 0,
+      totalPoints: 0,
       joinedDate: '2024-02-15'
     },
     {
@@ -92,8 +103,8 @@ async function main() {
       bio: 'National table tennis record holder. Sports analytics student building training apps.',
       university: 'National University of Uzbekistan',
       location: 'Tashkent, Uzbekistan',
-      globalRank: 3,
-      totalPoints: 13600,
+      globalRank: 0,
+      totalPoints: 0,
       joinedDate: '2024-05-10'
     },
     {
@@ -104,8 +115,8 @@ async function main() {
       bio: 'Inha CS major, Valorant Radiant tier player. Fighting game community veteran.',
       university: 'Inha University in Tashkent',
       location: 'Tashkent, Uzbekistan',
-      globalRank: 4,
-      totalPoints: 12900,
+      globalRank: 0,
+      totalPoints: 0,
       joinedDate: '2023-11-20'
     },
     {
@@ -116,8 +127,8 @@ async function main() {
       bio: 'Competitive swimmer, academic quizbowl captain, and fitness enthusiast.',
       university: 'Tashkent State Technical University',
       location: 'Fergana, Uzbekistan',
-      globalRank: 5,
-      totalPoints: 12400,
+      globalRank: 0,
+      totalPoints: 0,
       joinedDate: '2024-08-01'
     },
     {
@@ -128,8 +139,8 @@ async function main() {
       bio: 'Amity student, Rocket League Grand Champion. Mobile gaming coordinator.',
       university: 'Amity University in Tashkent',
       location: 'Tashkent, Uzbekistan',
-      globalRank: 6,
-      totalPoints: 11800,
+      globalRank: 0,
+      totalPoints: 0,
       joinedDate: '2024-10-12'
     }
   ]
@@ -243,25 +254,9 @@ async function main() {
     ]
   })
 
-  console.log('Creating sport ranks...')
-
-  await prisma.sportRank.createMany({
-    data: [
-      { sport: 'Valorant', rank: 23, points: 3200, tier: 'diamond', userId: 'user1' },
-      { sport: 'Basketball', rank: 45, points: 2800, tier: 'platinum', userId: 'user1' },
-      { sport: 'Chess', rank: 120, points: 1650, tier: 'gold', userId: 'user1' },
-      { sport: 'Table Tennis', rank: 4, points: 4200, tier: 'diamond', userId: 'user1' },
-      { sport: 'Chess', rank: 1, points: 6500, tier: 'champion', userId: 'user10' },
-      { sport: 'Valorant', rank: 12, points: 4800, tier: 'champion', userId: 'user10' },
-      { sport: 'Basketball', rank: 1, points: 7200, tier: 'champion', userId: 'user11' },
-      { sport: 'Valorant', rank: 35, points: 2900, tier: 'diamond', userId: 'user11' },
-      { sport: 'Table Tennis', rank: 2, points: 6100, tier: 'champion', userId: 'user12' },
-      { sport: 'Swimming', rank: 15, points: 3400, tier: 'platinum', userId: 'user12' },
-      { sport: 'Valorant', rank: 5, points: 5500, tier: 'champion', userId: 'user13' },
-      { sport: 'Swimming', rank: 3, points: 5800, tier: 'champion', userId: 'user14' },
-      { sport: 'Rocket League', rank: 2, points: 6200, tier: 'champion', userId: 'user15' },
-    ]
-  })
+  // Tourney Points, global rank and per-game ranks are never seeded: they are
+  // computed from finished tournaments (lib/points). Start a tournament from
+  // the organizer dashboard and confirm its results to see them fill up.
 
   console.log('Creating tournaments...')
 
@@ -424,9 +419,22 @@ async function main() {
     }
   ]
 
+  // One of each competition format, so every competition view can be tried
+  // by starting the tournament from the organizer dashboard.
+  const formatById = {
+    1: { format: 'GROUPS_KNOCKOUT', formatConfigJson: JSON.stringify({ advancePerGroup: 2 }) },
+    2: { format: 'SWISS', formatConfigJson: JSON.stringify({ winPoints: 3, drawPoints: 1 }) },
+    3: { format: 'SWISS', formatConfigJson: JSON.stringify({ winPoints: 1, drawPoints: 0.5, lossPoints: 0 }) },
+    4: { format: 'DOUBLE_ELIMINATION', formatConfigJson: JSON.stringify({ grandFinalReset: true }) },
+    5: { format: 'SINGLE_ELIMINATION', formatConfigJson: JSON.stringify({ thirdPlaceMatch: true }) },
+    6: { format: 'ROUND_ROBIN', formatConfigJson: JSON.stringify({}) },
+    7: { format: 'SINGLE_ELIMINATION', formatConfigJson: JSON.stringify({}) },
+    8: { format: 'ROUND_ROBIN', formatConfigJson: JSON.stringify({}) },
+  }
+
   for (const t of tournaments) {
     const created = await prisma.tournament.create({
-      data: { ...t, organizationId: orgByOwner[t.organizerId] ?? null },
+      data: { ...t, ...(formatById[t.id] ?? {}), organizationId: orgByOwner[t.organizerId] ?? null },
     })
 
     // Each tournament is also a channel (Telegram group feel).
@@ -487,64 +495,8 @@ async function main() {
     await prisma.participant.create({ data: p })
   }
 
-  console.log('Creating matches from approved participants...')
-
-  // Real fixtures: pair up approved registrations of the same tournament.
-  // `homeUserId`/`awayUserId`/`winnerUserId` mirror what recordMatchResult
-  // writes at runtime, so profiles and the leaderboard read correct numbers.
-  const approved = await prisma.participant.findMany({
-    where: { status: 'approved' },
-    select: { id: true, name: true, teamName: true, userId: true, tournamentId: true },
-    orderBy: { id: 'asc' },
-  })
-
-  const byTournament = new Map()
-  for (const row of approved) {
-    const list = byTournament.get(row.tournamentId) ?? []
-    list.push(row)
-    byTournament.set(row.tournamentId, list)
-  }
-
-  const label = (row) => row.teamName || row.name
-  const stages = ['Guruh bosqichi', 'Chorak final', 'Yarim final', 'Final']
-  let fixtureIndex = 0
-
-  for (const [tournamentId, rows] of byTournament) {
-    for (let i = 0; i + 1 < rows.length; i += 2) {
-      const home = rows[i]
-      const away = rows[i + 1]
-
-      // Every third fixture stays unplayed so the schedule tab is not empty.
-      const played = fixtureIndex % 3 !== 2
-      const homeScore = played ? 2 + (fixtureIndex % 3) : null
-      const awayScore = played ? 1 + ((fixtureIndex + 1) % 3) : null
-
-      let winnerUserId = null
-      if (played && homeScore !== awayScore) {
-        winnerUserId = homeScore > awayScore ? home.userId : away.userId
-      }
-
-      await prisma.match.create({
-        data: {
-          tournamentId,
-          stage: stages[fixtureIndex % stages.length],
-          status: played ? 'completed' : fixtureIndex % 5 === 0 ? 'live' : 'scheduled',
-          scheduledAt: new Date(Date.UTC(2026, 3, 10 + fixtureIndex, 14, 0)),
-          homeParticipantId: home.id,
-          awayParticipantId: away.id,
-          homeLabel: label(home),
-          awayLabel: label(away),
-          homeUserId: home.userId,
-          awayUserId: away.userId,
-          homeScore,
-          awayScore,
-          winnerUserId,
-        },
-      })
-
-      fixtureIndex += 1
-    }
-  }
+  // No hand-made fixtures: matches are created by the format engine when an
+  // organizer moves a tournament to "ongoing" (lib/competition).
 
   console.log('Creating saved tournaments...')
 

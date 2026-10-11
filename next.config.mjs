@@ -19,6 +19,8 @@ const securityHeaders = [
 ]
 
 const nextConfig = {
+  // Self-contained server bundle (server.js + traced node_modules) for Node hosting.
+  output: 'standalone',
   // A stray lockfile in $HOME otherwise wins workspace-root inference.
   turbopack: { root: import.meta.dirname },
   outputFileTracingRoot: import.meta.dirname,

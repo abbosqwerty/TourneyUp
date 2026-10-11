@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { countUnreadNotifications } from '@/lib/notifications'
+import { listTicketsForRequester } from '@/lib/support'
 import { Navbar } from '@/components/navbar'
 import { MobileNav } from '@/components/mobile-nav'
 import { AuthModalProvider } from '@/components/auth-modal'
@@ -24,10 +25,11 @@ export default async function MainLayout({ children }: { children: React.ReactNo
       })
 
       // One OR'd count instead of a query per membership.
-      const [posts, staff, notifications] = await Promise.all([
+      const [posts, tickets, staff, notifications] = await Promise.all([
         memberships.length
           ? db.channelPost.count({
               where: {
+                authorId: { not: user.id },
                 OR: memberships.map((membership) => ({
                   channelId: membership.channelId,
                   ...(membership.lastReadAt ? { createdAt: { gt: membership.lastReadAt } } : {}),
@@ -35,6 +37,8 @@ export default async function MainLayout({ children }: { children: React.ReactNo
               },
             })
           : Promise.resolve(0),
+        // Support replies the requester has not opened yet.
+        listTicketsForRequester(user.id).then((list) => list.filter((t) => t.unread).length),
         db.tournamentStaff.count({
           where: {
             userId: user.id,
@@ -45,7 +49,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         countUnreadNotifications(user.id),
       ])
 
-      unreadCount = posts
+      unreadCount = posts + tickets
       staffAssignmentCount = staff
       notificationCount = notifications
     } catch (error) {

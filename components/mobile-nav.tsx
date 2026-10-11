@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Activity, BarChart3, Home, MessageSquare, Plus, Trophy, User, Users } from 'lucide-react'
+import { Activity, BarChart3, Home, MessageSquare, Plus, Shirt, Trophy, User, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface MobileNavProps {
@@ -19,10 +19,11 @@ export function MobileNav({ role = null, unreadCount = 0, staffAssignmentCount =
 
   const navItems = [
     { href: '/feed', label: 'Lenta', icon: Home, show: true },
-    { href: '/results', label: 'Natija', icon: Activity, show: true, hasLiveDot: true },
+    { href: '/results', label: 'Musobaqa', icon: Activity, show: true, hasLiveDot: true },
     { href: '/create', label: 'Yaratish', icon: Plus, show: isOrganization, isAction: true },
     { href: '/rankings', label: 'Reyting', icon: BarChart3, show: !isOrganization },
-    { href: '/messages', label: 'Kanallar', icon: MessageSquare, show: Boolean(role), badge: unreadCount },
+    { href: '/teams', label: 'Jamoa', icon: Shirt, show: role === 'USER' },
+    { href: '/messages', label: 'Xabarlar', icon: MessageSquare, show: Boolean(role), badge: unreadCount },
     { href: '/staff', label: 'Rolim', icon: Users, show: staffAssignmentCount > 0 },
     { href: '/dashboard', label: 'Panel', icon: Trophy, show: isOrganization },
     { href: '/profile', label: 'Profil', icon: User, show: Boolean(role) },

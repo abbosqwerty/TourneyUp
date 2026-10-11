@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { tournamentPoster } from '@/lib/media'
-import { listActiveStories } from '@/lib/stories'
 import {
   FEED_PAGE_SIZE,
   buildTournamentWhere,
@@ -10,7 +9,6 @@ import {
   type TournamentFilters,
 } from '@/lib/tournament-filters'
 import type { Tournament, TournamentCategory, TournamentStatusValue } from '@/lib/types'
-import { StoriesBar } from '@/components/stories/stories-bar'
 import { DbErrorCard } from '@/components/db-error-card'
 import FeedClient from './feed-client'
 
@@ -40,12 +38,6 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
 
   return (
     <div>
-      {data.storyGroups.length > 0 ? (
-        <div className="container mx-auto max-w-7xl px-4 pt-6">
-          <StoriesBar groups={data.storyGroups} />
-        </div>
-      ) : null}
-
       <FeedClient
         filters={filters}
         tournaments={data.tournaments}
@@ -70,26 +62,32 @@ async function load(userId: string | null, filters: TournamentFilters) {
 
   // Filtering and paging both happen in SQL: the browser never receives more
   // than one page, and `_count` replaces a count query per tournament.
-  const [rows, totalCount, highlightRows, savedRows, storyGroups] = await Promise.all([
+  const [rows, totalCount, highlightRows, savedRows] = await Promise.all([
     db.tournament.findMany({
       where,
       include: cardInclude,
-      orderBy: [{ featured: 'desc' }, { date: 'asc' }],
+      orderBy: { date: 'asc' },
       take: FEED_PAGE_SIZE,
       skip: (filters.page - 1) * FEED_PAGE_SIZE,
     }),
     db.tournament.count({ where }),
-    // Highlights are a separate, always-unfiltered strip of 10.
     db.tournament.findMany({
       where: { status: { in: ['ongoing', 'registration_open'] } },
-      include: cardInclude,
+      include: {
+        ...cardInclude,
+        stories: {
+          where: { expiresAt: { gt: new Date() } },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { mediaId: true, media: { select: { mimeType: true } } },
+        },
+      },
       orderBy: [{ featured: 'desc' }, { date: 'asc' }],
       take: 10,
     }),
     userId
       ? db.savedTournament.findMany({ where: { userId }, select: { tournamentId: true } })
       : Promise.resolve([]),
-    listActiveStories(userId),
   ])
 
   const tournaments: Tournament[] = rows.map((t) => ({
@@ -104,6 +102,7 @@ async function load(userId: string | null, filters: TournamentFilters) {
     participants: t._count.participants,
     maxParticipants: t.maxParticipants,
     posterUrl: tournamentPoster(t) ?? '',
+    galleryUrls: parseGalleryUrls(t.galleryMediaIdsJson),
     organizer: {
       id: t.organizer.id,
       name: t.organization?.name ?? t.organizer.name,
@@ -117,17 +116,12 @@ async function load(userId: string | null, filters: TournamentFilters) {
   }))
 
   const highlights = highlightRows.map((t) => {
+    const promo = t.stories[0]
     const type: 'live' | 'upcoming' | 'featured' | 'registration' =
-      t.status === 'ongoing'
-        ? 'live'
-        : t.status === 'registration_open'
-          ? 'registration'
-          : t.featured
-            ? 'featured'
-            : 'upcoming'
+      t.status === 'ongoing' ? 'live' : t.featured ? 'featured' : 'registration'
 
     return {
-      id: t.id,
+      id: promo?.mediaId ?? t.id,
       title: t.title,
       sport: t.sport,
       category: t.category,
@@ -142,7 +136,8 @@ async function load(userId: string | null, filters: TournamentFilters) {
       organizerName: t.organization?.name ?? t.organizer.name,
       organizerAvatar: t.organizer.avatar,
       description: t.description,
-      image: tournamentPoster(t) ?? '',
+      image: promo ? `/api/media/${promo.mediaId}` : tournamentPoster(t) ?? '',
+      mediaType: promo?.media.mimeType ?? 'image/*',
       tournamentId: t.id,
       type,
     }
@@ -153,9 +148,14 @@ async function load(userId: string | null, filters: TournamentFilters) {
     highlights,
     totalCount,
     savedIds: savedRows.map((row) => row.tournamentId),
-    storyGroups: storyGroups.map((group) => ({
-      ...group,
-      stories: group.stories.map((story) => ({ ...story, createdAt: story.createdAt.toISOString() })),
-    })),
+  }
+}
+
+function parseGalleryUrls(value: string | null) {
+  try {
+    const ids = JSON.parse(value ?? '[]')
+    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string').map((id) => `/api/media/${id}`) : []
+  } catch {
+    return []
   }
 }

@@ -48,3 +48,31 @@ export const TOURNAMENT_STATUS_LABELS: Record<TournamentStatusValue, string> = {
   completed: 'Yakunlangan',
   cancelled: 'Bekor qilingan',
 }
+
+/**
+ * Games a tournament or a team can be for. Stored by name ("Football") —
+ * the same value the feed filter, team registration and the leaderboard's
+ * game filter compare against.
+ */
+export const SPORT_NAMES = [
+  'Football',
+  'Basketball',
+  'Volleyball',
+  'Tennis',
+  'Table Tennis',
+  'Badminton',
+  'Swimming',
+  'Running',
+  'Chess',
+  'Valorant',
+  'PUBG Mobile',
+  'Rocket League',
+  'League of Legends',
+  'Other',
+] as const
+
+export const CATEGORY_LABELS: Record<string, string> = {
+  sports: 'Sport',
+  esports: 'Kibersport',
+  academic: 'Akademik',
+}

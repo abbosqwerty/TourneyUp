@@ -1,11 +1,17 @@
 export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024 // 4 MB
+export const MAX_STORY_VIDEO_BYTES = 25 * 1024 * 1024 // 25 MB
 
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const
+export const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm'] as const
 
 export type AllowedImageType = (typeof ALLOWED_IMAGE_TYPES)[number]
 
 export function isAllowedImageType(value: string): value is AllowedImageType {
   return (ALLOWED_IMAGE_TYPES as readonly string[]).includes(value)
+}
+
+export function isAllowedVideoType(value: string): value is (typeof ALLOWED_VIDEO_TYPES)[number] {
+  return (ALLOWED_VIDEO_TYPES as readonly string[]).includes(value)
 }
 
 /** Public URL of a stored asset. Images live in the database, not on S3. */

@@ -5,7 +5,7 @@ datasource db {
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 // ============================================================
@@ -56,6 +56,56 @@ enum MatchStatus {
   cancelled
 }
 
+enum TournamentFormat {
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+  ROUND_ROBIN
+  GROUPS_KNOCKOUT
+  SWISS
+  /// Everyone competes at once (races, battle royale); ranked by points or time.
+  LEADERBOARD
+}
+
+/// Who a registration represents.
+enum ParticipantType {
+  INDIVIDUAL
+  TEAM
+}
+
+/// Which part of a competition a match belongs to. `MANUAL` marks fixtures
+/// created by hand before the format engine existed — the engine ignores them.
+enum BracketType {
+  MAIN
+  WINNERS
+  LOSERS
+  GRAND_FINAL
+  THIRD_PLACE
+  GROUP
+  SWISS
+  MANUAL
+}
+
+enum MatchSlot {
+  HOME
+  AWAY
+}
+
+/// How a match was decided. A BYE is never "played"; on a FORFEIT only the
+/// winner counts as having taken part.
+enum MatchResultType {
+  NORMAL
+  FORFEIT
+  BYE
+}
+
+/// Why a tournament's Tourney Points changed.
+enum PointChangeReason {
+  FINALIZED
+  RESULT_CORRECTED
+  TOURNAMENT_CANCELLED
+  RECALCULATED
+}
+
 /// What produced a notification — drives the icon and the link.
 enum NotificationType {
   PARTICIPANT_APPROVED
@@ -64,11 +114,61 @@ enum NotificationType {
   TOURNAMENT_STATUS
   STAFF_ASSIGNED
   CHANNEL_POST
+  TEAM_INVITE
+  TEAM_MEMBERSHIP
+  TEAM_REGISTERED
+  SUPPORT_REPLY
+  POINTS_AWARDED
 }
 
 enum ChannelType {
   ORGANIZATION
   TOURNAMENT
+  TEAM
+}
+
+/// How a post is presented: official announcement, ordinary message, or a
+/// line written by the system (membership changes, results).
+enum PostKind {
+  ANNOUNCEMENT
+  MESSAGE
+  SYSTEM
+}
+
+enum TeamRole {
+  OWNER
+  CAPTAIN
+  MEMBER
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REVOKED
+  EXPIRED
+}
+
+/// PLATFORM = TourneyUp's own support (super admins). TOURNAMENT = the
+/// support staff of one tournament, for as long as that tournament runs.
+enum SupportScope {
+  PLATFORM
+  TOURNAMENT
+}
+
+enum SupportCategory {
+  TECHNICAL
+  TOURNAMENT_ISSUE
+  REPORT_BEHAVIOR
+  ACCOUNT
+  OTHER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
 }
 
 /// Channels are broadcast-style (Telegram channel / group), not DM threads.
@@ -83,45 +183,56 @@ enum ChannelMemberRole {
 // ============================================================
 
 model User {
-  id           String    @id @default(cuid())
-  name         String
-  username     String    @unique
-  email        String?   @unique
-  passwordHash String?
-  role         UserRole  @default(USER)
-  verified     Boolean   @default(false)
-  avatar       String    @default("/placeholder-user.jpg")
-  bio          String    @db.Text
-  university   String?
-  location     String    @default("")
-  globalRank   Int       @default(0)
-  totalPoints  Int       @default(0)
-  joinedDate   String
-  mustChangePassword Boolean @default(false)
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
+  id                 String    @id @default(cuid())
+  name               String
+  username           String    @unique
+  email              String?   @unique
+  passwordHash       String?
+  role               UserRole  @default(USER)
+  verified           Boolean   @default(false)
+  avatar             String    @default("/placeholder-user.jpg")
+  bio                String    @db.Text
+  university         String?
+  location           String    @default("")
+  globalRank         Int       @default(0)
+  totalPoints        Int       @default(0)
+  joinedDate         String
+  mustChangePassword Boolean   @default(false)
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
 
   // Relations
-  achievements      Achievement[]
-  sportRanks        SportRank[]
-  homeMatches       Match[]                   @relation("MatchHomeUser")
-  awayMatches       Match[]                   @relation("MatchAwayUser")
-  wonMatches        Match[]                   @relation("MatchWinner")
-  recordedMatches   Match[]                   @relation("MatchRecorder")
-  tournaments       Tournament[]              @relation("OrganizedTournaments")
-  participants      Participant[]
-  saves             SavedTournament[]
-  ownedOrganization Organization?             @relation("OrganizationOwner")
-  staffAssignments  TournamentStaff[]         @relation("StaffUser")
-  grantedStaff      TournamentStaff[]         @relation("StaffGrantedBy")
-  reviewedApps      OrganizationApplication[] @relation("ApplicationReviewer")
-  uploads           MediaAsset[]
+  achievements       Achievement[]
+  sportRanks         SportRank[]
+  homeMatches        Match[]                   @relation("MatchHomeUser")
+  awayMatches        Match[]                   @relation("MatchAwayUser")
+  wonMatches         Match[]                   @relation("MatchWinner")
+  recordedMatches    Match[]                   @relation("MatchRecorder")
+  resultRevisions    MatchResultRevision[]     @relation("ResultRevisionActor")
+  pointAwards        PointAward[]
+  pointAudits        PointAuditLog[]           @relation("PointAuditSubject")
+  pointAuditActions  PointAuditLog[]           @relation("PointAuditActor")
+  ownedTeams         Team[]                    @relation("TeamOwner")
+  teamMemberships    TeamMember[]
+  teamInvites        TeamInvite[]              @relation("TeamInvitee")
+  sentTeamInvites    TeamInvite[]              @relation("TeamInviter")
+  rosterEntries      ParticipantRosterMember[]
+  supportTickets     SupportTicket[]           @relation("SupportRequester")
+  supportMessages    SupportMessage[]
+  tournaments        Tournament[]              @relation("OrganizedTournaments")
+  participants       Participant[]
+  saves              SavedTournament[]
+  ownedOrganization  Organization?             @relation("OrganizationOwner")
+  staffAssignments   TournamentStaff[]         @relation("StaffUser")
+  grantedStaff       TournamentStaff[]         @relation("StaffGrantedBy")
+  reviewedApps       OrganizationApplication[] @relation("ApplicationReviewer")
+  uploads            MediaAsset[]
   channelMemberships ChannelMember[]
-  channelPosts      ChannelPost[]
-  stories           Story[]
-  storyViews        StoryView[]
-  sessions          Session[]
-  notifications     Notification[]
+  channelPosts       ChannelPost[]
+  stories            Story[]
+  storyViews         StoryView[]
+  sessions           Session[]
+  notifications      Notification[]
 }
 
 model Session {
@@ -205,6 +316,7 @@ model MediaAsset {
 
   tournamentPosters Tournament[]   @relation("TournamentPoster")
   organizationLogos Organization[] @relation("OrganizationLogo")
+  teamLogos         Team[]         @relation("TeamLogo")
   stories           Story[]
   channelPosts      ChannelPost[]
 }
@@ -214,39 +326,59 @@ model MediaAsset {
 // ============================================================
 
 model Tournament {
-  id               String           @id @default(cuid())
-  title            String
-  sport            String
-  category         String // sports, esports, academic
-  location         String
-  date             String
-  endDate          String?
-  time             String
-  maxParticipants  Int
-  posterUrl        String           @default("")
-  posterMediaId    String?
-  posterMedia      MediaAsset?      @relation("TournamentPoster", fields: [posterMediaId], references: [id], onDelete: SetNull)
-  organizerId      String
-  organizer        User             @relation("OrganizedTournaments", fields: [organizerId], references: [id], onDelete: Cascade)
-  organizationId   String?
-  organization     Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  description      String           @db.Text
-  rulesJson        String           @db.Text // JSON list
-  requirementsJson String           @db.Text // JSON list
-  prizePool        String?
-  entryFee         String?
-  status           TournamentStatus @default(registration_open)
-  featured         Boolean          @default(false)
-  closedAt         DateTime?
-  createdAt        DateTime         @default(now())
+  id                  String           @id @default(cuid())
+  title               String
+  sport               String
+  category            String // sports, esports, academic
+  location            String
+  date                String
+  endDate             String?
+  time                String
+  maxParticipants     Int
+  posterUrl           String           @default("")
+  posterMediaId       String?
+  posterMedia         MediaAsset?      @relation("TournamentPoster", fields: [posterMediaId], references: [id], onDelete: SetNull)
+  galleryMediaIdsJson String?          @db.Text
+  organizerId         String
+  organizer           User             @relation("OrganizedTournaments", fields: [organizerId], references: [id], onDelete: Cascade)
+  organizationId      String?
+  organization        Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  description         String           @db.Text
+  rulesJson           String           @db.Text // JSON list
+  requirementsJson    String           @db.Text // JSON list
+  prizePool           String?
+  entryFee            String?
+  status              TournamentStatus @default(registration_open)
+  featured            Boolean          @default(false)
+  closedAt            DateTime?
+  createdAt           DateTime         @default(now())
+
+  /// Competition format — fixed once the draw exists.
+  format             TournamentFormat @default(SINGLE_ELIMINATION)
+  participantType    ParticipantType  @default(INDIVIDUAL)
+  teamSize           Int?
+  teamSizeMax        Int?
+  /// Format options (groups, swiss rounds, third-place match, standings points).
+  formatConfigJson   String?          @db.Text
+  /// Set in the same transaction that writes the draw — the idempotency guard.
+  drawGeneratedAt    DateTime?
+  /// Official completion time: the moment the last result was finalized.
+  /// Tourney Points are dated by this, not by `closedAt`.
+  resultsFinalizedAt DateTime?
 
   // Relations
-  participants Participant[]
-  matches      Match[]
-  saves        SavedTournament[]
-  staff        TournamentStaff[]
-  channel      Channel?          @relation("TournamentChannel")
-  stories      Story[]
+  participants    Participant[]
+  matches         Match[]
+  groups          CompetitionGroup[]
+  leaderboard     LeaderboardEntry[]
+  resultRevisions MatchResultRevision[]
+  pointAwards     PointAward[]
+  pointAudits     PointAuditLog[]
+  supportTickets  SupportTicket[]
+  saves           SavedTournament[]
+  staff           TournamentStaff[]
+  channel         Channel?              @relation("TournamentChannel")
+  stories         Story[]
 
   @@index([status])
   @@index([organizationId])
@@ -283,11 +415,21 @@ model Participant {
   tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   userId        String?
   user          User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// Optional manual seed (1 = strongest). Unseeded entrants are drawn at random.
+  seed          Int?
 
-  homeMatches Match[] @relation("MatchHomeSide")
-  awayMatches Match[] @relation("MatchAwaySide")
+  homeMatches Match[]                   @relation("MatchHomeSide")
+  awayMatches Match[]                   @relation("MatchAwaySide")
+  wonMatches  Match[]                   @relation("MatchWinnerSide")
+  pointAwards PointAward[]
+  leaderboard LeaderboardEntry[]
+  /// Set for team registrations.
+  teamId      String?
+  team        Team?                     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  roster      ParticipantRosterMember[]
 
   @@unique([tournamentId, userId])
+  @@unique([tournamentId, teamId])
   @@index([tournamentId, status])
 }
 
@@ -316,6 +458,8 @@ model Channel {
   organization   Organization? @relation("OrganizationChannel", fields: [organizationId], references: [id], onDelete: Cascade)
   tournamentId   String?       @unique
   tournament     Tournament?   @relation("TournamentChannel", fields: [tournamentId], references: [id], onDelete: Cascade)
+  teamId         String?       @unique
+  team           Team?         @relation("TeamChannel", fields: [teamId], references: [id], onDelete: Cascade)
 
   archived  Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -325,14 +469,14 @@ model Channel {
 }
 
 model ChannelMember {
-  id        String            @id @default(cuid())
-  channelId String
-  channel   Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      ChannelMemberRole @default(SUBSCRIBER)
+  id         String            @id @default(cuid())
+  channelId  String
+  channel    Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       ChannelMemberRole @default(SUBSCRIBER)
   lastReadAt DateTime?
-  joinedAt  DateTime          @default(now())
+  joinedAt   DateTime          @default(now())
 
   @@unique([channelId, userId])
   @@index([userId])
@@ -348,6 +492,7 @@ model ChannelPost {
   mediaId   String?
   media     MediaAsset? @relation(fields: [mediaId], references: [id], onDelete: SetNull)
   pinned    Boolean     @default(false)
+  kind      PostKind    @default(MESSAGE)
   createdAt DateTime    @default(now())
 
   @@index([channelId, createdAt])
@@ -412,13 +557,15 @@ model SportRank {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-/// A real fixture between two registered sides.
+/// A fixture between two sides.
+///
+/// Matches are written by the format engine (`lib/competition`). Each one
+/// knows where its winner (and, in double elimination, its loser) goes next;
+/// the engine re-derives every slot from finalized results, which is what
+/// makes progression idempotent.
 ///
 /// `homeUserId` / `awayUserId` / `winnerUserId` are denormalised copies of the
-/// participants' user ids. They exist so a profile can list "my matches" and
-/// the leaderboard can count wins with a single `_count` — without them both
-/// would need a join through `Participant` that Prisma cannot express in an
-/// aggregate.
+/// participants' user ids so a profile can list "my matches" without a join.
 model Match {
   id           String      @id @default(cuid())
   tournamentId String
@@ -426,6 +573,21 @@ model Match {
   stage        String      @default("")
   status       MatchStatus @default(scheduled)
   scheduledAt  DateTime?
+
+  bracket  BracketType       @default(MAIN)
+  round    Int               @default(1)
+  position Int               @default(0)
+  groupId  String?
+  group    CompetitionGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  nextMatchId      String?
+  nextMatch        Match?     @relation("MatchNext", fields: [nextMatchId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  nextSlot         MatchSlot?
+  feeders          Match[]    @relation("MatchNext")
+  loserNextMatchId String?
+  loserNextMatch   Match?     @relation("MatchLoserNext", fields: [loserNextMatchId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  loserNextSlot    MatchSlot?
+  loserFeeders     Match[]    @relation("MatchLoserNext")
 
   homeParticipantId String?
   homeParticipant   Participant? @relation("MatchHomeSide", fields: [homeParticipantId], references: [id], onDelete: SetNull)
@@ -444,9 +606,19 @@ model Match {
   homeScore Int?
   awayScore Int?
 
+  isBye      Boolean         @default(false)
+  resultType MatchResultType @default(NORMAL)
+
+  /// The winning side. Null for a draw, an unplayed or a cancelled match.
+  winnerParticipantId String?
+  winnerParticipant   Participant? @relation("MatchWinnerSide", fields: [winnerParticipantId], references: [id], onDelete: SetNull)
   /// Null for a draw, a cancelled match, or a side with no linked account.
-  winnerUserId String?
-  winnerUser   User?   @relation("MatchWinner", fields: [winnerUserId], references: [id], onDelete: SetNull)
+  winnerUserId        String?
+  winnerUser          User?        @relation("MatchWinner", fields: [winnerUserId], references: [id], onDelete: SetNull)
+
+  /// When the official result was confirmed. Only finalized matches drive
+  /// progression, standings and points.
+  finalizedAt DateTime?
 
   notes        String?  @db.Text
   recordedById String?
@@ -454,11 +626,247 @@ model Match {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  revisions MatchResultRevision[]
+
+  @@unique([tournamentId, bracket, round, position])
   @@index([tournamentId, status])
   @@index([homeUserId])
   @@index([awayUserId])
   @@index([winnerUserId])
   @@index([status, scheduledAt])
+}
+
+/// One group of a Groups + Knockout tournament.
+model CompetitionGroup {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name         String
+  order        Int
+
+  matches Match[]
+
+  @@unique([tournamentId, order])
+}
+
+/// One entrant's result in one round of a LEADERBOARD tournament. Rows are
+/// written at the draw (status `pending`) and filled in by staff.
+model LeaderboardEntry {
+  id            String      @id @default(cuid())
+  tournamentId  String
+  tournament    Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  round         Int
+  /// Points (higher is better) or time in milliseconds (lower is better).
+  value         Int?
+  /// pending | done | dnf (did not finish / did not start)
+  status        String      @default("pending")
+  recordedById  String?
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([tournamentId, participantId, round])
+  @@index([tournamentId, round])
+}
+
+/// Audit trail of every change to an already-finalized result.
+model MatchResultRevision {
+  id           String     @id @default(cuid())
+  matchId      String
+  match        Match      @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  actorId      String?
+  actor        User?      @relation("ResultRevisionActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  previousHomeScore  Int?
+  previousAwayScore  Int?
+  previousWinnerId   String?
+  previousResultType MatchResultType
+  newHomeScore       Int?
+  newAwayScore       Int?
+  newWinnerId        String?
+  newResultType      MatchResultType
+  reason             String          @db.Text
+  createdAt          DateTime        @default(now())
+
+  @@index([matchId])
+  @@index([tournamentId, createdAt])
+}
+
+// ============================================================
+// Teams
+// ============================================================
+
+/// A user-managed team. Disbanding sets `disbandedAt`; nothing is deleted, so
+/// past registrations, results and points keep pointing at it.
+model Team {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  sport       String
+  category    String // sports, esports, academic
+  description String?     @db.Text
+  logoMediaId String?
+  logoMedia   MediaAsset? @relation("TeamLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
+  ownerId     String
+  owner       User        @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  disbandedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  members       TeamMember[]
+  invites       TeamInvite[]
+  registrations Participant[]
+  channel       Channel?      @relation("TeamChannel")
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
+}
+
+/// Membership history. `leftAt == null` means a current member.
+model TeamMember {
+  id       String    @id @default(cuid())
+  teamId   String
+  team     Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     TeamRole  @default(MEMBER)
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+
+  @@unique([teamId, userId])
+  @@index([userId, leftAt])
+}
+
+model TeamInvite {
+  id            String       @id @default(cuid())
+  teamId        String
+  team          Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitedUserId String
+  invitedUser   User         @relation("TeamInvitee", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  invitedById   String?
+  invitedBy     User?        @relation("TeamInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  status        InviteStatus @default(PENDING)
+  expiresAt     DateTime
+  respondedAt   DateTime?
+  createdAt     DateTime     @default(now())
+
+  @@index([invitedUserId, status])
+  @@index([teamId, status])
+}
+
+/// The players a team registered with — frozen when the draw is made. Points
+/// and history read this, so later roster changes never rewrite the past.
+model ParticipantRosterMember {
+  id            String      @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Copied for the uniqueness rule "one player, one team per tournament".
+  tournamentId  String
+
+  @@unique([participantId, userId])
+  @@unique([tournamentId, userId])
+}
+
+// ============================================================
+// Support
+// ============================================================
+
+model SupportTicket {
+  id              String          @id @default(cuid())
+  userId          String
+  user            User            @relation("SupportRequester", fields: [userId], references: [id], onDelete: Cascade)
+  scope           SupportScope
+  tournamentId    String?
+  tournament      Tournament?     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  subject         String
+  category        SupportCategory
+  status          TicketStatus    @default(OPEN)
+  userLastReadAt  DateTime?
+  staffLastReadAt DateTime?
+  lastMessageAt   DateTime        @default(now())
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  messages SupportMessage[]
+
+  @@index([userId, lastMessageAt])
+  @@index([scope, status, lastMessageAt])
+  @@index([tournamentId, status])
+}
+
+model SupportMessage {
+  id        String        @id @default(cuid())
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String        @db.Text
+  /// Written by support staff (shown with a staff badge).
+  isStaff   Boolean       @default(false)
+  createdAt DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+// ============================================================
+// Tourney Points (T)
+// ============================================================
+
+/// The points ledger: one row per player per finalized tournament. The
+/// leaderboard sums these rows; `User.totalPoints` is only a cache of them.
+model PointAward {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournamentId  String
+  tournament    Tournament   @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  /// The registration the points came through (a team's, for team events).
+  participantId String?
+  participant   Participant? @relation(fields: [participantId], references: [id], onDelete: SetNull)
+
+  /// Null when the player registered but never played.
+  placement     Int?
+  basePoints    Int
+  /// N — participating individuals or teams.
+  fieldSize     Int
+  points        Int
+  /// Snapshots so the game filter keeps working if the tournament is edited.
+  sport         String
+  category      String
+  /// = Tournament.resultsFinalizedAt; drives weekly / monthly views.
+  earnedAt      DateTime
+  configVersion Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tournamentId, userId])
+  @@index([earnedAt])
+  @@index([sport, earnedAt])
+  @@index([userId])
+}
+
+/// Every change to a player's points, with who caused it and why.
+model PointAuditLog {
+  id             String            @id @default(cuid())
+  tournamentId   String
+  tournament     Tournament        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User              @relation("PointAuditSubject", fields: [userId], references: [id], onDelete: Cascade)
+  previousPoints Int
+  newPoints      Int
+  delta          Int
+  reason         PointChangeReason
+  note           String?           @db.Text
+  actorId        String?
+  actor          User?             @relation("PointAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime          @default(now())
+
+  @@index([tournamentId, createdAt])
+  @@index([userId, createdAt])
 }
 
 // ============================================================

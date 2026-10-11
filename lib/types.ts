@@ -27,6 +27,7 @@ export type Tournament = {
   participants: number
   maxParticipants: number
   posterUrl: string
+  galleryUrls?: string[]
   organizer: {
     id: string
     name: string
@@ -88,8 +89,7 @@ export type User = {
 }
 
 /**
- * One leaderboard row. There is deliberately no `change`/`changeAmount`:
- * the app does not store rank history, so a trend arrow would be invented.
+ * One leaderboard row. Includes sport ranks for filtering by game/sport.
  */
 export type RankingEntry = {
   rank: number
@@ -102,4 +102,9 @@ export type RankingEntry = {
   }
   points: number
   wins: number
+  sportRanks?: {
+    sport: string
+    rank: number
+    points: number
+  }[]
 }

@@ -47,7 +47,7 @@ export default async function ProfilePage() {
   const { profile, joinedTournaments, upcomingTournaments, matches } = data
 
   return (
-    <div className="container mx-auto max-w-5xl space-y-6 px-4 py-6">
+    <div className="container mx-auto max-w-5xl space-y-6 px-4 py-6 theme-profile bg-background text-foreground">
       <ProfileHeader user={profile} isOwnProfile />
 
       <Tabs defaultValue="history" className="w-full">
@@ -234,3 +234,4 @@ async function load(userId: string) {
     matches,
   }
 }
+

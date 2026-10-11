@@ -1,118 +1,210 @@
 'use client'
 
-import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useMemo, useState, useTransition } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RankingTable, TopThreePodium } from '@/components/ranking-table'
-import { Search, Trophy } from 'lucide-react'
+import { Search, Trophy, Calendar, Award, Flame, Loader2 } from 'lucide-react'
 import type { RankingEntry } from '@/lib/types'
+import type { LeaderboardPeriod } from '@/lib/points/leaderboard'
+
+type Timeframe = 'weekly' | 'monthly' | 'global'
+
+const toTimeframe = (period: LeaderboardPeriod): Timeframe => (period === 'all' ? 'global' : period)
+const toPeriod = (timeframe: Timeframe): LeaderboardPeriod => (timeframe === 'global' ? 'all' : timeframe)
 
 interface RankingsClientProps {
-  initialRankings: RankingEntry[]
-  currentUserRank: number
-  currentUserPoints: number
+  /** Already computed on the server for the selected period and game. */
+  rankings: RankingEntry[]
+  me: { rank: number; points: number } | null
   currentUserId: string
+  period: LeaderboardPeriod
+  sport: string
+  sports: string[]
 }
 
+/**
+ * Leaderboard. Period and game live in the URL and are summed on the server
+ * from the Tourney Points ledger; the browser only filters by name.
+ */
 export default function RankingsClient({
-  initialRankings,
-  currentUserRank,
-  currentUserPoints,
+  rankings,
+  me,
   currentUserId,
+  period,
+  sport,
+  sports,
 }: RankingsClientProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [isPending, startTransition] = useTransition()
   const [searchQuery, setSearchQuery] = useState('')
+  const timeframe = toTimeframe(period)
+  const selectedSport = sport || 'all'
 
-  const filteredRankings = initialRankings.filter(entry => {
-    if (!searchQuery) return true
+  const navigate = (next: { period?: LeaderboardPeriod; sport?: string }) => {
+    const params = new URLSearchParams()
+    const p = next.period ?? period
+    const s = next.sport ?? sport
+    if (p !== 'monthly') params.set('period', p)
+    if (s && s !== 'all') params.set('sport', s)
+    const qs = params.toString()
+    startTransition(() => router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false }))
+  }
+
+  const setTimeframe = (value: Timeframe) => navigate({ period: toPeriod(value) })
+  const setSelectedSport = (value: string) => navigate({ sport: value === 'all' ? '' : value })
+
+  const sportCategories = useMemo(
+    () => [{ id: 'all', name: 'All Games' }, ...sports.map((name) => ({ id: name, name }))],
+    [sports]
+  )
+
+  const displayRankings = useMemo(() => {
+    if (!searchQuery) return rankings
     const query = searchQuery.toLowerCase()
-    return (
-      entry.user.name.toLowerCase().includes(query) ||
-      entry.user.username.toLowerCase().includes(query) ||
-      entry.user.university?.toLowerCase().includes(query)
+    return rankings.filter(
+      (entry) =>
+        entry.user.name.toLowerCase().includes(query) ||
+        entry.user.username.toLowerCase().includes(query) ||
+        entry.user.university?.toLowerCase().includes(query)
     )
-  })
+  }, [rankings, searchQuery])
 
-  const displayRankings = searchQuery ? filteredRankings : initialRankings
+  // Current user's position in the active view (even outside the top 100).
+  const myActiveEntry = me ?? undefined
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
+    <div className="container mx-auto px-4 py-6 space-y-6 theme-lb bg-background text-foreground">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 max-w-2xl mx-auto w-full">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Rankings</h1>
-          <p className="text-muted-foreground">
-            See how you stack up against competitors worldwide
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
+            Leaderboard
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden /> : null}
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Tourney Points (T) earned in finished tournaments
           </p>
         </div>
 
         {/* Your Rank Card */}
-        {currentUserRank > 0 ? (
-          <Card className="bg-gradient-to-br from-primary/20 to-accent/20 border-primary/30">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-lg font-bold text-primary-foreground">
-                  #{currentUserRank}
+        {myActiveEntry ? (
+          <Card className="bg-gradient-to-br from-primary/20 to-accent/20 border-primary/30 rounded-2xl shadow-xs">
+            <CardContent className="p-3.5 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
+                <span className="text-base font-bold text-primary-foreground">
+                  #{myActiveEntry.rank}
                 </span>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Your Global Rank</p>
-                <p className="font-bold">{currentUserPoints.toLocaleString()} points</p>
+                <p className="text-xs text-muted-foreground">Your Rank</p>
+                <p className="font-bold text-sm">{myActiveEntry.points.toLocaleString()} T</p>
               </div>
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-border/50 bg-secondary/30">
-            <CardContent className="p-4 flex items-center gap-3">
+          <Card className="border-border/50 bg-secondary/30 rounded-2xl shadow-xs">
+            <CardContent className="p-3.5 flex items-center gap-3">
               <Trophy className="h-5 w-5 text-primary" />
               <div>
-                <p className="text-sm font-semibold">Join the Leaderboard</p>
-                <p className="text-xs text-muted-foreground">Compete in tournaments to earn points and rank up</p>
+                <p className="text-xs font-semibold">Join the Leaderboard</p>
+                <p className="text-[11px] text-muted-foreground">Compete in tournaments to earn points and rank up</p>
               </div>
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search players..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      {/* Control Bar: Timeframe Tabs & Sport Selector */}
+      <div className="max-w-2xl mx-auto w-full space-y-3">
+        {/* Timeframe Tabs: Weekly, Monthly, All Time */}
+        <div className="flex items-center justify-center">
+          <Tabs
+            value={timeframe}
+            onValueChange={(v) => setTimeframe(v as Timeframe)}
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-secondary/60 p-1">
+              <TabsTrigger value="weekly" className="rounded-xl text-xs sm:text-sm font-semibold gap-1.5">
+                <Flame className="h-3.5 w-3.5" />
+                Weekly
+              </TabsTrigger>
+              <TabsTrigger value="monthly" className="rounded-xl text-xs sm:text-sm font-semibold gap-1.5">
+                <Calendar className="h-3.5 w-3.5" />
+                Monthly
+              </TabsTrigger>
+              <TabsTrigger value="global" className="rounded-xl text-xs sm:text-sm font-semibold gap-1.5">
+                <Award className="h-3.5 w-3.5" />
+                All Time
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {/* Filters: Sport dropdown + Search */}
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <Select value={selectedSport} onValueChange={setSelectedSport}>
+            <SelectTrigger className="w-full sm:w-48 rounded-xl bg-card border-border">
+              <SelectValue placeholder="Sport tanlang" />
+            </SelectTrigger>
+            <SelectContent>
+              {sportCategories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search players..."
+              className="pl-10 rounded-xl bg-card"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Global leaderboard — the only ranking the app actually stores.
-          Weekly/monthly views need rank history, which does not exist yet. */}
-      <div className="space-y-6">
-        {!searchQuery ? (
-          <Card className="border-border/50 bg-gradient-to-b from-secondary/50 to-transparent">
-            <CardContent className="pt-6">
-              <TopThreePodium rankings={displayRankings} />
-            </CardContent>
-          </Card>
+      {/* Leaderboard Section Template */}
+      <div className="space-y-6 pt-2 pb-8">
+        {!searchQuery && displayRankings.length > 0 ? (
+          <TopThreePodium 
+            rankings={displayRankings} 
+            timeframe={timeframe}
+            sportName={selectedSport}
+          />
         ) : null}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Global reyting</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {displayRankings.length === 0 ? (
-              <p className="py-12 text-center text-sm text-muted-foreground">
-                Qidiruv bo‘yicha o‘yinchi topilmadi.
-              </p>
-            ) : (
-              <RankingTable rankings={displayRankings} currentUserId={currentUserId} />
-            )}
-          </CardContent>
-        </Card>
+        {displayRankings.length === 0 ? (
+          <div className="max-w-2xl mx-auto rounded-3xl border border-border bg-card p-12 text-center shadow-xs">
+            <p className="text-sm font-medium text-foreground">
+              Ushbu yo‘nalish bo‘yicha o‘yinchilar topilmadi.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Boshqa sport turini tanlang yoki qidiruvni tozalang.
+            </p>
+          </div>
+        ) : (
+          <RankingTable 
+            rankings={displayRankings} 
+            currentUserId={currentUserId} 
+          />
+        )}
       </div>
-
     </div>
   )
 }
+
