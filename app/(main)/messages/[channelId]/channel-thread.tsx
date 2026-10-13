@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -352,7 +352,7 @@ function PostView({
       </div>
     ) : null
 
-  const image = post.mediaUrl ? <ChatImage src={post.mediaUrl} media={post.media} autoOpen={mine} /> : null
+  const image = post.mediaUrl ? <ChatImage src={post.mediaUrl} media={post.media} /> : null
 
   if (post.kind === 'ANNOUNCEMENT') {
     return (
@@ -409,40 +409,15 @@ function PostView({
   )
 }
 
-const OPENED_KEY = 'chat:opened-media'
-let openedMedia: Set<string> | null = null
-
-function opened() {
-  if (!openedMedia) {
-    openedMedia = new Set()
-    try {
-      for (const src of JSON.parse(localStorage.getItem(OPENED_KEY) ?? '[]') as string[]) openedMedia.add(src)
-    } catch {}
-  }
-  return openedMedia
-}
-
-function rememberOpened(src: string) {
-  const set = opened()
-  set.add(src)
-  try {
-    localStorage.setItem(OPENED_KEY, JSON.stringify([...set].slice(-300)))
-  } catch {}
-}
-
-const noopSubscribe = () => () => {}
-
 /**
  * Telegram-style attachment: a blurred tiny preview until the viewer taps it,
- * then the full image downloads and fades in. Opened images stay open.
+ * then the full image downloads and fades in. Images always start closed.
  */
-function ChatImage({ src, media, autoOpen }: { src: string; media: ThreadPost['media']; autoOpen: boolean }) {
+function ChatImage({ src, media }: { src: string; media: ThreadPost['media'] }) {
   const { dict } = useLanguage()
   const t = dict.chat.thread
-  const [tapped, setTapped] = useState(false)
+  const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
-  const openedBefore = useSyncExternalStore(noopSubscribe, () => opened().has(src), () => false)
-  const open = autoOpen || tapped || openedBefore
 
   const ratio = media?.width && media?.height ? `${media.width} / ${media.height}` : '4 / 3'
 
@@ -466,8 +441,7 @@ function ChatImage({ src, media, autoOpen }: { src: string; media: ThreadPost['m
           disabled={open}
           aria-label={t.image_open}
           onClick={() => {
-            setTapped(true)
-            rememberOpened(src)
+            setOpen(true)
           }}
           className="absolute inset-0 flex items-center justify-center"
         >
