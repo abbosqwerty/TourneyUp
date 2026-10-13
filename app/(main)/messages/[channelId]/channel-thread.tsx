@@ -42,6 +42,7 @@ import { TOURNAMENT_STATUS_CLASSES, TOURNAMENT_STATUS_LABELS } from '@/lib/const
 import { useLanguage } from '@/lib/i18n/language-context'
 import { renderSystemPost } from '@/lib/stored-text'
 import { formatBytes } from '@/lib/media'
+import { ImageViewer } from './image-viewer'
 import { cn } from '@/lib/utils'
 import { formatDate, formatDateTime } from '@/lib/time'
 import { sportLabel } from '@/lib/sports'
@@ -411,13 +412,15 @@ function PostView({
 
 /**
  * Telegram-style attachment: a blurred tiny preview until the viewer taps it,
- * then the full image downloads and fades in. Images always start closed.
+ * then the full image downloads and fades in. Images always start closed;
+ * once loaded, tapping opens the full-screen zoomable viewer.
  */
 function ChatImage({ src, media }: { src: string; media: ThreadPost['media'] }) {
   const { dict } = useLanguage()
   const t = dict.chat.thread
   const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [expanded, setExpanded] = useState(false)
 
   const ratio = media?.width && media?.height ? `${media.width} / ${media.height}` : '4 / 3'
 
@@ -428,12 +431,20 @@ function ChatImage({ src, media }: { src: string; media: ThreadPost['media'] }) 
     >
       <img src={`${src}?thumb=1`} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl" />
       {open ? (
-        <img
-          src={src}
-          alt={t.image_alt}
-          onLoad={() => setLoaded(true)}
-          className={cn('absolute inset-0 h-full w-full object-cover transition-opacity duration-300', loaded ? 'opacity-100' : 'opacity-0')}
-        />
+        <button
+          type="button"
+          aria-label={t.image_expand}
+          disabled={!loaded}
+          onClick={() => setExpanded(true)}
+          className="absolute inset-0 cursor-zoom-in"
+        >
+          <img
+            src={src}
+            alt={t.image_alt}
+            onLoad={() => setLoaded(true)}
+            className={cn('h-full w-full object-cover transition-opacity duration-300', loaded ? 'opacity-100' : 'opacity-0')}
+          />
+        </button>
       ) : null}
       {!open || !loaded ? (
         <button
@@ -451,6 +462,7 @@ function ChatImage({ src, media }: { src: string; media: ThreadPost['media'] }) 
           </span>
         </button>
       ) : null}
+      {loaded ? <ImageViewer src={src} alt={t.image_alt} open={expanded} onOpenChange={setExpanded} /> : null}
     </div>
   )
 }
