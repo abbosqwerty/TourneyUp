@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -10,6 +10,7 @@ import {
   BellOff,
   Building2,
   ChevronLeft,
+  Download,
   Image as ImageIcon,
   Loader2,
   Megaphone,
@@ -40,6 +41,7 @@ import type { ChannelAccess } from '@/lib/channels'
 import { TOURNAMENT_STATUS_CLASSES, TOURNAMENT_STATUS_LABELS } from '@/lib/constants'
 import { useLanguage } from '@/lib/i18n/language-context'
 import { renderSystemPost } from '@/lib/stored-text'
+import { formatBytes } from '@/lib/media'
 import { cn } from '@/lib/utils'
 import { formatDate, formatDateTime } from '@/lib/time'
 import { sportLabel } from '@/lib/sports'
@@ -51,6 +53,7 @@ export type ThreadPost = {
   kind: PostKind
   createdAt: string
   mediaUrl: string | null
+  media: { byteSize: number; width: number | null; height: number | null } | null
   author: { id: string; name: string; avatar: string }
   /** "Tashkilotchi", "Kapitan", "Qo‘llab-quvvatlash" … or null for players. */
   authorRole: string | null
@@ -349,9 +352,7 @@ function PostView({
       </div>
     ) : null
 
-  const image = post.mediaUrl ? (
-    <img src={post.mediaUrl} alt={t.image_alt} loading="lazy" className="mt-2 max-h-80 w-full rounded-lg border border-border object-cover" />
-  ) : null
+  const image = post.mediaUrl ? <ChatImage src={post.mediaUrl} media={post.media} autoOpen={mine} /> : null
 
   if (post.kind === 'ANNOUNCEMENT') {
     return (
@@ -404,6 +405,78 @@ function PostView({
         </p>
       </div>
       {tools}
+    </div>
+  )
+}
+
+const OPENED_KEY = 'chat:opened-media'
+let openedMedia: Set<string> | null = null
+
+function opened() {
+  if (!openedMedia) {
+    openedMedia = new Set()
+    try {
+      for (const src of JSON.parse(localStorage.getItem(OPENED_KEY) ?? '[]') as string[]) openedMedia.add(src)
+    } catch {}
+  }
+  return openedMedia
+}
+
+function rememberOpened(src: string) {
+  const set = opened()
+  set.add(src)
+  try {
+    localStorage.setItem(OPENED_KEY, JSON.stringify([...set].slice(-300)))
+  } catch {}
+}
+
+const noopSubscribe = () => () => {}
+
+/**
+ * Telegram-style attachment: a blurred tiny preview until the viewer taps it,
+ * then the full image downloads and fades in. Opened images stay open.
+ */
+function ChatImage({ src, media, autoOpen }: { src: string; media: ThreadPost['media']; autoOpen: boolean }) {
+  const { dict } = useLanguage()
+  const t = dict.chat.thread
+  const [tapped, setTapped] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const openedBefore = useSyncExternalStore(noopSubscribe, () => opened().has(src), () => false)
+  const open = autoOpen || tapped || openedBefore
+
+  const ratio = media?.width && media?.height ? `${media.width} / ${media.height}` : '4 / 3'
+
+  return (
+    <div
+      className="relative mt-2 max-h-80 w-full min-w-48 overflow-hidden rounded-lg border border-border bg-muted"
+      style={{ aspectRatio: ratio }}
+    >
+      <img src={`${src}?thumb=1`} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl" />
+      {open ? (
+        <img
+          src={src}
+          alt={t.image_alt}
+          onLoad={() => setLoaded(true)}
+          className={cn('absolute inset-0 h-full w-full object-cover transition-opacity duration-300', loaded ? 'opacity-100' : 'opacity-0')}
+        />
+      ) : null}
+      {!open || !loaded ? (
+        <button
+          type="button"
+          disabled={open}
+          aria-label={t.image_open}
+          onClick={() => {
+            setTapped(true)
+            rememberOpened(src)
+          }}
+          className="absolute inset-0 flex items-center justify-center"
+        >
+          <span className="flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+            {open ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {media ? formatBytes(media.byteSize) : null}
+          </span>
+        </button>
+      ) : null}
     </div>
   )
 }

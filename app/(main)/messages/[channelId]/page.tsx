@@ -96,6 +96,7 @@ export default async function ChannelPage({ params }: { params: Promise<{ channe
       kind: true,
       createdAt: true,
       mediaId: true,
+      media: { select: { byteSize: true, width: true, height: true } },
       author: { select: { id: true, name: true, avatar: true, role: true } },
     },
   })
@@ -137,6 +138,7 @@ export default async function ChannelPage({ params }: { params: Promise<{ channe
           kind: post.kind,
           createdAt: post.createdAt.toISOString(),
           mediaUrl: post.mediaId ? `/api/media/${post.mediaId}` : null,
+          media: post.media,
           author: { id: post.author.id, name: post.author.name, avatar: post.author.avatar },
           authorRole: post.author.role === 'SUPER_ADMIN' ? 'TourneyUp' : (roleOf.get(post.author.id) ?? null),
         })

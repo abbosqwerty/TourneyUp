@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import sharp from 'sharp'
 import { db } from '@/lib/db'
 import { getI18n } from '@/lib/i18n/server'
 
@@ -19,6 +20,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (!asset) {
       return NextResponse.json({ error: (await getI18n()).dict.errors.media_not_found }, { status: 404 })
+    }
+
+    // `?thumb=1` returns a tiny preview for blurred chat placeholders, so the
+    // full image is only downloaded when the viewer taps it.
+    if (new URL(request.url).searchParams.has('thumb') && asset.mimeType.startsWith('image/')) {
+      const thumb = await sharp(asset.data).rotate().resize(24, 24, { fit: 'inside' }).webp({ quality: 40 }).toBuffer()
+      return new NextResponse(new Uint8Array(thumb), {
+        status: 200,
+        headers: {
+          'Content-Type': 'image/webp',
+          'Content-Length': String(thumb.byteLength),
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'X-Content-Type-Options': 'nosniff',
+        },
+      })
     }
 
     const bytes = new Uint8Array(asset.data)
