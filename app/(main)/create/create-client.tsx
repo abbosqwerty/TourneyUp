@@ -91,13 +91,22 @@ const sportCategories = [
 
 type SportId = (typeof sportCategories)[number]['id']
 
+function futureDate(days: number) {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const PRESET_TEMPLATES = [
   {
     key: 'football' as const,
     title: 'Tashkent Inter-University Football Cup',
     sport: 'football',
     category: 'sports',
-    date: '2026-05-15',
+    date: futureDate(14),
     time: '10:00',
     location: 'Pakhtakor Central Stadium, Tashkent',
     maxParticipants: '16',
@@ -112,7 +121,7 @@ const PRESET_TEMPLATES = [
     title: 'Central Asia Valorant Open Championship',
     sport: 'valorant',
     category: 'esports',
-    date: '2026-05-20',
+    date: futureDate(21),
     time: '18:00',
     location: 'Online (Discord & Riot Realm)',
     maxParticipants: '32',
@@ -127,7 +136,7 @@ const PRESET_TEMPLATES = [
     title: 'Uzbekistan Youth Chess Grand Prix',
     sport: 'chess',
     category: 'academic',
-    date: '2026-06-01',
+    date: futureDate(28),
     time: '09:30',
     location: 'International Chess Academy, Tashkent',
     maxParticipants: '64',
@@ -142,7 +151,7 @@ const PRESET_TEMPLATES = [
     title: 'TUIT Campus 3v3 Streetball Arena',
     sport: 'basketball',
     category: 'sports',
-    date: '2026-05-25',
+    date: futureDate(18),
     time: '16:00',
     location: 'TUIT Indoor Sports Arena, Tashkent',
     maxParticipants: '24',
@@ -162,6 +171,7 @@ export default function CreateTournamentClient() {
   const [poster, setPoster] = useState<UploadedImage | null>(null)
   const [gallery, setGallery] = useState<(UploadedImage | null)[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [unlimitedRegistration, setUnlimitedRegistration] = useState(false)
   const [formatState, setFormatState] = useState<FormatState>(INITIAL_FORMAT)
   const setFormat = <K extends keyof FormatState>(field: K, value: FormatState[K]) =>
     setFormatState((prev) => ({ ...prev, [field]: value }))
@@ -234,6 +244,8 @@ export default function CreateTournamentClient() {
     const f = formatState
     const result = await createTournament({
       ...formData,
+      maxParticipants: unlimitedRegistration ? '' : formData.maxParticipants,
+      unlimitedRegistration,
       // Store the display name ("Football"), the same vocabulary the feed
       // filters and the leaderboard's game filter use.
       sport: sportCategories.find((c) => c.id === formData.sport)?.name ?? formData.sport,
@@ -383,6 +395,7 @@ export default function CreateTournamentClient() {
                       <Input
                         id="date"
                         type="date"
+                        min={futureDate(0)}
                         value={formData.date}
                         onChange={(e) => handleChange('date', e.target.value)}
                       />
@@ -427,15 +440,36 @@ export default function CreateTournamentClient() {
               <CardContent>
                 <FieldGroup>
                   <Field>
-                    <FieldLabel htmlFor="maxParticipants">{c.max_participants}</FieldLabel>
+                    <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+                      <div>
+                        <FieldLabel htmlFor="unlimitedRegistration">{c.unlimited_registration}</FieldLabel>
+                        <p className="mt-1 text-xs text-muted-foreground">{c.unlimited_registration_hint}</p>
+                      </div>
+                      <Switch
+                        id="unlimitedRegistration"
+                        checked={unlimitedRegistration}
+                        onCheckedChange={setUnlimitedRegistration}
+                      />
+                    </div>
+                  </Field>
+
+                  {!unlimitedRegistration ? (
+                  <Field>
+                    <FieldLabel htmlFor="maxParticipants">
+                      {formatState.participantType === 'TEAM' ? c.max_teams : c.max_players}
+                    </FieldLabel>
                     <Input
                       id="maxParticipants"
                       type="number"
+                      min={2}
+                      max={100000}
                       placeholder={c.max_participants_placeholder}
                       value={formData.maxParticipants}
                       onChange={(e) => handleChange('maxParticipants', e.target.value)}
                     />
+                    {errors.maxParticipants ? <p className="text-xs text-destructive">{errors.maxParticipants}</p> : null}
                   </Field>
+                  ) : null}
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     <Field>

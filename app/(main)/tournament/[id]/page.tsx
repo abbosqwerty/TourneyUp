@@ -81,6 +81,7 @@ export default async function TournamentDetailsPage({ params }: { params: Promis
     endDate: tournamentRaw.endDate || undefined,
     time: tournamentRaw.time,
     maxParticipants: tournamentRaw.maxParticipants,
+    unlimitedRegistration: tournamentRaw.unlimitedRegistration,
     posterUrl: tournamentPoster(tournamentRaw) ?? '',
     organizer: {
       id: tournamentRaw.organizer.id,

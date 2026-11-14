@@ -5,7 +5,7 @@ import { AuthShell } from '@/components/auth/auth-shell';
 import { useLanguage } from '@/lib/i18n/language-context';
 import { LoginForm } from './login-form';
 
-export default function LoginContent({ nextPath }: { nextPath?: string }) {
+export default function LoginContent({ nextPath, oauthError }: { nextPath?: string; oauthError?: string }) {
   const { dict } = useLanguage();
 
   return (
@@ -26,7 +26,7 @@ export default function LoginContent({ nextPath }: { nextPath?: string }) {
         </>
       }
     >
-      <LoginForm nextPath={nextPath} />
+      <LoginForm nextPath={nextPath} oauthError={oauthError} />
     </AuthShell>
   );
 }

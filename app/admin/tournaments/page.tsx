@@ -88,7 +88,9 @@ export default async function AdminTournamentsPage() {
                   </span>
                   <span className="flex items-center gap-1">
                     <Users className="h-3.5 w-3.5" aria-hidden />
-                    {tournament._count.participants} / {tournament.maxParticipants}
+                    {tournament.unlimitedRegistration
+                      ? `${tournament._count.participants} · ${dict.create.unlimited_registration}`
+                      : `${tournament._count.participants} / ${tournament.maxParticipants}`}
                   </span>
                   <span>
                     {t.active_staff} <strong className="text-foreground">{tournament.activeStaff}</strong>
@@ -119,6 +121,7 @@ async function load() {
       location: true,
       status: true,
       maxParticipants: true,
+      unlimitedRegistration: true,
       organizer: { select: { name: true } },
       organization: { select: { name: true } },
       _count: { select: { participants: true } },

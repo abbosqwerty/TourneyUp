@@ -45,11 +45,15 @@ export function ApplyForm() {
     const payload = {
       orgName: String(form.get('orgName') ?? ''),
       contactName: String(form.get('contactName') ?? ''),
+      username: String(form.get('username') ?? '').toLowerCase(),
+      password: String(form.get('password') ?? ''),
+      confirmPassword: String(form.get('confirmPassword') ?? ''),
       email: String(form.get('email') ?? ''),
       phone: String(form.get('phone') ?? ''),
       website: String(form.get('website') ?? ''),
       location: String(form.get('location') ?? ''),
       description: String(form.get('description') ?? ''),
+      proofFile: form.get('proofFile'),
     }
 
     setErrors({})
@@ -85,6 +89,51 @@ export function ApplyForm() {
               <Input id="contactName" name="contactName" placeholder="Abbos Qurbonov" disabled={isPending} required />
               {errors.contactName ? <p className="text-xs text-destructive">{errors.contactName}</p> : null}
             </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="username">{t.username}</Label>
+              <Input
+                id="username"
+                name="username"
+                autoComplete="username"
+                pattern="[a-z0-9_]+"
+                placeholder="tuit_athletics"
+                disabled={isPending}
+                required
+              />
+              {errors.username ? <p className="text-xs text-destructive">{errors.username}</p> : null}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">{t.password}</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                placeholder={t.password_placeholder}
+                minLength={8}
+                disabled={isPending}
+                required
+              />
+              {errors.password ? <p className="text-xs text-destructive">{errors.password}</p> : null}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">{t.confirm_password}</Label>
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              placeholder={t.password_placeholder}
+              minLength={8}
+              disabled={isPending}
+              required
+            />
+            {errors.confirmPassword ? <p className="text-xs text-destructive">{errors.confirmPassword}</p> : null}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -128,6 +177,19 @@ export function ApplyForm() {
               required
             />
             {errors.description ? <p className="text-xs text-destructive">{errors.description}</p> : null}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="proofFile">{t.proof_file}</Label>
+            <Input
+              id="proofFile"
+              name="proofFile"
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              disabled={isPending}
+            />
+            <p className="text-xs text-muted-foreground">{t.proof_file_hint}</p>
+            {errors.proofFile ? <p className="text-xs text-destructive">{errors.proofFile}</p> : null}
           </div>
 
           {formError ? (

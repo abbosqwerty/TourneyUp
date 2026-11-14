@@ -78,6 +78,7 @@ async function load(userId: string, role: 'USER' | 'ORGANIZATION' | 'SUPER_ADMIN
       sport: true,
       date: true,
       maxParticipants: true,
+      unlimitedRegistration: true,
       status: true,
       organizerId: true,
       organization: { select: { ownerId: true } },
@@ -113,6 +114,7 @@ async function load(userId: string, role: 'USER' | 'ORGANIZATION' | 'SUPER_ADMIN
       sport: tournament.sport,
       date: tournament.date,
       maxParticipants: tournament.maxParticipants,
+      unlimitedRegistration: tournament.unlimitedRegistration,
       status: tournament.status,
     })),
     participants: participants.map((participant) => ({

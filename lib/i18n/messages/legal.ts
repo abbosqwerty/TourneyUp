@@ -30,7 +30,7 @@ export const legal = defineMessages({
         },
         uploads: {
           label: 'Yuklangan fayllar:',
-          text: 'turnir posteri, avatar va kanal rasmlari.',
+          text: 'turnir posteri, avatar, jamoa logotipi, kanal rasmlari va tashkilot arizasiga ilova qilingan ixtiyoriy tasdiqlovchi hujjat. Tasdiqlovchi hujjat ommaga ko‘rsatilmaydi.',
         },
       },
       use_title: 'Nima uchun ishlatamiz',
@@ -58,7 +58,7 @@ export const legal = defineMessages({
       },
       cookie_title: 'Cookie',
       cookie:
-        'Platforma faqat bitta zarur cookie ishlatadi: `tu_session` — seans tokeni. U `httpOnly`, `sameSite=lax` va productionda `secure` bo‘ladi, ya‘ni JavaScript orqali o‘qilmaydi. Shuningdek, tanlagan tilingiz `tourneyup_lang` cookie‘sida eslab qolinadi. Tahlil yoki reklama cookie‘lari yo‘q.',
+        'Platforma login seansi uchun `tu_session`, til uchun `tourneyup_lang`, Google OAuth va tugallanmagan Google registratsiyasini xavfsiz yakunlash uchun qisqa muddatli zarur cookie‘lardan foydalanadi. Reklama yoki saytlararo kuzatuv cookie‘lari ishlatilmaydi.',
       retention_title: 'Qancha saqlanadi',
       retention: {
         account: 'Akkaunt ma‘lumotlari — siz o‘chirmaguningizcha.',
@@ -152,7 +152,7 @@ export const legal = defineMessages({
         },
         uploads: {
           label: 'Загруженные файлы:',
-          text: 'постеры турниров, аватары и изображения каналов.',
+          text: 'постеры турниров, аватары, логотипы команд, изображения каналов и необязательный документ к заявке организации. Подтверждающий документ не публикуется.',
         },
       },
       use_title: 'Зачем мы их используем',
@@ -180,7 +180,7 @@ export const legal = defineMessages({
       },
       cookie_title: 'Cookie',
       cookie:
-        'Платформа использует только один необходимый cookie: `tu_session` — токен сеанса. Он помечен как `httpOnly`, `sameSite=lax`, а в production — `secure`, то есть его нельзя прочитать через JavaScript. Кроме того, выбранный вами язык запоминается в cookie `tourneyup_lang`. Аналитических и рекламных cookie нет.',
+        'Платформа использует необходимые cookie `tu_session` для сеанса, `tourneyup_lang` для языка, а также краткосрочные cookie для безопасного завершения Google OAuth и регистрации через Google. Рекламные и межсайтовые отслеживающие cookie не используются.',
       retention_title: 'Как долго хранятся данные',
       retention: {
         account: 'Данные аккаунта — пока вы их не удалите.',
@@ -274,7 +274,7 @@ export const legal = defineMessages({
         },
         uploads: {
           label: 'Uploaded files:',
-          text: 'tournament posters, avatars and channel images.',
+          text: 'tournament posters, avatars, team logos, channel images and an optional verification document attached to an organization application. Verification documents are not public.',
         },
       },
       use_title: 'Why we use it',
@@ -302,7 +302,7 @@ export const legal = defineMessages({
       },
       cookie_title: 'Cookies',
       cookie:
-        'The platform uses only one essential cookie: `tu_session`, the session token. It is `httpOnly`, `sameSite=lax` and `secure` in production, so it cannot be read by JavaScript. Your chosen language is also remembered in the `tourneyup_lang` cookie. There are no analytics or advertising cookies.',
+        'The platform uses essential cookies: `tu_session` for sign-in, `tourneyup_lang` for language, and short-lived cookies to securely complete Google OAuth and Google registration. Advertising and cross-site tracking cookies are not used.',
       retention_title: 'How long we keep it',
       retention: {
         account: 'Account data — until you delete it.',

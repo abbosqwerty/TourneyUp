@@ -1,12 +1,14 @@
 import { z } from 'zod'
 import type { Dictionary } from './i18n/dictionaries'
 import { TOURNAMENT_FORMATS } from './competition/config'
+import { isForbiddenUsername } from './username-policy'
 
 const trimmed = (max: number) => z.string().trim().max(max)
 
 export const usernameSchema = trimmed(30)
   .min(3, 'username_min')
   .regex(/^[a-z0-9_]+$/, 'username_format')
+  .refine((value) => !isForbiddenUsername(value), 'username_forbidden')
 
 export const passwordSchema = z
   .string()
@@ -20,12 +22,44 @@ export const registerSchema = z.object({
   password: passwordSchema,
   university: trimmed(120).optional().or(z.literal('')),
   location: trimmed(80).optional().or(z.literal('')),
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: 'terms_required' }) }),
+  acceptPrivacy: z.literal(true, { errorMap: () => ({ message: 'privacy_required' }) }),
+})
+
+export const verifyRegistrationSchema = z.object({
+  email: trimmed(120).email('email_invalid').toLowerCase(),
+  code: z.string().trim().regex(/^\d{6}$/, 'verification_code_invalid'),
+})
+
+export const googleRegisterSchema = z.object({
+  name: trimmed(80).min(2, 'name_min'),
+  username: usernameSchema,
+  university: trimmed(120).optional().or(z.literal('')),
+  location: trimmed(80).optional().or(z.literal('')),
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: 'terms_required' }) }),
+  acceptPrivacy: z.literal(true, { errorMap: () => ({ message: 'privacy_required' }) }),
 })
 
 export const loginSchema = z.object({
   identifier: trimmed(120).min(3, 'identifier_required'),
   password: z.string().min(1, 'password_required'),
 })
+
+export const passwordResetRequestSchema = z.object({
+  email: trimmed(120).email('email_invalid').toLowerCase(),
+})
+
+export const passwordResetCompleteSchema = z
+  .object({
+    email: trimmed(120).email('email_invalid').toLowerCase(),
+    code: z.string().trim().regex(/^\d{6}$/, 'verification_code_invalid'),
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((value) => value.newPassword === value.confirmPassword, {
+    message: 'passwords_mismatch',
+    path: ['confirmPassword'],
+  })
 
 export const updateProfileSchema = z.object({
   name: trimmed(80).min(2, 'name_min'),
@@ -53,19 +87,26 @@ export const changePasswordSchema = z
     path: ['confirmPassword'],
   })
 
-export const organizationApplicationSchema = z.object({
-  orgName: trimmed(120).min(3, 'org_name_min'),
-  contactName: trimmed(80).min(2, 'contact_name_required'),
-  email: trimmed(120).email('email_invalid').toLowerCase(),
-  phone: trimmed(30).optional().or(z.literal('')),
-  website: trimmed(200).optional().or(z.literal('')),
-  location: trimmed(80).optional().or(z.literal('')),
-  description: trimmed(2000).min(30, 'org_description_min'),
-})
+export const organizationApplicationSchema = z
+  .object({
+    orgName: trimmed(120).min(3, 'org_name_min'),
+    contactName: trimmed(80).min(2, 'contact_name_required'),
+    username: usernameSchema,
+    password: passwordSchema,
+    confirmPassword: z.string(),
+    email: trimmed(120).email('email_invalid').toLowerCase(),
+    phone: trimmed(30).optional().or(z.literal('')),
+    website: trimmed(200).optional().or(z.literal('')),
+    location: trimmed(80).optional().or(z.literal('')),
+    description: trimmed(2000).min(30, 'org_description_min'),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: 'passwords_mismatch',
+    path: ['confirmPassword'],
+  })
 
 export const approveApplicationSchema = z.object({
   applicationId: z.string().min(1),
-  username: usernameSchema,
   note: trimmed(500).optional().or(z.literal('')),
 })
 
@@ -116,11 +157,8 @@ const tournamentBaseSchema = z.object({
     .or(z.literal('')),
   time: trimmed(20).min(3, 'time_required'),
   location: trimmed(140).min(2, 'location_required'),
-  maxParticipants: z.coerce
-    .number()
-    .int('integer_required')
-    .min(2, 'participants_min')
-    .max(100_000, 'value_too_large'),
+  maxParticipants: optionalInt(2, 100_000),
+  unlimitedRegistration: z.boolean().optional().default(false),
   description: trimmed(5000).min(20, 'description_min'),
   rules: trimmed(5000).optional().or(z.literal('')),
   requirements: trimmed(5000).optional().or(z.literal('')),
@@ -147,11 +185,22 @@ function checkTeamSize(data: TeamSizeFields, ctx: z.RefinementCtx) {
   }
 }
 
-export const createTournamentSchema = tournamentBaseSchema.superRefine(checkTeamSize)
+function checkRegistrationLimit(data: { unlimitedRegistration?: boolean; maxParticipants?: number }, ctx: z.RefinementCtx) {
+  if (!data.unlimitedRegistration && !data.maxParticipants) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['maxParticipants'], message: 'participants_min' })
+  }
+}
+
+function checkTournament(data: TeamSizeFields & { unlimitedRegistration?: boolean; maxParticipants?: number }, ctx: z.RefinementCtx) {
+  checkTeamSize(data, ctx)
+  checkRegistrationLimit(data, ctx)
+}
+
+export const createTournamentSchema = tournamentBaseSchema.superRefine(checkTournament)
 
 export const updateTournamentSchema = tournamentBaseSchema
   .extend({ tournamentId: z.string().min(1) })
-  .superRefine(checkTeamSize)
+  .superRefine(checkTournament)
 
 export const setTournamentStatusSchema = z.object({
   tournamentId: z.string().min(1),

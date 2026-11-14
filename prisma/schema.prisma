@@ -200,6 +200,10 @@ model User {
   mustChangePassword Boolean   @default(false)
   lastLoginAt        DateTime?
   createdAt          DateTime  @default(now())
+  termsAcceptedAt    DateTime?
+  termsVersion       String?
+  privacyAcceptedAt  DateTime?
+  privacyVersion     String?
 
   // Relations
   achievements       Achievement[]
@@ -246,6 +250,41 @@ model Session {
   @@index([userId])
 }
 
+/// Short-lived pending password registration. No user or session is created
+/// until the mailbox owner enters the emailed code.
+model EmailRegistration {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  username     String
+  passwordHash String   @db.Text
+  university   String?
+  location     String   @default("")
+  codeHash     String   @db.Text
+  attempts     Int      @default(0)
+  expiresAt    DateTime
+  lastSentAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  termsAcceptedAt   DateTime?
+  termsVersion      String?
+  privacyAcceptedAt DateTime?
+  privacyVersion    String?
+
+  @@index([expiresAt])
+}
+
+model PasswordReset {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  codeHash   String   @db.Text
+  attempts   Int      @default(0)
+  expiresAt  DateTime
+  lastSentAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
 // ============================================================
 // Organizations
 // ============================================================
@@ -273,17 +312,23 @@ model Organization {
 }
 
 /// Public sign-up request. A SUPER_ADMIN reviews it and, on approval,
-/// provisions the ORGANIZATION user account (login + password).
+/// activates the ORGANIZATION account credentials chosen by the applicant.
 model OrganizationApplication {
-  id          String            @id @default(cuid())
-  orgName     String
-  contactName String
-  email       String
-  phone       String?
-  website     String?
-  location    String            @default("")
-  description String            @db.Text
-  status      ApplicationStatus @default(PENDING)
+  id                String            @id @default(cuid())
+  orgName           String
+  contactName       String
+  email             String
+  requestedUsername String?
+  passwordHash      String?
+  proofFileName     String?
+  proofMimeType     String?
+  proofByteSize     Int?
+  proofData         Bytes?            @db.LongBlob
+  phone             String?
+  website           String?
+  location          String            @default("")
+  description       String            @db.Text
+  status            ApplicationStatus @default(PENDING)
 
   reviewedById String?
   reviewedBy   User?     @relation("ApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
@@ -326,32 +371,33 @@ model MediaAsset {
 // ============================================================
 
 model Tournament {
-  id                  String           @id @default(cuid())
-  title               String
-  sport               String
-  category            String // sports, esports, academic
-  location            String
-  date                String
-  endDate             String?
-  time                String
-  maxParticipants     Int
-  posterUrl           String           @default("")
-  posterMediaId       String?
-  posterMedia         MediaAsset?      @relation("TournamentPoster", fields: [posterMediaId], references: [id], onDelete: SetNull)
-  galleryMediaIdsJson String?          @db.Text
-  organizerId         String
-  organizer           User             @relation("OrganizedTournaments", fields: [organizerId], references: [id], onDelete: Cascade)
-  organizationId      String?
-  organization        Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  description         String           @db.Text
-  rulesJson           String           @db.Text // JSON list
-  requirementsJson    String           @db.Text // JSON list
-  prizePool           String?
-  entryFee            String?
-  status              TournamentStatus @default(registration_open)
-  featured            Boolean          @default(false)
-  closedAt            DateTime?
-  createdAt           DateTime         @default(now())
+  id                    String           @id @default(cuid())
+  title                 String
+  sport                 String
+  category              String // sports, esports, academic
+  location              String
+  date                  String
+  endDate               String?
+  time                  String
+  maxParticipants       Int
+  unlimitedRegistration Boolean          @default(false)
+  posterUrl             String           @default("")
+  posterMediaId         String?
+  posterMedia           MediaAsset?      @relation("TournamentPoster", fields: [posterMediaId], references: [id], onDelete: SetNull)
+  galleryMediaIdsJson   String?          @db.Text
+  organizerId           String
+  organizer             User             @relation("OrganizedTournaments", fields: [organizerId], references: [id], onDelete: Cascade)
+  organizationId        String?
+  organization          Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  description           String           @db.Text
+  rulesJson             String           @db.Text // JSON list
+  requirementsJson      String           @db.Text // JSON list
+  prizePool             String?
+  entryFee              String?
+  status                TournamentStatus @default(registration_open)
+  featured              Boolean          @default(false)
+  closedAt              DateTime?
+  createdAt             DateTime         @default(now())
 
   /// Competition format — fixed once the draw exists.
   format             TournamentFormat @default(SINGLE_ELIMINATION)

@@ -31,22 +31,59 @@ export async function submitOrganizationApplication(input: unknown): Promise<Act
   if (!limit.ok) return fail(t.too_many_applications)
 
   const data = parsed.data
+  const proofEntry = typeof input === 'object' && input !== null && 'proofFile' in input ? input.proofFile : null
+  const proofFile = proofEntry instanceof File && proofEntry.size > 0 && proofEntry.name ? proofEntry : null
+  const allowedProofTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+  if (proofFile && proofFile.size > 5 * 1024 * 1024) {
+    return fail(t.proof_too_large, { proofFile: t.proof_too_large })
+  }
+  if (proofFile && !allowedProofTypes.includes(proofFile.type)) {
+    return fail(t.proof_bad_type, { proofFile: t.proof_bad_type })
+  }
 
   try {
-    const pending = await db.organizationApplication.findFirst({
-      where: { email: data.email, status: 'PENDING' },
-      select: { id: true },
-    })
-    if (pending) {
-      return fail(t.application_pending, {
-        email: t.application_already_sent,
-      })
+    const [accountClash, pending] = await Promise.all([
+      db.user.findFirst({
+        where: { OR: [{ email: data.email }, { username: data.username }] },
+        select: { email: true, username: true },
+      }),
+      db.organizationApplication.findFirst({
+        where: { status: 'PENDING', OR: [{ email: data.email }, { requestedUsername: data.username }] },
+        select: { email: true, requestedUsername: true },
+      }),
+    ])
+    if (accountClash) {
+      return fail(
+        t.account_exists,
+        accountClash.username === data.username
+          ? { username: t.username_taken }
+          : { email: t.email_registered }
+      )
     }
+    if (pending) {
+      return fail(
+        t.application_pending,
+        pending.requestedUsername === data.username
+          ? { username: t.username_taken }
+          : { email: t.application_already_sent }
+      )
+    }
+
+    const [passwordHash, proofData] = await Promise.all([
+      hashPassword(data.password),
+      proofFile ? proofFile.arrayBuffer().then((bytes) => Buffer.from(bytes)) : Promise.resolve(null),
+    ])
 
     await db.organizationApplication.create({
       data: {
         orgName: data.orgName,
         contactName: data.contactName,
+        requestedUsername: data.username,
+        passwordHash,
+        proofFileName: proofFile?.name.slice(0, 180) || null,
+        proofMimeType: proofFile?.type || null,
+        proofByteSize: proofFile?.size || null,
+        proofData,
         email: data.email,
         phone: data.phone || null,
         website: data.website || null,
@@ -78,15 +115,11 @@ async function requireAdmin() {
 }
 
 /**
- * Approve an application and provision the organization account.
- *
- * The generated password is returned **once** — it is stored only as a
- * scrypt hash, so the super admin has to hand it over now. The account is
- * flagged `mustChangePassword` so the organization rotates it on first login.
+ * Approve an application and activate the credentials selected by the applicant.
  */
 export async function approveOrganizationApplication(
   input: unknown
-): Promise<ActionResult<ProvisionedCredentials>> {
+): Promise<ActionResult> {
   const { dict } = await getI18n()
   const t = dict.account.actions
   const auth = await requireAdmin()
@@ -95,12 +128,15 @@ export async function approveOrganizationApplication(
   const parsed = approveApplicationSchema.safeParse(input)
   if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
 
-  const { applicationId, username, note } = parsed.data
+  const { applicationId, note } = parsed.data
 
   try {
     const application = await db.organizationApplication.findUnique({ where: { id: applicationId } })
     if (!application) return fail(t.application_not_found)
     if (application.status !== 'PENDING') return fail(t.application_reviewed)
+    if (!application.requestedUsername || !application.passwordHash) return fail(t.application_credentials_missing)
+
+    const username = application.requestedUsername
 
     const clash = await db.user.findFirst({
       where: { OR: [{ username }, { email: application.email }] },
@@ -112,9 +148,6 @@ export async function approveOrganizationApplication(
         clash.username === username ? { username: t.username_taken_short } : undefined
       )
     }
-
-    const password = generatePassword()
-    const passwordHash = await hashPassword(password)
 
     let slug = slugify(application.orgName) || slugify(username)
     for (let i = 2; i < 50; i++) {
@@ -129,13 +162,13 @@ export async function approveOrganizationApplication(
           name: application.orgName,
           username,
           email: application.email,
-          passwordHash,
+          passwordHash: application.passwordHash,
           role: 'ORGANIZATION',
           verified: true,
           bio: application.description.slice(0, 500),
           location: application.location,
           joinedDate: new Date().toISOString().slice(0, 10),
-          mustChangePassword: true,
+          mustChangePassword: false,
         },
         select: { id: true },
       })
@@ -176,12 +209,7 @@ export async function approveOrganizationApplication(
     revalidatePath('/admin/organizations')
     revalidatePath('/organizations')
 
-    return succeedWith({
-      organizationName: organization.name,
-      username,
-      email: application.email,
-      password,
-    })
+    return { ok: true }
   } catch (error) {
     console.error('approveOrganizationApplication failed', error)
     return fail(t.approve_failed)

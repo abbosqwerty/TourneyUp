@@ -26,6 +26,7 @@ export type Tournament = {
   time: string
   participants: number
   maxParticipants: number
+  unlimitedRegistration?: boolean
   posterUrl: string
   galleryUrls?: string[]
   organizer: {

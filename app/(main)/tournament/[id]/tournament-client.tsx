@@ -243,7 +243,7 @@ export default function TournamentClient({
                 <Badge className={TOURNAMENT_STATUS_CLASSES[tournament.status as TournamentStatusValue]}>
                   {dict.status[tournament.status as TournamentStatusValue]}
                 </Badge>
-                {isTournamentFull(currentParticipants, tournament.maxParticipants) &&
+                {!tournament.unlimitedRegistration && isTournamentFull(currentParticipants, tournament.maxParticipants) &&
                 tournament.status !== 'completed' &&
                 tournament.status !== 'cancelled' ? (
                   <Badge className="gap-1 bg-destructive text-white shadow-md ring-2 ring-white/80">
@@ -314,7 +314,9 @@ export default function TournamentClient({
                 </div>
                 <div className="text-center">
                   <Users className="h-5 w-5 mx-auto mb-2 text-primary" />
-                  <p className="text-sm font-medium">{currentParticipants}/{tournament.maxParticipants}</p>
+                  <p className="text-sm font-medium">
+                    {tournament.unlimitedRegistration ? `${currentParticipants} · ${d.unlimited}` : `${currentParticipants}/${tournament.maxParticipants}`}
+                  </p>
                   <p className="text-xs text-muted-foreground">{d.participants}</p>
                 </div>
               </div>
@@ -411,12 +413,11 @@ export default function TournamentClient({
               <Separator className="my-4" />
 
               {/* Spots — Organized Circles */}
-              <div className="mb-6">
-                <ParticipantSlots
-                  current={currentParticipants}
-                  max={tournament.maxParticipants}
-                />
-              </div>
+              {!tournament.unlimitedRegistration ? (
+                <div className="mb-6">
+                  <ParticipantSlots current={currentParticipants} max={tournament.maxParticipants} />
+                </div>
+              ) : null}
 
               {/* Management shortcuts for the organization and its staff */}
               {ability.canManageParticipants || ability.canManageStaff ? (

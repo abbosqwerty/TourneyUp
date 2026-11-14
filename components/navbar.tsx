@@ -86,7 +86,7 @@ export function Navbar({
 
   const navLinks = [
     { href: '/feed', label: dict.nav.tournaments, icon: Home, show: true },
-    { href: '/rankings', label: dict.nav.rankings, icon: BarChart3, show: true },
+    { href: '/rankings', label: dict.nav.rankings, icon: BarChart3, show: !isOrganization },
     { href: '/results', label: dict.nav.matches, icon: Activity, show: true, isLive: true },
     { href: '/teams', label: dict.nav.teams, icon: Shirt, show: currentUser?.role === 'USER' },
     {

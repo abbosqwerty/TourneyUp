@@ -58,6 +58,7 @@ type TournamentType = {
   sport: string
   date: string
   maxParticipants: number
+  unlimitedRegistration: boolean
   status: string
 }
 
@@ -364,7 +365,9 @@ export default function ParticipantsClient({
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Users className="h-4 w-4" />
-                    {t.registered(tournamentParticipants.length, tournament.maxParticipants)}
+                    {tournament.unlimitedRegistration
+                      ? `${tournamentParticipants.length} · ${dict.create.unlimited_registration}`
+                      : t.registered(tournamentParticipants.length, tournament.maxParticipants)}
                   </div>
                 </div>
               </CardContent>

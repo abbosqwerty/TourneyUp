@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Check, Copy, ExternalLink, Globe, Loader2, Mail, MapPin, Phone, ShieldCheck, X } from 'lucide-react'
+import { Check, Copy, Download, ExternalLink, Globe, Loader2, Mail, MapPin, Phone, ShieldCheck, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,7 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -28,6 +27,10 @@ type Application = {
   id: string
   orgName: string
   contactName: string
+  requestedUsername: string | null
+  proofFileName: string | null
+  proofMimeType: string | null
+  proofByteSize: number | null
   email: string
   phone: string | null
   website: string | null
@@ -41,14 +44,6 @@ type Application = {
   organization: { id: string; slug: string; owner: { username: string } } | null
 }
 
-function suggestUsername(orgName: string) {
-  return orgName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_|_$/g, '')
-    .slice(0, 28)
-}
-
 export function ApplicationsClient({ applications }: { applications: Application[] }) {
   const router = useRouter()
   const { dict, locale } = useLanguage()
@@ -57,7 +52,6 @@ export function ApplicationsClient({ applications }: { applications: Application
   const [filter, setFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING')
   const [approving, setApproving] = useState<Application | null>(null)
   const [rejecting, setRejecting] = useState<Application | null>(null)
-  const [credentials, setCredentials] = useState<ProvisionedCredentials | null>(null)
 
   const visible = filter === 'ALL' ? applications : applications.filter((a) => a.status === filter)
   const counts = {
@@ -122,7 +116,22 @@ export function ApplicationsClient({ applications }: { applications: Application
               <CardContent className="space-y-4">
                 <p className="text-sm leading-relaxed text-muted-foreground">{application.description}</p>
 
+                {application.proofFileName ? (
+                  <Button asChild size="sm" variant="outline" className="gap-2">
+                    <a href={`/api/admin/organization-proof/${application.id}`} download>
+                      <Download className="h-4 w-4" aria-hidden />
+                      {t.proof_file}: {application.proofFileName}
+                    </a>
+                  </Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">{t.no_proof_file}</p>
+                )}
+
                 <div className="grid gap-2 text-sm sm:grid-cols-2">
+                  <span className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <code className="font-mono">@{application.requestedUsername}</code>
+                  </span>
                   <span className="flex items-center gap-2">
                     <Mail className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                     <a href={`mailto:${application.email}`} className="truncate hover:underline">
@@ -193,9 +202,8 @@ export function ApplicationsClient({ applications }: { applications: Application
       <ApproveDialog
         application={approving}
         onClose={() => setApproving(null)}
-        onProvisioned={(creds) => {
+        onApproved={() => {
           setApproving(null)
-          setCredentials(creds)
           router.refresh()
         }}
       />
@@ -209,7 +217,6 @@ export function ApplicationsClient({ applications }: { applications: Application
         }}
       />
 
-      <CredentialsDialog credentials={credentials} onClose={() => setCredentials(null)} />
     </div>
   )
 }
@@ -217,16 +224,15 @@ export function ApplicationsClient({ applications }: { applications: Application
 function ApproveDialog({
   application,
   onClose,
-  onProvisioned,
+  onApproved,
 }: {
   application: Application | null
   onClose: () => void
-  onProvisioned: (credentials: ProvisionedCredentials) => void
+  onApproved: () => void
 }) {
   const [isPending, startTransition] = useTransition()
   const { dict } = useLanguage()
   const t = dict.admin.applications
-  const [errors, setErrors] = useState<Record<string, string>>({})
 
   return (
     <Dialog open={Boolean(application)} onOpenChange={(open) => !open && onClose()}>
@@ -245,40 +251,26 @@ function ApproveDialog({
             event.preventDefault()
             if (!application) return
             const form = new FormData(event.currentTarget)
-            setErrors({})
 
             startTransition(async () => {
               const result = await approveOrganizationApplication({
                 applicationId: application.id,
-                username: String(form.get('username') ?? '').toLowerCase(),
                 note: String(form.get('note') ?? ''),
               })
 
               if (!result.ok) {
-                setErrors(result.fieldErrors ?? {})
                 toast.error(result.error)
                 return
               }
 
               toast.success(t.account_created)
-              onProvisioned(result.data)
+              onApproved()
             })
           }}
         >
-          <div className="space-y-2">
-            <Label htmlFor="approve-username">{t.username_label}</Label>
-            <Input
-              id="approve-username"
-              name="username"
-              defaultValue={application ? suggestUsername(application.orgName) : ''}
-              pattern="[a-z0-9_]+"
-              disabled={isPending}
-              required
-            />
-            {errors.username ? <p className="text-xs text-destructive">{errors.username}</p> : null}
-            <p className="text-xs text-muted-foreground">
-              {t.email_hint} <code className="font-mono">{application?.email}</code>
-            </p>
+          <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+            <p>{t.username_label}: <code className="font-mono">@{application?.requestedUsername}</code></p>
+            <p className="mt-1 text-muted-foreground">{application?.email}</p>
           </div>
 
           <div className="space-y-2">
@@ -368,6 +360,7 @@ function RejectDialog({
   )
 }
 
+/** Used by the organization-management page when an admin explicitly resets a lost password. */
 export function CredentialsDialog({
   credentials,
   onClose,
@@ -388,9 +381,7 @@ export function CredentialsDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t.title}</DialogTitle>
-          <DialogDescription>
-            {t.desc}
-          </DialogDescription>
+          <DialogDescription>{t.desc}</DialogDescription>
         </DialogHeader>
 
         <dl className="space-y-3 rounded-md border border-border bg-muted/40 p-4 text-sm">

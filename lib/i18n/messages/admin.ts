@@ -57,7 +57,7 @@ export const admin = defineMessages({
       meta_title: 'Tashkilot arizalari',
       load_failed: 'Arizalarni olib bo‘lmadi',
       title: 'Tashkilot arizalari',
-      subtitle: 'Arizani tasdiqlaganingizda tashkilot uchun akkaunt yaratiladi va parol bir marta ko‘rsatiladi.',
+      subtitle: 'Tashkilotni tekshiring va tasdiqlang yoki rad eting.',
       status: {
         PENDING: 'Kutilmoqda',
         APPROVED: 'Tasdiqlangan',
@@ -70,8 +70,10 @@ export const admin = defineMessages({
       account: 'Akkaunt:',
       approve_title: 'Tashkilotni tasdiqlash',
       approve_desc: (orgName: string) =>
-        `${orgName} uchun ORGANIZATION akkaunti yaratiladi. Parol avtomatik generatsiya qilinadi va faqat bir marta ko‘rsatiladi.`,
+        `${orgName} tasdiqlansa, arizada tanlangan username va parol faollashadi.`,
       account_created: 'Tashkilot akkaunti yaratildi',
+      proof_file: 'Tasdiqlovchi hujjat',
+      no_proof_file: 'Tasdiqlovchi hujjat biriktirilmagan',
       username_label: 'Login (username)',
       email_hint: 'Email sifatida ariza emaili ishlatiladi:',
       note_label: 'Izoh (ixtiyoriy)',
@@ -190,7 +192,7 @@ export const admin = defineMessages({
       meta_title: 'Заявки организаций',
       load_failed: 'Не удалось загрузить заявки',
       title: 'Заявки организаций',
-      subtitle: 'При одобрении заявки для организации создаётся аккаунт, а пароль показывается один раз.',
+      subtitle: 'Проверьте организацию и одобрите или отклоните заявку.',
       status: {
         PENDING: 'На рассмотрении',
         APPROVED: 'Одобрена',
@@ -203,8 +205,10 @@ export const admin = defineMessages({
       account: 'Аккаунт:',
       approve_title: 'Одобрение организации',
       approve_desc: (orgName: string) =>
-        `Для «${orgName}» будет создан аккаунт ORGANIZATION. Пароль генерируется автоматически и показывается только один раз.`,
+        `После одобрения «${orgName}» выбранные в заявке логин и пароль станут активными.`,
       account_created: 'Аккаунт организации создан',
+      proof_file: 'Подтверждающий документ',
+      no_proof_file: 'Подтверждающий документ не приложен',
       username_label: 'Логин (username)',
       email_hint: 'В качестве email используется email из заявки:',
       note_label: 'Комментарий (необязательно)',
@@ -322,7 +326,7 @@ export const admin = defineMessages({
       meta_title: 'Organization applications',
       load_failed: 'Couldn’t load applications',
       title: 'Organization applications',
-      subtitle: 'Approving an application creates an account for the organization; the password is shown only once.',
+      subtitle: 'Verify the organization, then approve or reject the application.',
       status: {
         PENDING: 'Pending',
         APPROVED: 'Approved',
@@ -335,8 +339,10 @@ export const admin = defineMessages({
       account: 'Account:',
       approve_title: 'Approve organization',
       approve_desc: (orgName: string) =>
-        `An ORGANIZATION account will be created for ${orgName}. The password is generated automatically and shown only once.`,
+        `Approving ${orgName} activates the username and password selected in the application.`,
       account_created: 'Organization account created',
+      proof_file: 'Verification document',
+      no_proof_file: 'No verification document attached',
       username_label: 'Login (username)',
       email_hint: 'The application email is used as the account email:',
       note_label: 'Note (optional)',

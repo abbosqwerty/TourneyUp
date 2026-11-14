@@ -24,6 +24,9 @@ const nextConfig = {
   // A stray lockfile in $HOME otherwise wins workspace-root inference.
   turbopack: { root: import.meta.dirname },
   outputFileTracingRoot: import.meta.dirname,
+  experimental: {
+    serverActions: { bodySizeLimit: '6mb' },
+  },
   images: {
     // Uploaded images are served from /api/media/[id] as raw bytes.
     unoptimized: true,

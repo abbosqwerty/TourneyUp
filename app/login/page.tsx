@@ -13,8 +13,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; oauth_error?: string }>;
 }) {
-  const { next } = await searchParams;
-  return <LoginContent nextPath={next} />;
+  const { next, oauth_error } = await searchParams;
+  return <LoginContent nextPath={next} oauthError={oauth_error} />;
 }

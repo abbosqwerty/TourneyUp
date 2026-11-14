@@ -151,7 +151,9 @@ export default async function DashboardPage() {
                           </span>
                           <span className="flex items-center gap-1">
                             <Users className="h-3 w-3" aria-hidden />
-                            {tournament.participants}/{tournament.maxParticipants}
+                            {tournament.unlimitedRegistration
+                              ? `${tournament.participants} · ${dict.create.unlimited_registration}`
+                              : `${tournament.participants}/${tournament.maxParticipants}`}
                           </span>
                           <span className="flex items-center gap-1">
                             <ShieldCheck className="h-3 w-3" aria-hidden />
@@ -335,6 +337,7 @@ async function load(userId: string, role: 'USER' | 'ORGANIZATION' | 'SUPER_ADMIN
       date: true,
       status: true,
       maxParticipants: true,
+      unlimitedRegistration: true,
       drawGeneratedAt: true,
       channel: { select: { id: true } },
       _count: { select: { participants: true, staff: true } },
@@ -385,6 +388,7 @@ async function load(userId: string, role: 'USER' | 'ORGANIZATION' | 'SUPER_ADMIN
       date: tournament.date,
       status: tournament.status,
       maxParticipants: tournament.maxParticipants,
+      unlimitedRegistration: tournament.unlimitedRegistration,
       participants: tournament._count.participants,
       staffCount: tournament._count.staff,
       channelId: tournament.channel?.id ?? null,

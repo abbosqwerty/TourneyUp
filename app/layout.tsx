@@ -38,7 +38,14 @@ export async function generateMetadata(): Promise<Metadata> {
       title: 'TourneyUp',
       description: m.share_description,
     },
-    icons: { icon: '/icon.svg', apple: '/apple-icon.png' },
+    icons: {
+      icon: [
+        { url: '/icon-light-32x32.png', type: 'image/png', sizes: '32x32' },
+        { url: '/logo.png', type: 'image/png', sizes: '512x512' },
+      ],
+      shortcut: '/icon-light-32x32.png',
+      apple: '/apple-icon.png',
+    },
   }
 }
 

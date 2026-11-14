@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Archive, Building2, LifeBuoy, Loader2, Plus, Search, Shirt, Trophy, Users } from 'lucide-react'
@@ -94,20 +94,29 @@ function UnreadDot({ count }: { count: number }) {
  * Two panes on desktop (list | conversation); on a phone the list and the
  * conversation take turns, driven by the URL.
  */
-export function MessagesShell({ data, isPlayer, children }: { data: SidebarData; isPlayer: boolean; children: React.ReactNode }) {
+export function MessagesShell({
+  data,
+  isPlayer,
+  isOrganization,
+  children,
+}: {
+  data: SidebarData
+  isPlayer: boolean
+  isOrganization: boolean
+  children: React.ReactNode
+}) {
   const { dict } = useLanguage()
   const t = dict.chat.shell
   const pathname = usePathname()
   const onIndex = pathname === '/messages'
   const activeId = pathname.split('/')[2] ?? null
 
-  const counts = useMemo(() => {
-    const unread = (type: Section) =>
-      type === 'SUPPORT'
-        ? [...data.myTickets, ...data.staffQueue].filter((t) => t.unread).length
-        : data.channels.filter((c) => c.type === type).reduce((sum, c) => sum + c.unreadCount, 0)
-    return Object.fromEntries(SECTIONS.map((s) => [s.key, unread(s.key)])) as Record<Section, number>
-  }, [data])
+  const sections = isOrganization ? SECTIONS.filter((section) => section.key !== 'TEAM') : SECTIONS
+  const unread = (type: Section) =>
+    type === 'SUPPORT'
+      ? [...data.myTickets, ...data.staffQueue].filter((ticket) => ticket.unread).length
+      : data.channels.filter((channel) => channel.type === type).reduce((sum, channel) => sum + channel.unreadCount, 0)
+  const counts = Object.fromEntries(sections.map((section) => [section.key, unread(section.key)])) as Record<Section, number>
 
   const sectionOfPath = (): Section | null => {
     if (pathname.startsWith('/messages/support')) return 'SUPPORT'
@@ -115,23 +124,17 @@ export function MessagesShell({ data, isPlayer, children }: { data: SidebarData;
     return channel ? (channel.type as Section) : null
   }
 
-  const sectionCounts = useMemo(() => {
-    return {
+  const sectionCounts = {
       ORGANIZATION: data.channels.filter((c) => c.type === 'ORGANIZATION').length,
       TOURNAMENT: data.channels.filter((c) => c.type === 'TOURNAMENT').length,
       TEAM: data.channels.filter((c) => c.type === 'TEAM').length,
       SUPPORT: data.myTickets.length + data.staffQueue.length,
-    }
-  }, [data])
+  }
 
   const [chosen, setChosen] = useState<Section | null>(null)
   const fallback: Section =
-    SECTIONS.find((s) => counts[s.key] > 0)?.key ??
-    (data.channels.some((c) => c.type === 'TEAM')
-      ? 'TEAM'
-      : data.channels.some((c) => c.type === 'TOURNAMENT')
-        ? 'TOURNAMENT'
-        : 'ORGANIZATION')
+    sections.find((candidate) => counts[candidate.key] > 0)?.key ??
+    (data.channels.some((channel) => channel.type === 'TOURNAMENT') ? 'TOURNAMENT' : 'ORGANIZATION')
   const section = chosen ?? sectionOfPath() ?? fallback
 
   return (
@@ -148,8 +151,8 @@ export function MessagesShell({ data, isPlayer, children }: { data: SidebarData;
         <aside className={cn('flex min-h-0 min-w-0 flex-col border-border md:border-r', !onIndex && 'hidden md:flex')}>
           <div className="space-y-3 border-b border-border p-4">
             <h1 className="text-xl font-bold">{t.title}</h1>
-            <nav className="grid grid-cols-4 gap-1 rounded-xl bg-secondary/60 p-1" aria-label={t.sections_label}>
-              {SECTIONS.map(({ key, label, icon: Icon }) => (
+            <nav className={cn('grid gap-1 rounded-xl bg-secondary/60 p-1', isOrganization ? 'grid-cols-3' : 'grid-cols-4')} aria-label={t.sections_label}>
+              {sections.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
                   type="button"

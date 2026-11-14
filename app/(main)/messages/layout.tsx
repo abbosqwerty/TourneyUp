@@ -29,7 +29,11 @@ export default async function MessagesLayout({ children }: { children: React.Rea
     return <DbErrorCard message={dict.chat.load_failed} />
   }
 
-  return <MessagesShell data={data} isPlayer={user.role === 'USER'}>{children}</MessagesShell>
+  return (
+    <MessagesShell data={data} isPlayer={user.role === 'USER'} isOrganization={user.role === 'ORGANIZATION'}>
+      {children}
+    </MessagesShell>
+  )
 }
 
 async function load(userId: string, role: string): Promise<SidebarData> {

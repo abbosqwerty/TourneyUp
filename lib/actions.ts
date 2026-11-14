@@ -25,6 +25,7 @@ import { onTournamentCancelled } from './competition/hooks'
 import { formatConfigSchema } from './competition/config'
 import { getTeamAbility } from './teams'
 import { mediaUrl } from './media'
+import { todayIso } from './time'
 
 const CLOSED_STATUSES = ['completed', 'cancelled'] as const
 
@@ -110,6 +111,9 @@ export async function createTournament(input: unknown): Promise<ActionResult<{ t
   if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
 
   const data = parsed.data
+  if (data.date < todayIso()) {
+    return fail(e.start_date_past, { date: e.start_date_past })
+  }
   if (data.endDate && data.endDate < data.date) {
     return fail(e.end_before_start, {
       endDate: e.invalid_date,
@@ -137,7 +141,8 @@ export async function createTournament(input: unknown): Promise<ActionResult<{ t
         date: data.date,
         endDate: data.endDate || null,
         time: data.time,
-        maxParticipants: data.maxParticipants,
+        maxParticipants: data.maxParticipants ?? 100_000,
+        unlimitedRegistration: data.unlimitedRegistration,
         posterMediaId: data.posterMediaId || null,
         galleryMediaIdsJson: JSON.stringify(data.galleryMediaIds ?? []),
         posterUrl: '',
@@ -212,7 +217,8 @@ export async function updateTournament(input: unknown): Promise<ActionResult> {
         date: data.date,
         endDate: data.endDate || null,
         time: data.time,
-        maxParticipants: data.maxParticipants,
+        maxParticipants: data.maxParticipants ?? 100_000,
+        unlimitedRegistration: data.unlimitedRegistration,
         description: data.description,
         rulesJson: linesToJson(data.rules),
         requirementsJson: linesToJson(data.requirements),
@@ -424,6 +430,7 @@ export async function registerParticipant(input: unknown): Promise<ActionResult>
         status: true,
         entryFee: true,
         maxParticipants: true,
+        unlimitedRegistration: true,
         participantType: true,
         teamSize: true,
         teamSizeMax: true,
@@ -439,7 +446,7 @@ export async function registerParticipant(input: unknown): Promise<ActionResult>
     if (tournament.date < new Date().toISOString().slice(0, 10)) {
       return fail(e.date_passed)
     }
-    if (tournament._count.participants >= tournament.maxParticipants) {
+    if (!tournament.unlimitedRegistration && tournament._count.participants >= tournament.maxParticipants) {
       return fail(e.full)
     }
 
