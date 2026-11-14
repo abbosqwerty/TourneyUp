@@ -22,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { StatsGrid } from '@/components/stats-card'
 import { StoryComposer } from '@/components/stories/story-composer'
 import { TournamentStatusSelect } from './tournament-status-select'
+import { DeleteTournamentButton } from './delete-tournament-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -186,6 +187,10 @@ export default async function DashboardPage() {
                       <Button size="sm" variant="ghost" asChild>
                         <Link href={`/tournament/${tournament.id}`}>{h.view}</Link>
                       </Button>
+                      <DeleteTournamentButton
+                        tournamentId={tournament.id}
+                        tournamentTitle={tournament.title}
+                      />
                     </div>
                   </div>
                 ))

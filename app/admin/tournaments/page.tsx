@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getI18n } from '@/lib/i18n/server'
 import { sportLabel } from '@/lib/sports'
+import { DeleteTournamentButton } from '@/app/(main)/dashboard/delete-tournament-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,9 +98,15 @@ export default async function AdminTournamentsPage() {
                   </span>
                 </div>
 
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`/tournament/${tournament.id}`}>{t.view}</Link>
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={`/tournament/${tournament.id}`}>{t.view}</Link>
+                  </Button>
+                  <DeleteTournamentButton
+                    tournamentId={tournament.id}
+                    tournamentTitle={tournament.title}
+                  />
+                </div>
               </CardContent>
             </Card>
           ))

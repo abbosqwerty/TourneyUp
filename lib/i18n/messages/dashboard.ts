@@ -94,6 +94,14 @@ export const dashboard = defineMessages({
         'Bu amal barcha vaqtinchalik rollarni (admin, organizer, support) olib tashlaydi va turnir kanalini arxivlaydi.',
       continue: 'Davom etish',
     },
+    delete_tournament: {
+      button: 'O‘chirish',
+      title: 'Turnirni butunlay o‘chirasizmi?',
+      description: (title: string) =>
+        `“${title}” turniri va unga tegishli ishtirokchilar, o‘yinlar, natijalar hamda kanal butunlay o‘chadi. Bu amalni ortga qaytarib bo‘lmaydi. Faqat tashkilot egasi o‘chira oladi; xodimlarda bunday ruxsat yo‘q.`,
+      confirm: 'Ha, butunlay o‘chirish',
+      success: 'Turnir o‘chirildi',
+    },
     participants: {
       meta_title: 'Ishtirokchilar',
       read_only: 'Sizning rolingiz faqat ko‘rish huquqini beradi',
@@ -321,6 +329,14 @@ export const dashboard = defineMessages({
       desc_complete:
         'Это действие снимет все временные роли (admin, organizer, support) и отправит канал турнира в архив.',
       continue: 'Продолжить',
+    },
+    delete_tournament: {
+      button: 'Удалить',
+      title: 'Удалить турнир навсегда?',
+      description: (title: string) =>
+        `Турнир «${title}» и все его участники, матчи, результаты и канал будут удалены навсегда. Это действие нельзя отменить. Удалить турнир может только владелец организации; сотрудники не имеют такого доступа.`,
+      confirm: 'Да, удалить навсегда',
+      success: 'Турнир удалён',
     },
     participants: {
       meta_title: 'Участники',
@@ -550,6 +566,14 @@ export const dashboard = defineMessages({
       desc_complete:
         'This removes every temporary role (admin, organizer, support) and archives the tournament channel.',
       continue: 'Continue',
+    },
+    delete_tournament: {
+      button: 'Delete',
+      title: 'Delete this tournament permanently?',
+      description: (title: string) =>
+        `“${title}” and all of its participants, matches, results, and channel will be permanently deleted. This cannot be undone. Only the organization owner can delete a tournament; staff do not have this permission.`,
+      confirm: 'Yes, delete permanently',
+      success: 'Tournament deleted',
     },
     participants: {
       meta_title: 'Participants',

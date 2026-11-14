@@ -358,6 +358,8 @@ export async function deleteTournament(tournamentId: string): Promise<ActionResu
   try {
     await db.tournament.delete({ where: { id: tournamentId } })
     revalidateTournamentViews(tournamentId)
+    revalidatePath('/dashboard')
+    revalidatePath('/admin/tournaments')
     revalidatePath('/messages')
     return { ok: true }
   } catch (error) {
