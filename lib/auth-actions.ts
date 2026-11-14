@@ -199,7 +199,7 @@ export async function completeGoogleRegistration(input: unknown): Promise<Action
   const registration = readGoogleRegistration(jar.get(GOOGLE_REGISTRATION_COOKIE)?.value)
   if (!registration) return fail(t.google_registration_expired)
 
-  const { name, username, university, location } = parsed.data
+  const { name, username, password, university, location } = parsed.data
   try {
     const clash = await db.user.findFirst({
       where: { OR: [{ username }, { email: registration.email }] },
@@ -217,7 +217,7 @@ export async function completeGoogleRegistration(input: unknown): Promise<Action
         name,
         username,
         email: registration.email,
-        passwordHash: null,
+        passwordHash: await hashPassword(password),
         role: 'USER',
         verified: true,
         bio: '',

@@ -37,6 +37,8 @@ export function GoogleRegisterForm({
       const result = await completeGoogleRegistration({
         name: String(form.get('name') ?? ''),
         username: String(form.get('username') ?? '').toLowerCase(),
+        password: String(form.get('password') ?? ''),
+        confirmPassword: String(form.get('confirmPassword') ?? ''),
         university: String(form.get('university') ?? ''),
         location: String(form.get('location') ?? ''),
         acceptTerms: form.get('acceptTerms') === 'on',
@@ -81,6 +83,35 @@ export function GoogleRegisterForm({
               required
             />
             {errors.username ? <p className="text-xs text-destructive">{errors.username}</p> : null}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="password">{t.password}</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                placeholder={t.password_placeholder}
+                disabled={isPending}
+                required
+              />
+              {errors.password ? <p className="text-xs text-destructive">{errors.password}</p> : null}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">{t.confirm_password}</Label>
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                placeholder={t.password_placeholder}
+                disabled={isPending}
+                required
+              />
+              {errors.confirmPassword ? <p className="text-xs text-destructive">{errors.confirmPassword}</p> : null}
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

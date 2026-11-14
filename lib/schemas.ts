@@ -31,14 +31,21 @@ export const verifyRegistrationSchema = z.object({
   code: z.string().trim().regex(/^\d{6}$/, 'verification_code_invalid'),
 })
 
-export const googleRegisterSchema = z.object({
-  name: trimmed(80).min(2, 'name_min'),
-  username: usernameSchema,
-  university: trimmed(120).optional().or(z.literal('')),
-  location: trimmed(80).optional().or(z.literal('')),
-  acceptTerms: z.literal(true, { errorMap: () => ({ message: 'terms_required' }) }),
-  acceptPrivacy: z.literal(true, { errorMap: () => ({ message: 'privacy_required' }) }),
-})
+export const googleRegisterSchema = z
+  .object({
+    name: trimmed(80).min(2, 'name_min'),
+    username: usernameSchema,
+    password: passwordSchema,
+    confirmPassword: z.string(),
+    university: trimmed(120).optional().or(z.literal('')),
+    location: trimmed(80).optional().or(z.literal('')),
+    acceptTerms: z.literal(true, { errorMap: () => ({ message: 'terms_required' }) }),
+    acceptPrivacy: z.literal(true, { errorMap: () => ({ message: 'privacy_required' }) }),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: 'passwords_mismatch',
+    path: ['confirmPassword'],
+  })
 
 export const loginSchema = z.object({
   identifier: trimmed(120).min(3, 'identifier_required'),

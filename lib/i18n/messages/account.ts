@@ -80,7 +80,7 @@ export const account = defineMessages({
       privacy_link: 'Maxfiylik siyosati',
       accept_privacy_suffix: ' bilan tanishdim va ma’lumotlarimga ishlov berilishiga roziman',
       google_title: 'Profilni yakunlash',
-      google_subtitle: 'Ismingizni tekshiring va noyob username tanlang',
+      google_subtitle: 'Ismingizni tekshiring, noyob username va TourneyUp uchun alohida parol tanlang',
       google_email: 'Google email',
     },
     settings: {
@@ -313,7 +313,7 @@ export const account = defineMessages({
       privacy_link: 'Политикой конфиденциальности',
       accept_privacy_suffix: ' и согласен(-на) на обработку данных',
       google_title: 'Завершение профиля',
-      google_subtitle: 'Проверьте имя и выберите уникальное имя пользователя',
+      google_subtitle: 'Проверьте имя, выберите уникальное имя пользователя и отдельный пароль для TourneyUp',
       google_email: 'Google email',
     },
     settings: {
@@ -547,7 +547,7 @@ export const account = defineMessages({
       privacy_link: 'Privacy Policy',
       accept_privacy_suffix: ' and consent to the processing of my data',
       google_title: 'Complete your profile',
-      google_subtitle: 'Check your name and choose a unique username',
+      google_subtitle: 'Check your name and choose a unique username and a separate TourneyUp password',
       google_email: 'Google email',
     },
     settings: {
