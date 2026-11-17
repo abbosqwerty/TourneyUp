@@ -11,6 +11,7 @@ import {
   participantStatusSchema,
   registerParticipantSchema,
   setTournamentStatusSchema,
+  tournamentDetailsSchema,
   updateTournamentSchema,
 } from './schemas'
 import { getI18n } from './i18n/server'
@@ -168,6 +169,42 @@ export async function createTournament(input: unknown): Promise<ActionResult<{ t
   } catch (error) {
     console.error('createTournament failed', error)
     return fail(e.create_failed)
+  }
+}
+
+export async function saveTournamentDetails(id: string, input: unknown): Promise<ActionResult> {
+  const user = await getCurrentUser()
+  const { dict, locale } = await getI18n()
+  const e = dict.tournament.errors
+  if (!user) return fail(dict.errors.login_required)
+  const ability = await getTournamentAbility(user.id, id)
+  if (!ability.canEditTournament) return fail(e.no_edit_right)
+  const limited = guard('update-tournament:' + user.id, 60, minutes(10), locale)
+  if (limited) return limited
+  const parsed = tournamentDetailsSchema.safeParse(input)
+  if (!parsed.success) return fail(dict.errors.form_has_errors, fieldErrors(parsed.error, dict))
+
+  const { rules, requirements, prizePool, entryFee, posterMediaId, ...details } = parsed.data
+  try {
+    const current = await db.tournament.findUnique({ where: { id }, select: { endDate: true } })
+    if (!current) return fail(e.not_found)
+    if (current.endDate && current.endDate < details.date) return fail(e.end_before_start, { date: e.end_before_start })
+    await db.tournament.update({
+      where: { id },
+      data: {
+        ...details,
+        rulesJson: linesToJson(rules),
+        requirementsJson: linesToJson(requirements),
+        prizePool: withCurrency(prizePool),
+        entryFee: withCurrency(entryFee),
+        ...(posterMediaId ? { posterMediaId } : {}),
+      },
+    })
+    revalidateTournamentViews(id)
+    return { ok: true }
+  } catch (error) {
+    console.error('saveTournamentDetails failed', error)
+    return fail(e.update_failed)
   }
 }
 

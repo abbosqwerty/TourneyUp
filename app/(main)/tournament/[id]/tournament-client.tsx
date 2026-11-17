@@ -420,7 +420,7 @@ export default function TournamentClient({
               ) : null}
 
               {/* Management shortcuts for the organization and its staff */}
-              {ability.canManageParticipants || ability.canManageStaff ? (
+              {ability.canEditTournament || ability.canManageParticipants || ability.canManageStaff ? (
                 <div className="mb-4 space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
                   <p className="flex items-center gap-2 text-sm font-medium">
                     <ShieldCheck className="h-4 w-4 text-primary" aria-hidden />
@@ -429,6 +429,11 @@ export default function TournamentClient({
                       : d.temp_role(d.staff_roles[ability.staffRole ?? 'SUPPORT'])}
                   </p>
                   <div className="flex flex-wrap gap-2">
+                    {ability.canEditTournament && (
+                      <Button size="sm" asChild>
+                        <Link href={'/tournament/' + tournament.id + '/edit'}>{d.edit_tournament}</Link>
+                      </Button>
+                    )}
                     {ability.canManageParticipants ? (
                       <Button size="sm" variant="outline" asChild>
                         <Link href="/dashboard/participants">{d.participants_link}</Link>

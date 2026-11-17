@@ -28,6 +28,7 @@ type Props = {
   value?: UploadedImage | null
   onChange: (value: UploadedImage | null) => void
   label?: string
+  onUploadingChange?: (uploading: boolean) => void
   hint?: string
   className?: string
   /** Aspect ratio of the preview box, e.g. `aspect-[1200/630]`. */
@@ -46,6 +47,7 @@ export function ImageUploader({
   label,
   hint,
   className,
+  onUploadingChange,
   aspectClassName = 'aspect-[1200/630]',
   allowVideo = false,
 }: Props) {
@@ -73,6 +75,7 @@ export function ImageUploader({
       }
 
       setIsUploading(true)
+      onUploadingChange?.(true)
       try {
         const body = new FormData()
         body.append('file', file)
@@ -88,9 +91,10 @@ export function ImageUploader({
         setError(t.network_error)
       } finally {
         setIsUploading(false)
+        onUploadingChange?.(false)
       }
     },
-    [onChange, allowVideo, t]
+    [onChange, onUploadingChange, allowVideo, t]
   )
 
   return (

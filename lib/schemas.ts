@@ -205,6 +205,11 @@ function checkTournament(data: TeamSizeFields & { unlimitedRegistration?: boolea
 
 export const createTournamentSchema = tournamentBaseSchema.superRefine(checkTournament)
 
+export const tournamentDetailsSchema = tournamentBaseSchema.pick({
+  title: true, description: true, location: true, date: true, time: true,
+  rules: true, requirements: true, prizePool: true, entryFee: true, posterMediaId: true,
+})
+
 export const updateTournamentSchema = tournamentBaseSchema
   .extend({ tournamentId: z.string().min(1) })
   .superRefine(checkTournament)
